@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-COOWN12-001",
   "version": "0.1.0",
-  "status": "DRAFT",
+  "status": "APPROVED",
   "supersedes": null,
   "x-sdd-metadata": {
     "version": "0.1.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MAJOR",
     "change_note": "Maquina nueva de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): estado de una fila de pet_co_owners. Estados terminales: DECLINED, CANCELLED, EXPIRED, LEFT, PROMOTED, ENDED. El principal NO es una fila de esta maquina (pets.owner_user_id); entra en ella solo al dejar de ser principal (DEMOTE). Nadie despoja a nadie: las unicas causas de salir de ACTIVE son LEAVE, ERASE_ACCOUNT, PROMOTE y END_CO_OWNERSHIP por disputa documentada (INV-OWN12-002).",

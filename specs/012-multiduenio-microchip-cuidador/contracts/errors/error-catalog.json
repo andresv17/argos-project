@@ -3,11 +3,11 @@
   "title": "ArgosDeterministicErrorCatalogIncremental012",
   "x-sdd-metadata": {
     "version": "0.1.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-VALIDATION, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012).",
+    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-VALIDATION, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012). Cierre de T1612 (2026-11-26, DRAFT): ERR-QR12-CONSENT-REQUIRED aclarado (solo solicitante; note no se serializa; H-14).",
     "removed": [],
     "added": [
       "ERR-OWN12-CO-OWNER-LIMIT",
@@ -106,7 +106,7 @@
     ]
   },
   "version": "0.1.0",
-  "status": "DRAFT",
+  "status": "APPROVED",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
   },
@@ -235,7 +235,7 @@
       "invariantRef": "INV-OWN12-006",
       "detailTemplate": "Todavía no se cumplen las condiciones para abrir una disputa por ausencia sobre esta persona.",
       "requirementRef": "REQ-OWN12-009, SC-012-091, SC-012-115",
-      "note": "Disparador objetivo no cumplido (N2-R1 + P-5: ≥ 2 solicitudes críticas expiradas en 60 días con el target en approver_set sin voto ni rechazo, y el target sin sesión activa desde la primera expirada) o ancla (pet_id, target_user_id) ya abierta. Se devuelve SOLO a co-propietarios ACTIVE de esa mascota, con cuerpo que no identifica a quien abrió ni el detalle de votos; para cualquier otro solicitante y cualquier pet_id/target_user_id, 404 uniforme (INV-OWN12-004)."
+      "note": "Disparador objetivo no cumplido (N2-R1 + P-5: ≥ 2 solicitudes críticas secuenciales (sin DELETE_PET) expiradas por TTL en 60 días, target en approver_set sin voto ni rechazo, y target sin sesión activa ≥ 14 días y desde la primera expirada) o ancla (pet_id, target_user_id) ya abierta. Se devuelve SOLO a co-propietarios ACTIVE de esa mascota, con cuerpo que no identifica a quien abrió ni el detalle de votos; para cualquier otro solicitante y cualquier pet_id/target_user_id, 404 uniforme (INV-OWN12-004)."
     },
     "ERR-CAR12-ALREADY-LOGGED": {
       "type": "urn:argos:error:ERR-CAR12-ALREADY-LOGGED",
@@ -280,7 +280,7 @@
       "invariantRef": "INV-QR12-003",
       "detailTemplate": "Para mostrar tu teléfono en la ficha QR debes confirmar el aviso de esta mascota.",
       "requirementRef": "REQ-QR12-006, SC-012-106",
-      "note": "Activar la ficha o mostrar un teléfono exige confirmar el aviso por mascota (versión del aviso, fecha, quién consintió); el consentimiento queda ligado a phone_hmac y se invalida al cambiar el teléfono. DERIVADA para revisión de Neo: el nombre figuraba en la lista prevista sin cuerpo."
+      "note": "Activar la ficha o mostrar un telefono exige confirmar el aviso por mascota (version del aviso, fecha, quien consintio); el consentimiento queda ligado a phone_hmac y se invalida al cambiar el telefono. DERIVADA para revision de Neo. H-14 de T1612: depende SOLO del telefono y del consentimiento DEL SOLICITANTE (nunca del opt-in de otro propietario, INV-QR12-003); se evalua DESPUES de la autorizacion (404 antes que 422); no incluye ni el numero ni su hash. El campo note NO se serializa al cliente: la respuesta solo lleva type, title, status y detail (RFC 9457)."
     },
     "ERR-QR12-ACTIVATION-REQUIREMENTS": {
       "type": "urn:argos:error:ERR-QR12-ACTIVATION-REQUIREMENTS",

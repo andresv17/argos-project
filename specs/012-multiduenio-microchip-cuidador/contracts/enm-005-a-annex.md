@@ -1,6 +1,6 @@
 # Anexo T1624 — `ENM-005-A`: autoridad de enlaces para el veterinario por co-propiedad (Bloque A, #22)
 
-Estado: `APPROVED` (firmado por Neo — Nivel 2, 2026-11-26; redactó `/architect` el 2026-11-26). Documento **nuevo** de la 012: **no edita** `specs/005-album-archivos-clinicos/` (`LOCKED`/`APPROVED`) ni el contrato OpenAPI de 005. `ENM-005-A` es la parte del Bloque A (`Neo-H`); el alcance `PETS` y `REQ-VET-012` son `ENM-005-E` (`T1690`, Bloque E). Trazabilidad: `REQ-OWN12-008` (a), `REQ-VET12-006`, `REQ-VET12-007`, `INV-OWN12-005`, `INV-VET12-003`, `EDGE-012-021`, `SC-012-011`, `SC-012-059`, `SC-012-108`.
+Estado: `APPROVED` (texto de la enmienda `ENM-005-A`, firmado por Neo — Nivel 2, 2026-11-26; redactó `/architect` el 2026-11-26). Los contratos máquina de la 012 siguen `DRAFT` hasta superar `T1612`. Documento **nuevo** de la 012: **no edita** `specs/005-album-archivos-clinicos/` (`LOCKED`/`APPROVED`) ni el contrato OpenAPI de 005. `ENM-005-A` es la parte del Bloque A (`Neo-H`); el alcance `PETS` y `REQ-VET-012` son `ENM-005-E` (`T1690`, Bloque E). Trazabilidad: `REQ-OWN12-008` (a), `REQ-VET12-006`, `REQ-VET12-007`, `INV-OWN12-005`, `INV-VET12-003`, `EDGE-012-021`, `SC-012-011`, `SC-012-059`, `SC-012-108`.
 
 ## 1. Qué cambia respecto de 005
 
@@ -14,7 +14,7 @@ Estado: `APPROVED` (firmado por Neo — Nivel 2, 2026-11-26; redactó `/architec
 ## 2. Reglas de aplicación (efecto inmediato, `INV-OWN12-005`)
 
 1. **Evaluación por acceso.** Cada petición pública y la vista previa revalidan, con una sola consulta acotada, que el creador sea propietario principal o co-propietario `ACTIVE` de la mascota (sin caché de rol). Si no, `404` uniforme `ERR-SHARE-NOT-FOUND`, sin borrar la fila.
-2. **Salida o pérdida de condición.** Al salir (`LEFT`), `ENDED`, supresión de cuenta o cambio de principal que deje al creador sin condición de propietario, sus enlaces `PET` de esa mascota se revocan en la misma transacción y bajo el bloqueo por mascota (`REQ-OWN12-011`).
+2. **Salida o pérdida de condición.** Al salir (`LEFT`), `ENDED`, supresión de cuenta o cambio de principal que deje al creador sin condición de propietario, sus enlaces `PET` de esa mascota se revocan en la misma transacción y bajo el bloqueo por mascota (`REQ-OWN12-011`). **En todo cambio de principal** (`TRANSFER`, `CHANGE`, sucesión, `REQUEST_CHANGE_PRINCIPAL`) se revocan además los enlaces `PET` de esa mascota cuyo creador **no sea propietario `ACTIVE` tras el cambio**, **incluidos los creados como `ADMIN` de hogar que nunca fueron propietarios** (antes morían por `PN-08`; H-12 de `trinity` T1612). Prueba obligatoria en `SC-012-011`.
 3. **Quien conserva la condición** (el principal anterior que queda co-propietario `ACTIVE`, o el sucesor): conserva sus enlaces; los demás co-propietarios pueden **revocarlos** (`REQ-VET12-007`, solo para `PETS` en el Bloque E; para `PET` rige el `REQ-VET-005` de 005 ampliado a cualquier propietario `ACTIVE`).
 4. **Supresión de la cuenta del creador** (`P-7`, Neo): los enlaces `share_links` se **eliminan con el creador** por la cascada vigente de 005 (`created_by_user_id ON DELETE CASCADE`; también con la mascota). **No se relaja `NOT NULL`** ni se conserva una columna seudonimizada: `pet_owner_user_id_at_creation` desaparece con la fila y no queda ID en claro (`SC-012-108`). `ENM-005-A` no introduce columna nueva ni cambia el esquema de 005.
 5. **Compatibilidad.** Los enlaces `PET` y `HOUSEHOLD` y sus tokens existentes **no cambian**; la columna `pet_owner_user_id_at_creation` **se conserva en el esquema** (sin migración que reescriba filas) pero **ya no participa en la decisión de acceso**.
@@ -22,7 +22,7 @@ Estado: `APPROVED` (firmado por Neo — Nivel 2, 2026-11-26; redactó `/architec
 
 ## 3. Escenarios que debe cubrir `/keymaker` (rojas primero)
 
-- `SC-012-011`: un co-propietario `ACTIVE` crea un enlace `PET`; el principal sale; el enlace del co-propietario sigue resolviendo; si el co-propietario sale, `404` inmediato.
+- `SC-012-011`: un co-propietario `ACTIVE` crea un enlace `PET`; el principal sale; el enlace del co-propietario sigue resolviendo; si el co-propietario sale, `404` inmediato. **Y (H-12):** un `ADMIN` de hogar no propietario crea un enlace `PET`; tras `TRANSFER`/`CHANGE`/sucesión del principal ese enlace está revocado (`revoked_at` fijado, auditoría `REVOKED`) y resuelve `404`.
 - A→B→A: A crea enlace, cede el principal a B (A queda co-propietario `ACTIVE`) y B lo devuelve: el enlace de A no cambia de estado por la cesión; si A sale y vuelve a ser co-propietario por una invitación nueva, su enlace anterior ya está **revocado**.
 - `EDGE-012-021`: un `ADMIN` de hogar degradado a `READER` pierde la autoridad sobre un enlace `HOUSEHOLD`/`PETS`: `404` uniforme.
 - `SC-012-108`: eliminar la cuenta del creador borra sus filas `share_links`; no queda ningún ID en claro.

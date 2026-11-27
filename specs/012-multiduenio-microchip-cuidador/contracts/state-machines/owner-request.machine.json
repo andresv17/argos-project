@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-OWNREQ12-001",
   "version": "0.1.0",
-  "status": "DRAFT",
+  "status": "APPROVED",
   "supersedes": null,
   "x-sdd-metadata": {
     "version": "0.1.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MAJOR",
     "change_note": "Maquina unica de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo; Neo-P P-09): aprobacion conjunta, reclamacion de co-propiedad y disputa en una sola tabla owner_requests; reemplaza a las previstas STATE-OWNAPR12-001 y STATE-CHIPCLAIM12-001. Dos ramas: no-disputa PENDING -> APPROVED | REJECTED | EXPIRED | CANCELLED; disputa UNDER_REVIEW -> RESOLVED | EXPIRED. P-1 (Neo): una disputa UNDER_REVIEW pasa a EXPIRED a los DISPUTE_MAX_OPEN_DAYS = 60 dias sin resolucion de /admin, sin cooldown y sin cambiar titularidad; el vencimiento no es una decision. El cooldown de 90 dias solo lo activa un REJECT decidido por /admin (no moot_reason ni EXPIRED).",
@@ -47,7 +47,7 @@
         "approverSet": "todos los co-propietarios ACTIVE distintos del solicitante al crear; sellado e inmutable; el solicitante no vota; INVITED no vota",
         "frozen": "congelacion de la disputa: por chip (CHIP_APPROPRIATION) o por pet_id (ausencia); frozen_until = created_at + 30 dias, una prorroga unica de 30 dias, techo 60 dias",
         "disputeMaxOpenDays": "DISPUTE_MAX_OPEN_DAYS = 60 dias calendario desde la apertura (P-1)",
-        "trigger": "solo disputas por ausencia: ids sellados en trigger_request_ids; >= 2 solicitudes criticas expiradas por TTL en 60 dias con el target en approver_set sin voto ni rechazo, y el target sin sesion activa desde la primera expirada (N2-R1, P-5)"
+        "trigger": "solo disputas por ausencia: ids sellados en trigger_request_ids; >= 2 solicitudes criticas secuenciales (sin DELETE_PET) expiradas por TTL en 60 dias, target en approver_set sin voto ni rechazo, y target sin sesion activa >= 14 dias (ABSENCE_MIN_INACTIVE_DAYS) y desde la primera expirada (N2-R1, P-5, H-09)"
       },
       "initialState": "PENDING",
       "states": {
@@ -148,7 +148,7 @@
           "from": "(ninguno)",
           "to": "UNDER_REVIEW",
           "event": "OPEN_DISPUTE",
-          "guard": "CHIP_APPROPRIATION: solicitante que no es principal ni co-propietario INVITED/ACTIVE de una mascota con ese chip, con chip registrado o reservado, evidencia documental, limites (1 por ancla, 3 simultaneas) y cooldown superados; chip sin mascota ni reserva o precondicion fallida: 202 uniforme sin fila. Ausencia: co-propietario ACTIVE con disparador cumplido sellado (incluido P-5), target no principal en CO_OWNER_ABSENT_OR_BLOCKING o principal en PRINCIPAL_ABSENT (P-3, solo con expediente completo ante /admin); ancla (pet_id, target_user_id) unica; apertura bajo el bloqueo por mascota; congelacion y SLA fijados",
+          "guard": "CHIP_APPROPRIATION: solicitante que no es principal ni co-propietario INVITED/ACTIVE de una mascota con ese chip, con chip registrado o reservado, evidencia documental, limites (1 por ancla, 3 simultaneas) y cooldown superados; chip sin mascota ni reserva o precondicion fallida: 202 uniforme sin fila. Ausencia: co-propietario ACTIVE con disparador cumplido sellado (>= 2 solicitudes criticas secuenciales sin DELETE_PET expiradas por TTL en 60 dias, target en approver_set sin voto ni rechazo, y target sin sesion activa >= 14 dias y desde la primera expirada; P-5, H-09), target no principal en CO_OWNER_ABSENT_OR_BLOCKING o principal en PRINCIPAL_ABSENT (P-3, solo con expediente completo ante /admin); ancla (pet_id, target_user_id) unica; apertura bajo el bloqueo por mascota; congelacion y SLA fijados",
           "requirementRef": "REQ-CHP12-004, REQ-OWN12-009, REQ-OWN12-011, N2-R1, N2-R5, P-3, P-5"
         },
         {

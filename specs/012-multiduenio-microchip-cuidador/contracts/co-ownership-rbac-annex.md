@@ -1,6 +1,6 @@
 # Anexo T1611 — `ENM-002-MINOR-012`: co-propiedad en RBAC, propiedad, hogar y eliminación de cuenta (Bloque A, #22)
 
-Estado: `APPROVED` (firmado por Neo — Nivel 2, 2026-11-26; redactó `/architect` el 2026-11-26). Documento **nuevo** de la 012: **no edita** ningún contrato ni texto de la 002 (`LOCKED`/`APPROVED`). Las enmiendas rigen para la 012 por referencia a este anexo y la 002 queda intacta como historial. Contratos hermanos: `openapi/co-ownership.openapi.yaml` 0.1.0, `schemas/pet-co-owner.schema.json` 0.1.0, `schemas/owner-request.schema.json` 0.1.0, `state-machines/co-owner.machine.json` (`STATE-COOWN12-001`), `state-machines/owner-request.machine.json` (`STATE-OWNREQ12-001`), `errors/error-catalog.json` 0.1.0. Trazabilidad: `REQ-OWN12-001..011`, `INV-OWN12-001..007`, `STATE-COOWN12-001`, `EDGE-012-015`, `EDGE-012-051`, `EDGE-012-052`, `SC-012-001..012`.
+Estado: `APPROVED` (texto de la enmienda `ENM-002-MINOR-012`, firmado por Neo — Nivel 2, 2026-11-26; redactó `/architect` el 2026-11-26). Los contratos máquina hermanos (OpenAPI, schemas, state-machines, `error-catalog.json`) siguen `DRAFT` hasta superar `T1612`. Documento **nuevo** de la 012: **no edita** ningún contrato ni texto de la 002 (`LOCKED`/`APPROVED`). Las enmiendas rigen para la 012 por referencia a este anexo y la 002 queda intacta como historial. Contratos hermanos: `openapi/co-ownership.openapi.yaml` 0.1.0, `schemas/pet-co-owner.schema.json` 0.1.0, `schemas/owner-request.schema.json` 0.1.0, `state-machines/co-owner.machine.json` (`STATE-COOWN12-001`), `state-machines/owner-request.machine.json` (`STATE-OWNREQ12-001`), `errors/error-catalog.json` 0.1.0. Trazabilidad: `REQ-OWN12-001..011`, `INV-OWN12-001..007`, `STATE-COOWN12-001`, `EDGE-012-015`, `EDGE-012-051`, `EDGE-012-052`, `SC-012-001..012`.
 
 Los IDs vigentes de la 002 son **`INV-ACC2-001`**, **`INV-ACC2-002`** e **`INV-OWN2-001`** (la 002 reemplazó a `INV-ACC-001/002` y `INV-OWN-001` de la 001; `Neo-H`). Texto fuente verificado en `specs/002-plataforma-v21/spec.md` (líneas 284–286).
 
@@ -8,7 +8,7 @@ Los IDs vigentes de la 002 son **`INV-ACC2-001`**, **`INV-ACC2-002`** e **`INV-O
 
 | Enmienda | Qué cambia | Contrato de la 002 que NO se toca | Aprobación |
 | --- | --- | --- | --- |
-| `ENM-002-MINOR-012` | Los cinco apartados de este anexo (§2–§6) | `INV-ACC2-001`, `INV-ACC2-002`, `INV-OWN2-001`, `REQ-RBAC-001`, `REQ-OWN-001`, `REQ-ACC-002`, poda de `household-policies` | Neo (pendiente) |
+| `ENM-002-MINOR-012` | Los cinco apartados de este anexo (§2–§6) | `INV-ACC2-001`, `INV-ACC2-002`, `INV-OWN2-001`, `REQ-RBAC-001`, `REQ-OWN-001`, `REQ-ACC-002`, poda de `household-policies` | `APPROVED` por Neo (2026-11-26) |
 | `ENM-002-MINOR-012-CHIP` | Split de error del chip (anexo propio, `T1631`) | `E-04` de la 002/004 | Neo (pendiente) |
 
 ## 2. Invariantes enmendados

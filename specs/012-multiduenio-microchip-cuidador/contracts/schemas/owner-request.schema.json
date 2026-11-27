@@ -5,10 +5,10 @@
   "description": "Solicitud unica de propiedad (aprobacion conjunta, reclamacion y disputa) [REQ-OWN12-004, REQ-OWN12-009, REQ-CHP12-003/004, STATE-OWNREQ12-001]. Vista de API: nunca expone approver_set ni approvals en bruto, chip_hmac, evidencia, target_response ajena ni la identidad del arbitro. Objetos cerrados.",
   "x-sdd-metadata": {
     "version": "0.1.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "0.1.0 (feature 012, T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): +OwnerRequestStatus (STATE-OWNREQ12-001, 7 estados), +CreateOwnerRequest (acciones criticas no-disputa), +OwnerRequestView, +OwnerRequestList («mis solicitudes»), +OpenAbsenceDisputeRequest (P-3 PRINCIPAL_ABSENT ratificado), +AbsenceResponseRequest (<= 280 puntos de codigo). P-1: una disputa vencida a los 60 dias pasa a EXPIRED sin cooldown; P-5: el disparador exige ademas que el target no tuviera sesion activa desde la primera solicitud expirada. El chip no aparece aqui: CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION se detallan en chip-claim.schema.json (T1630).",
+    "change_note": "0.1.0 (feature 012, T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): +OwnerRequestStatus (STATE-OWNREQ12-001, 7 estados), +CreateOwnerRequest (acciones criticas no-disputa), +OwnerRequestView, +OwnerRequestList («mis solicitudes»), +OpenAbsenceDisputeRequest (P-3 PRINCIPAL_ABSENT ratificado), +AbsenceResponseRequest (<= 280 puntos de codigo). P-1: una disputa vencida a los 60 dias pasa a EXPIRED sin cooldown; P-5: el disparador exige ademas que el target no tuviera sesion activa desde la primera solicitud expirada. El chip no aparece aqui: CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION se detallan en chip-claim.schema.json (T1630). 0.1.0 (alineacion H-09 tras re-verificacion T1612 /trinity, 2026-11-26, DRAFT): +ABSENCE_MIN_INACTIVE_DAYS = 14; ABSENCE_MIN_EXPIRED_REQUESTS.rule con secuencialidad, TTL y sin DELETE_PET; OpenAbsenceDisputeRequest.description completada. 0.1.0 (cierre de T1612 /trinity, 2026-11-26, DRAFT): H-01 matriz campos por accion x rol con allOf condicional en OwnerRequestView; H-07 targetUsername y message nulos en todo estado terminal y vista reducida para quien ya no es propietario ACTIVE; H-04 OpenAbsenceDisputeRequest sin petId (solo ruta); H-11 pattern y NFC en textos libres; H-15 approvers solo de la solicitud viva.",
     "traceability": [
       "STATE-OWNREQ12-001",
       "REQ-OWN12-004",
@@ -28,7 +28,10 @@
       "SC-012-092",
       "SC-012-093",
       "SC-012-103",
-      "SC-012-115"
+      "SC-012-115",
+      "INV-OWN12-004",
+      "INV-OWN12-005",
+      "NFR-012-009"
     ]
   },
   "x-sdd-constants": {
@@ -45,7 +48,12 @@
     "ABSENCE_MIN_EXPIRED_REQUESTS": {
       "value": 2,
       "where": "feature-012-limits.ts",
-      "rule": "disparador N2-R1"
+      "rule": "disparador N2-R1: solicitudes secuenciales (created_at de cada una >= expires_at de la anterior), expiradas por TTL, sin DELETE_PET (H-09)"
+    },
+    "ABSENCE_MIN_INACTIVE_DAYS": {
+      "value": 14,
+      "where": "feature-012-limits.ts",
+      "rule": "el target sin sesion activa >= 14 dias continuos hasta abrir; aplica la mas estricta con \"desde la mas antigua\" (H-09)"
     },
     "ABSENCE_WINDOW_DAYS": {
       "value": 60,
@@ -178,7 +186,9 @@
         "message": {
           "type": "string",
           "maxLength": 280,
-          "description": "Texto plano sin marcado; se borra al decidir"
+          "description": "Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 400 ERR-VALIDATION; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612)",
+          "pattern": "^[^\\u0000-\\u001F\\u007F\\u202A-\\u202E\\u2066-\\u2069]*$",
+          "x-sdd-normalization": "NFC"
         }
       },
       "allOf": [
@@ -286,14 +296,18 @@
           ],
           "minLength": 3,
           "maxLength": 32,
-          "description": "Incluye el username sellado de INVITE_CO_OWNER aunque no resolviera a una cuenta (trinity R-09)"
+          "description": "Incluye el username sellado de INVITE_CO_OWNER aunque no resolviera a una cuenta (trinity R-09), solo a propietarios ACTIVE; null en todo estado terminal y segun la tabla normativa"
         },
         "approvers": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "maxItems": 2,
           "items": {
             "$ref": "#/$defs/ApproverVote"
-          }
+          },
+          "description": "null segun la tabla normativa; maximo MAX_CO_OWNERS_PER_PET - 1 = 2 aprobadores"
         },
         "canVote": {
           "type": "boolean",
@@ -304,7 +318,8 @@
             "string",
             "null"
           ],
-          "maxLength": 280
+          "maxLength": 280,
+          "description": "null en todo estado terminal y para CHIP_DISPUTE"
         },
         "staleReason": {
           "oneOf": [
@@ -375,7 +390,153 @@
             }
           ]
         }
-      }
+      },
+      "description": "Vista por accion x rol (H-01 de T1612). TABLA NORMATIVA «campos por accion x rol»: (1) CHIP_DISPUTE (CHIP_APPROPRIATION y disputas por ausencia), cualquier rol: requesterUsername, approvers y targetUsername = null (nunca al target ni al propietario; Neo-K, EDGE-012-028); message = null; frozenUntil solo sin motivo. (2) CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION con role = REQUESTER: petId, petName, approvers y targetUsername = null (el solicitante aun no es propietario; N2-R4). (3) Detalle completo (petId, petName, usernames, approvers, message) SOLO a quien hoy es propietario ACTIVE de esa mascota o destinatario de una invitacion vigente; a quien ya no lo es (LEFT, ENDED, PROMOTED fuera, perdida de condicion) la fila se devuelve REDUCIDA (id, action, status, role, createdAt, expiresAt, decidedAt) con el resto null, evaluado en cada peticion sin cache (INV-OWN12-005, H-07). (4) En todo estado terminal (APPROVED, REJECTED, EXPIRED incluido STALE, CANCELLED, RESOLVED) targetUsername = null y message = null. (5) approvers solo muestra los votos de la solicitud viva (usernames y vote; nunca ids, approver_set ni approvals en bruto). Un voto duplicado del mismo aprobador no cuenta dos veces (UNIQUE por (request, user)).",
+      "x-sdd-field-matrix": {
+        "CHIP_DISPUTE:any": {
+          "requesterUsername": null,
+          "approvers": null,
+          "targetUsername": null,
+          "message": null
+        },
+        "CLAIM_CO_OWNERSHIP|CHIP_APPROPRIATION:REQUESTER": {
+          "petId": null,
+          "petName": null,
+          "approvers": null,
+          "targetUsername": null
+        },
+        "any:terminal": {
+          "targetUsername": null,
+          "message": null
+        },
+        "any:no-longer-ACTIVE-owner": "reducida a id, action, status, role, createdAt, expiresAt, decidedAt"
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "CHIP_DISPUTE"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "requesterUsername": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              },
+              "message": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "REQUESTER"
+              },
+              "action": {
+                "const": "CLAIM_CO_OWNERSHIP"
+              }
+            },
+            "required": [
+              "role",
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "petId": {
+                "type": "null"
+              },
+              "petName": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "REQUESTER"
+              },
+              "action": {
+                "const": "CHIP_DISPUTE"
+              },
+              "disputeReason": {
+                "const": "CHIP_APPROPRIATION"
+              }
+            },
+            "required": [
+              "role",
+              "action",
+              "disputeReason"
+            ]
+          },
+          "then": {
+            "properties": {
+              "petId": {
+                "type": "null"
+              },
+              "petName": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "APPROVED",
+                  "REJECTED",
+                  "EXPIRED",
+                  "CANCELLED",
+                  "RESOLVED"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "targetUsername": {
+                "type": "null"
+              },
+              "message": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "OwnerRequestList": {
       "type": "object",
@@ -400,23 +561,16 @@
           "maxLength": 256
         }
       },
-      "description": "Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11)"
+      "description": "Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 400 ERR-VALIDATION uniforme (H-15)"
     },
     "OpenAbsenceDisputeRequest": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "petId",
         "targetUserId",
         "disputeReason"
       ],
       "properties": {
-        "petId": {
-          "type": "string",
-          "format": "uuid",
-          "minLength": 36,
-          "maxLength": 36
-        },
         "targetUserId": {
           "type": "string",
           "format": "uuid",
@@ -427,7 +581,7 @@
           "$ref": "#/$defs/AbsenceDisputeReason"
         }
       },
-      "description": "El disparador se evalua en servidor al abrir y se sella (trigger_request_ids); no viaja en el cuerpo. Sin disparador: 409 ERR-CHP12-ABSENCE-NOT-ELIGIBLE solo a co-propietarios ACTIVE; a cualquier otro, 404 uniforme."
+      "description": "La mascota es SOLO la de la ruta /pets/{petId}/absence-disputes: el cuerpo no lleva petId (H-04 de T1612). Una mascota inexistente o ajena y un targetUserId que no pertenezca a esa mascota dan el mismo 404 uniforme. El disparador se evalua en servidor al abrir y se sella (trigger_request_ids); no viaja en el cuerpo. El disparador exige (H-09) >= 2 solicitudes criticas secuenciales (created_at >= expires_at de la anterior; dos simultaneas no cuentan como dos), expiradas por TTL en 60 dias, con DELETE_PET excluida por completo y CANCELLED/REJECTED sin contar, el target en approver_set sin voto ni rechazo, y el target sin sesion activa durante >= ABSENCE_MIN_INACTIVE_DAYS = 14 dias continuos (aplica la condicion mas estricta frente a \"desde la primera expirada\"). Sin disparador: 409 ERR-CHP12-ABSENCE-NOT-ELIGIBLE solo a co-propietarios ACTIVE; a cualquier otro, 404 uniforme."
     },
     "AbsenceDisputeOpened": {
       "type": "object",
@@ -465,7 +619,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 280,
-          "description": "<= 280 puntos de codigo, texto plano sin marcado; escapado de salida en /admin; escritura unica"
+          "description": "<= 280 puntos de codigo, texto plano sin marcado, normalizado NFC; rechaza control y bidi como message; escapado de salida en /admin; escritura unica (la segunda llamada es 409 ERR-OWN12-STALE: PUT NO idempotente)",
+          "pattern": "^[^\\u0000-\\u001F\\u007F\\u202A-\\u202E\\u2066-\\u2069]*$",
+          "x-sdd-normalization": "NFC"
         }
       }
     }
