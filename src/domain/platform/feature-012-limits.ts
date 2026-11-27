@@ -14,8 +14,8 @@ export const CO_OWNER_INVITE_TTL_DAYS = 7;
 export const OWNER_APPROVAL_TTL_DAYS = 7;
 /** Intentos de invitación por invitador y día; TODO intento cuenta, también el inexistente o el `ERR-OWN12-ALREADY-OWNER` (H-02, REQ-OWN12-002). */
 export const CO_OWNER_INVITES_PER_USER_PER_DAY = 5;
-/** Solicitudes críticas (crear, aprobar, rechazar) por usuario, mascota y día (H-10 de `trinity` T1612, `429 ERR-RATE-LIMITED`). */
-export const OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY = 10;
+/** Solicitudes críticas (crear, aprobar, rechazar) por usuario y día, no por mascota (errata RES1; H-10 de `trinity` T1612, `429 ERR-RATE-LIMITED`). */
+export const OWNER_REQUESTS_PER_USER_PER_DAY = 10;
 /** Espera máxima por el bloqueo de la fila de la mascota antes de `ERR-OWN12-RETRYABLE` (REQ-OWN12-011; valor fijado en T1616, Nivel 1). */
 export const OWNERSHIP_LOCK_TIMEOUT_MS = 3000;
 /** Retención de filas terminales de `pet_co_owners` y de solicitudes no disputa, en días desde la decisión (NFR-012-009, data-model.md §Retención). */

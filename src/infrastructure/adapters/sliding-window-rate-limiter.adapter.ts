@@ -11,7 +11,7 @@ import type { IdGeneratorPort } from '../../application/ports/id-generator.port.
 import type { RateLimitScope, RateLimiterPort } from '../../application/ports/rate-limiter.port.ts';
 import type { RepositorySet } from '../../application/ports/repositories.port.ts';
 import { addMillis } from '../../domain/auth/utc-timestamp.ts';
-import { CO_OWNER_INVITES_PER_USER_PER_DAY, OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY } from '../../domain/platform/feature-012-limits.ts';
+import { CO_OWNER_INVITES_PER_USER_PER_DAY, OWNER_REQUESTS_PER_USER_PER_DAY } from '../../domain/platform/feature-012-limits.ts';
 import type { AppConfig } from '../config/app-config.ts';
 
 export interface RateLimit {
@@ -25,7 +25,7 @@ export type RateLimits = Readonly<Record<Exclude<RateLimitScope, CoOwnershipScop
 /** H-02: intentos de invitación por invitador y día; H-10: solicitudes críticas (crear, aprobar, rechazar) por usuario y día. */
 const CO_OWNERSHIP_LIMITS: Readonly<Record<CoOwnershipScope, RateLimit>> = {
   CO_OWNER_INVITE: { maxPerWindow: CO_OWNER_INVITES_PER_USER_PER_DAY, windowMinutes: 1440 },
-  OWNER_REQUEST: { maxPerWindow: OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY, windowMinutes: 1440 },
+  OWNER_REQUEST: { maxPerWindow: OWNER_REQUESTS_PER_USER_PER_DAY, windowMinutes: 1440 },
 };
 
 /** Límites de la configuración validada (EXPORT_*, INVITE_* y MICROCHIP_DUPLICATE_*). @implements INV-ARCH-006 */
