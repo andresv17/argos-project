@@ -67,7 +67,7 @@ export function ownershipProblemMessage(code: string): string {
     case 'ERR-OWN12-CO-OWNER-LIMIT':
       return 'La mascota ya tiene el máximo de propietarios (incluidas las invitaciones pendientes).';
     case 'ERR-OWN12-APPROVAL-PENDING':
-      return 'Ya hay una solicitud igual esperando aprobación.';
+      return 'Esta acción necesita la aprobación de los demás propietarios: pídela con «Acciones que necesitan la aprobación…» o espera la solicitud que ya está en curso.';
     case 'ERR-OWN12-STALE':
       return 'Algo cambió mientras decidías. Recarga e inténtalo de nuevo.';
     case 'ERR-OWN12-RETRYABLE':
