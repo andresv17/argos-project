@@ -64,21 +64,25 @@ const CO_OWNERSHIP_PATH = new URL('../../../src/infrastructure/persistence/postg
 const CO_OWNERSHIP_AUDIT_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0030_co_ownership_audit.sql', import.meta.url);
 /** B-4 (012, Bloque B, #22): la 0031 de Postgres equivale a la 0035 de SQLite (el CHECK de `rate_limit_events.scope` admite CO_OWNER_INVITE y OWNER_REQUEST, H-02 y H-10). */
 const CO_OWNERSHIP_RATE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0031_co_ownership_rate_limit_scopes.sql', import.meta.url);
+/** T1633 (012, Bloque B, #23): la 0032 de Postgres equivale a la 0036 de SQLite (`dispute_evidence` con FK RESTRICT e `ip_rate_events` sin FK a users, REQ-CHP12-005, REQ-CHP12-008). */
+const DISPUTE_EVIDENCE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0032_dispute_evidence_ip_rate_events.sql', import.meta.url);
+/** T1648 (012, Bloque B, #23): la 0033 de Postgres equivale a la 0037 de SQLite (`admin_identities.person_id` y columnas `*_admin_id`/`*_person_id` de `owner_requests`, FK RESTRICT, REQ-CHP12-009). */
+const ADMIN_DISPUTE_ACTORS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0033_admin_dispute_actors.sql', import.meta.url);
 const USER_AVATAR_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0028_user_avatar.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
-  'about_content', 'admin_audit_entries', 'admin_delegates', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
-  'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'owner_requests', 'pet_assignments', 'pet_co_owners', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
+  'about_content', 'admin_audit_entries', 'admin_delegates', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'dispute_evidence', 'home_scenes', 'household_invitations',
+  'household_members', 'household_photos', 'households', 'ip_rate_events', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'owner_requests', 'pet_assignments', 'pet_co_owners', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
   'scene_actor_limit_marks', 'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
 const CANONICAL_INDEXES = [
-  'admin_audit_entries_admin_occurred', 'admin_delegates_active_subject', 'admin_delegates_email', 'admin_delegates_live_email', 'admin_delegates_status', 'admin_identities_email', 'admin_identities_subject', 'admin_oauth_flow_states_expires', 'admin_sessions_admin_id', 'admin_sessions_created', 'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'admin_audit_entries_admin_occurred', 'admin_delegates_active_subject', 'admin_delegates_email', 'admin_delegates_live_email', 'admin_delegates_status', 'admin_identities_email', 'admin_identities_person_id', 'admin_identities_subject', 'admin_oauth_flow_states_expires', 'admin_sessions_admin_id', 'admin_sessions_created', 'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id', 'dispute_evidence_delete_after', 'dispute_evidence_object_key', 'dispute_evidence_request',
   'home_scenes_household', 'home_scenes_owner', 'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
-  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'owner_requests_absence_anchor', 'owner_requests_chip_reserve', 'owner_requests_claim_pending', 'owner_requests_cooldown', 'owner_requests_dispute_chip_open', 'owner_requests_one_live_action', 'owner_requests_pet_status', 'pet_assignments_household_id', 'pet_co_owners_live', 'pet_co_owners_pet_status', 'pet_co_owners_user_status',
+  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'ip_rate_events_window', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'owner_requests_absence_anchor', 'owner_requests_chip_reserve', 'owner_requests_claim_pending', 'owner_requests_cooldown', 'owner_requests_dispute_chip_open', 'owner_requests_one_live_action', 'owner_requests_pet_status', 'pet_assignments_household_id', 'pet_co_owners_live', 'pet_co_owners_pet_status', 'pet_co_owners_user_status',
   'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
   'scene_attempts_scene_started', 'scene_consents_active', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
   'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
@@ -146,7 +150,8 @@ function extractChecks(item: string): { rest: string; checks: string[] } {
 /** Equivalencias de data-model.md §1 (GLOB -> regex) y normalización de espacios. */
 function canonicalCheck(expr: string): string {
   const e = squash(expr).replace(/\((length\((\w+)\) = 15 AND \2 NOT GLOB '\*\[\^0-9\]\*')\)/, (_m, _g, col: string) => `${col} ~ '^[0-9]{15}$'`);
-  return e;
+  // T1648: el identificador opaco de persona (`person_id`, 8..64, [A-Za-z0-9_-]) usa GLOB en SQLite y `~` en Postgres.
+  return e.replace(/(\w+) NOT GLOB '\*\[\^A-Za-z0-9_-\]\*'/, (_m, col: string) => `${col} ~ '^[A-Za-z0-9_-]+$'`);
 }
 
 function parseCreateTable(name: string, body: string): Table {
@@ -199,6 +204,10 @@ function parseSchema(statements: string[]): Schema {
     if (alter) {
       const added = parseCreateTable(alter[1]!, alter[2]!);
       for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
+      // T1648: el CHECK de columna de un ADD COLUMN (p. ej. `admin_identities.person_id`) también cuenta como CHECK de la tabla.
+      const target = schema.tables.get(alter[1]!)!;
+      target.checks.push(...added.checks);
+      target.checks.sort();
       continue;
     }
     // Postgres nombra el CHECK de columna `<tabla>_<columna>_check`: DROP lo retira y ADD CONSTRAINT … CHECK pone el nuevo (0006).
@@ -257,7 +266,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -539,6 +548,8 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(CO_OWNERSHIP_PATH, 'utf8'));
         await client.query(readFileSync(CO_OWNERSHIP_AUDIT_PATH, 'utf8'));
         await client.query(readFileSync(CO_OWNERSHIP_RATE_PATH, 'utf8'));
+        await client.query(readFileSync(DISPUTE_EVIDENCE_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_DISPUTE_ACTORS_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

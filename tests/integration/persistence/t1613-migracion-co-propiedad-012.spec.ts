@@ -30,7 +30,7 @@ function previousDatabase(): { db: SqliteDatabase; migrationsDir: string } {
   dirs.push(dir);
   const migrationsDir = join(dir, 'migraciones');
   mkdirSync(migrationsDir);
-  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name !== MIGRATION && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
+  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name < MIGRATION && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
   const db = openSqliteDatabase(join(dir, 'base.sqlite'), { migrationsDir });
   opened.push(db);
   return { db, migrationsDir };
@@ -56,7 +56,7 @@ const coOwner = (db: SqliteDatabase, id: string, fields: Record<string, string |
 
 describe('T1613 [REQ-OWN12-001] la migración SQLite 0033 (co-propiedad)', () => {
   it('se aplica sola sobre la base previa, es la última y deja las mascotas existentes con ownership_version = 1 y sin co-propietarios', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-3)).toBe(MIGRATION); // T1616: la 0034 (auditoría de la co-propiedad) es posterior
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-5)).toBe(MIGRATION); // posteriores: 0034 (auditoría), 0035 (ámbitos), 0036 (T1633), 0037 (T1648)
     const { db, migrationsDir } = previousDatabase();
     seedUsers(db);
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
