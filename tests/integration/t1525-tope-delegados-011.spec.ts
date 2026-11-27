@@ -140,6 +140,7 @@ for (const factory of PAIR_FACTORIES) {
       const root1 = await loginRoot(a);
       const root2 = await loginRoot(b);
       await fillSlots(a, root1, 19);
+      expect((await listDelegates(a, root1)).activeCount).toBe(19);
       const results = await Promise.all([retryBusy(() => invite(a, root1, emailOf(91), 'SUPPORT')), retryBusy(() => invite(b, root2, emailOf(92), 'OPERATOR'))]);
       expect(results.map(outcome).sort()).toEqual(['ERR-ADM11-DELEGATE-LIMIT-REACHED', 'OK202']);
       const page = await listDelegates(a, root1);

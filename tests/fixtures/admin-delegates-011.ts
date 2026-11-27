@@ -239,12 +239,17 @@ export async function onboard(env: Env, inviterCookie: string | null, email: str
 
 /** Rellena `count` plazas con invitaciones vigentes de correos distintos (cuentan igual que `ACTIVE`, D11-03). Devuelve los correos usados. */
 export async function fillSlots(env: Env, rootCookie: string | null, count: number, from = 1): Promise<string[]> {
+  const before = (await listDelegates(env, rootCookie)).activeCount;
   const emails: string[] = [];
   for (let n = from; n < from + count; n += 1) {
     const email = emailOf(n);
     emails.push(email);
-    await invite(env, rootCookie, email, 'SUPPORT');
+    // `retryBusy` solo reintenta el 500 transitorio de BD; un 4xx de negocio o un 500 persistente falla aquí, sin PII (solo estado y código).
+    const r = await retryBusy(() => invite(env, rootCookie, email, 'SUPPORT'));
+    if (r.status !== 202) throw new Error(`fillSlots: la invitación n.º ${n} respondió ${r.status} (${problemCode(r) ?? 'sin código'}) en lugar de 202`);
   }
+  const after = (await listDelegates(env, rootCookie)).activeCount;
+  if (before === null || after === null || after !== before + count) throw new Error(`fillSlots: plazas activas ${String(before)} -> ${String(after)}, se esperaban ${String((before ?? 0) + count)}`);
   return emails;
 }
 
