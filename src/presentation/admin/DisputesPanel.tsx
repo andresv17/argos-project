@@ -188,8 +188,11 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
           </ul>
           <label className="mt-3 flex flex-col gap-1 font-semibold">
             Motivo (obligatorio, hasta 500 caracteres)
-            <textarea value={reason} maxLength={500} aria-invalid={reasonInvalid ? true : undefined} aria-describedby={reasonInvalid ? 'dispute-reason-help dispute-reason-error' : 'dispute-reason-help'} onChange={(e) => setReason(e.target.value)} className="min-h-20 rounded-xl border border-border-strong px-3 py-2 font-normal" />
+            <textarea value={reason} maxLength={500} aria-invalid={reasonInvalid ? true : undefined} aria-describedby={reasonInvalid ? 'dispute-reason-help dispute-reason-privacy dispute-reason-error' : 'dispute-reason-help dispute-reason-privacy'} onChange={(e) => setReason(e.target.value)} className="min-h-20 rounded-xl border border-border-strong px-3 py-2 font-normal" />
           </label>
+          <p id="dispute-reason-privacy" className="text-sm">
+            No incluyas datos personales de terceros en el motivo.
+          </p>
           <p id="dispute-reason-help" className="text-sm">
             {reason.trim() === '' ? 'Escribe el motivo para habilitar «Registrar decisión», «Prorrogar la congelación», «Confirmar la decisión» y «Cancelar la ejecución programada».' : 'Motivo listo.'}
           </p>
