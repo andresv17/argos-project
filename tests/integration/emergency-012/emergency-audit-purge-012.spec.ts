@@ -3,8 +3,8 @@ import type { ApplicationDeps } from '../../../src/application/use-cases/use-cas
 import { ENGINE_FACTORIES, PET, T0, daysAfter, emergencyCases, emergencyDeps, type Engine012 } from '../../fixtures/emergency-012.ts';
 
 /**
- * H-BD-F1 (Bloque D, #32; `/keymaker`): el barrido de la ficha QR borra de `audit_log` los eventos `EMERGENCY_*` y `PET_CRITICAL_ALLERGIES_UPDATED` con más de 90 días (decisión 3a, annex §7,
- * `EMERGENCY_HISTORY_RETENTION_DAYS`) usando SOLO `mutation_type` y `timestamp`. La fila de `audit_log` no tiene columna de contenido; los hashes (`previous_state_hash` / `new_state_hash`) se siembran con
+ * H-BD-F1 (Bloque D, #32; `/keymaker`): el barrido de la ficha QR borra de `audit_log` SOLO los eventos `EMERGENCY_*` con más de 90 días (decisión 3a, annex §7,
+ * `EMERGENCY_HISTORY_RETENTION_DAYS`); `PET_CRITICAL_ALLERGIES_UPDATED` se CONSERVA (730 d, annex §7 / data-model.md:161; RAMA-01 opción a) usando SOLO `mutation_type` y `timestamp`. La fila de `audit_log` no tiene columna de contenido; los hashes (`previous_state_hash` / `new_state_hash`) se siembran con
  * valores distintos para comprobar que no influyen en la decisión de borrado. Los de 10 días y los tipos ajenos a la ficha se conservan. Memoria / SQLite / PostgreSQL real (se OMITE sin `TEST_DATABASE_URL`).
  *
  * @implements REQ-QR12-010, REQ-QR12-006
@@ -21,7 +21,7 @@ const RECENT = (iso: string) => daysAfter(iso, -10);
 
 for (const factory of ENGINE_FACTORIES) {
   describe.skipIf(!factory.enabled)(`H-BD-F1 purga de auditoría EMERGENCY_* a 90 días (${factory.name})`, { timeout: 120_000 }, () => {
-    it('[SC-012-124] runMaintenance borra solo los EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED de 100 días; conserva los de 10 días y los tipos ajenos; el borrado no depende de los hashes', async () => {
+    it('[SC-012-124] runMaintenance borra solo los EMERGENCY_* de 100 días; conserva PET_CRITICAL_ALLERGIES_UPDATED (aun de 100 días), los de 10 días y los tipos ajenos; el borrado no depende de los hashes', async () => {
       engine = await factory.make();
       engine.setNow(T0);
       const deps: ApplicationDeps = emergencyDeps(engine);
@@ -29,10 +29,11 @@ for (const factory of ENGINE_FACTORIES) {
         engine!.run((r) =>
           r.auditLog.insert({ id, timestamp, executorUserId: 'SYSTEM', mutationType: type as never, entityType: 'PET', entityId: PET, previousStateHash: hash, newStateHash: hash }),
         );
-      const olds = ['EMERGENCY_CARD_ACTIVATED', 'EMERGENCY_CARD_REGENERATED', 'EMERGENCY_CARD_DEACTIVATED', 'EMERGENCY_CARD_AUTO_DEACTIVATED', 'EMERGENCY_PHONE_CONSENT_CHANGED', 'PET_CRITICAL_ALLERGIES_UPDATED'];
+      const olds = ['EMERGENCY_CARD_ACTIVATED', 'EMERGENCY_CARD_REGENERATED', 'EMERGENCY_CARD_DEACTIVATED', 'EMERGENCY_CARD_AUTO_DEACTIVATED', 'EMERGENCY_PHONE_CONSENT_CHANGED'];
       let n = 0;
       for (const type of olds) await seed(`aud-old-${(n += 1)}`, type, OLD(T0), n % 2 === 0 ? 'a'.repeat(64) : null);
       for (const type of olds.slice(0, 5)) await seed(`aud-new-${(n += 1)}`, type, RECENT(T0), n % 2 === 0 ? 'b'.repeat(64) : null);
+      await seed('aud-allergies-old', 'PET_CRITICAL_ALLERGIES_UPDATED', OLD(T0), 'c'.repeat(64));
       await seed('aud-other-old', 'UPDATE', OLD(T0), null);
       const before = (await engine.auditTypes(PET)).length;
 
@@ -42,7 +43,8 @@ for (const factory of ENGINE_FACTORIES) {
       const after = await engine.auditTypes(PET);
       expect(before - after.length).toBe(olds.length);
       expect(after.filter((t) => t.startsWith('EMERGENCY_')).length).toBe(5);
-      expect(after).not.toContain('PET_CRITICAL_ALLERGIES_UPDATED');
+      expect(after).toContain('PET_CRITICAL_ALLERGIES_UPDATED'); // 730 d: el barrido de 90 d no lo toca
+      expect(after.filter((t) => t === 'EMERGENCY_CARD_ACTIVATED').length).toBe(1); // solo queda el de 10 días
       expect(after).toContain('UPDATE');
       // Idempotente: una segunda pasada no borra nada más.
       expect((await emergencyCases(deps).maintenance())['auditPurged']).toBe(0);

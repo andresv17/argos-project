@@ -329,7 +329,7 @@ export class RunEmergencyMaintenanceUseCase {
       for (const petId of [...touched].sort()) if (await reconcileCard(deps, repositories, petId)) cardsReconciled += 1;
       const historyCleared = await repositories.emergencyCards.clearHistoryBefore(addMillis(now, -EMERGENCY_HISTORY_RETENTION_DAYS * DAY_MS));
       const rateEventsPurged = await repositories.rateLimits.purgeScopesBefore(['QR_CARD_MUTATION', 'QR_PRIVATE_WRITE'], addMillis(now, -QR_RATE_EVENTS_RETENTION_HOURS * HOUR_MS));
-      const auditPurged = await repositories.auditLog.purgeMutationTypesBefore([...EMERGENCY_AUDIT_TYPES, ALLERGIES_AUDIT_TYPE], addMillis(now, -EMERGENCY_HISTORY_RETENTION_DAYS * DAY_MS));
+      const auditPurged = await repositories.auditLog.purgeMutationTypesBefore([...EMERGENCY_AUDIT_TYPES], addMillis(now, -EMERGENCY_HISTORY_RETENTION_DAYS * DAY_MS));
       return { waitExpired: expired.length, cardsReconciled, historyCleared, rateEventsPurged, auditPurged };
     });
   }
