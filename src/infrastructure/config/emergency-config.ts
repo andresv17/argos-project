@@ -53,3 +53,11 @@ export function loadEmergencyServices(env: Readonly<Record<string, string | unde
     entropy: new CryptoEmergencyEntropyAdapter(),
   };
 }
+
+/**
+ * Composición de producción: lee `process.env` AQUÍ (INV-ARCH-006: ningún otro módulo fuera de `src/infrastructure/config/` lee el entorno) y delega en `loadEmergencyServices`.
+ * Sin `PHONE_HMAC_KEY` devuelve `null` (las rutas de la ficha no se registran); con ella, una clave o una URL pública inválidas lanzan `EmergencyConfigError` y detienen el arranque.
+ */
+export function loadEmergencyServicesFromProcess(publicBaseUrl: string | null): EmergencyServices | null {
+  return loadEmergencyServices(process.env, publicBaseUrl);
+}

@@ -7,7 +7,7 @@ import { createApi, problemOf, type Api } from './api-harness.ts';
 import * as schema from '../../../specs/012-multiduenio-microchip-cuidador/contracts/schemas/emergency-card.schema.json' with { type: 'json' };
 
 /**
- * T1662 (Feature 012, Bloque D, #32; `/keymaker`): auditoría `PET_CRITICAL_ALLERGIES_UPDATED` por todo cambio EFECTIVO de las alergias, también el de un `ADMIN` de hogar, con el rol del actor y SIN contenido
+ * T1662 (Feature 012, Bloque D, #32; `/keymaker`): auditoría `PET_CRITICAL_ALLERGIES_UPDATED` por todo cambio EFECTIVO de las alergias, también el de un `ADMIN` de hogar, con `new_state_hash` NULL (H-D1 b: sin rol del actor) y SIN contenido
  * ni conteo; quien solo lee (`READER`) recibe 403 y un ajeno 404; y el texto del editor es el de `/maggie` m-6.
  *
  * @implements REQ-QR12-002, INV-QR12-002

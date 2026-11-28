@@ -18,6 +18,7 @@ import {
 } from '../../domain/platform/feature-012-limits.ts';
 import { purgeIpRateEvents } from './chip-ip-rate-limit.ts';
 import { executeDueDisputeDecisions } from './chip-dispute-admin-use-cases.ts';
+import { RotatePhoneHmacKeyUseCase, RunEmergencyMaintenanceUseCase } from './emergency-use-cases.ts';
 import { expireLapsedDisputes, purgeExpiredDisputeEvidence, sweepOrphanDisputeEvidence } from './chip-dispute-retention.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
@@ -379,6 +380,11 @@ export async function runMaintenance(
   await purgeDelegateData(deps);
   await purgeOwnershipData(deps);
   await purgeCareData(deps);
+  // Feature 012 (Bloque D, #32): barrido de la ficha QR (consentimientos en espera vencidos, reconciliación, historial de 90 días, topes QR_*) y recálculo idempotente de `phone_hmac` tras una rotación de clave. Solo con la ficha configurada; nunca lanzan.
+  if ((deps as Partial<ApplicationDeps>).emergency !== undefined && (deps as Partial<ApplicationDeps>).ids !== undefined) {
+    await new RunEmergencyMaintenanceUseCase(deps as unknown as ApplicationDeps).execute().catch(() => null);
+    await new RotatePhoneHmacKeyUseCase(deps as unknown as ApplicationDeps).execute().catch(() => null);
+  }
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }
