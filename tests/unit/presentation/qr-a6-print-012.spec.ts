@@ -2,20 +2,28 @@
  * MEDIA-1 de /sati (Feature 012, T1676; REQ-QR12-005, SC-012-051): la hoja A6 de la ficha QR sale en UNA página A6, aunque cuelgue de una app más alta que la hoja,
  * y no se repite en cada página. Se imprime con Chromium real (`page.pdf` con `preferCSSPageSize`) el CSS de producción y el marcado de `EmergencyPrintSheet`.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EmergencyPrintSheet, QR_PRINT_PAGE_CSS } from '../../../src/presentation/web/components/EmergencyCard.tsx';
 
+const HAS_CHROMIUM = (() => {
+  try {
+    return existsSync(chromium.executablePath());
+  } catch {
+    return false;
+  }
+})();
+
 const css = readFileSync('src/presentation/web/styles.css', 'utf8');
 const sheetCss = css.slice(css.indexOf('/* Hoja A6 de la ficha QR'));
 const QR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
 
-let browser: Browser;
+let browser: Browser | undefined;
 beforeAll(async () => {
-  browser = await chromium.launch();
+  if (HAS_CHROMIUM) browser = await chromium.launch();
 });
 afterAll(async () => {
   await browser?.close();
@@ -31,7 +39,7 @@ const appHtml = (): string =>
     </div></body></html>`;
 
 async function printedPages(printing: boolean): Promise<{ pages: number; mediaBox: number[]; text: string }> {
-  const page = await browser.newPage();
+  const page = await browser!.newPage();
   await page.setContent(appHtml());
   await page.emulateMedia({ media: 'print' });
   if (printing) {
@@ -49,7 +57,14 @@ async function printedPages(printing: boolean): Promise<{ pages: number; mediaBo
   return { pages, mediaBox: box, text: pdf };
 }
 
-describe('hoja A6 de la ficha QR al imprimir (MEDIA-1)', () => {
+describe('hoja A6 de la ficha QR — contrato CSS sin navegador (MEDIA-1)', () => {
+  it('[SC-012-051] declara @page 105mm 148mm y oculta el resto en body.printing-qr', () => {
+    expect(QR_PRINT_PAGE_CSS).toContain('105mm 148mm');
+    expect(sheetCss).toContain('body.printing-qr');
+  });
+});
+
+describe.skipIf(!HAS_CHROMIUM)('hoja A6 de la ficha QR al imprimir con Chromium (MEDIA-1)', () => {
   it('[SC-012-051] con printing-qr sale exactamente 1 página de tamaño A6 (105 x 148 mm)', async () => {
     const { pages, mediaBox } = await printedPages(true);
     expect(pages).toBe(1);
