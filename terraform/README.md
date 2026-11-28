@@ -24,6 +24,7 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 |---|---|---|
 | `project_id` | no | ID del proyecto GCP |
 | `billing_account` | no | `AAAAAA-BBBBBB-CCCCCC`, para el presupuesto |
+| `origin_verify_secret` | **sí** (`sensitive = true`) | Default vacío (sin versión); `validation` vacío o 32..256 caracteres sin comas (H-01) |
 | `database_url`, `audit_hmac_secret`, `share_ip_hmac_secret`, `phone_hmac_key` | **sí** (`sensitive = true`) | Sin default; `validation` no vacía y sin saltos de línea (REQ-IAC-013) |
 | `region`, `project_prefix`, `custom_domain` | no | Con default (`us-central1`, `argos`, `""`) |
 | `google_oauth_admin_redirect_uri` | no | Opcional (feature 009, T1227); vacía por defecto. Ver «Portal de administración» |
@@ -70,6 +71,7 @@ Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, p
 | Secreto | `TF_VAR_audit_hmac_secret` | Neo (>= 32 bytes hex) |
 | Secreto | `TF_VAR_share_ip_hmac_secret` | Neo (>= 32 bytes hex; HMAC de la IP en la auditoría de enlaces compartidos). Único input humano de la directiva 005: lo lee `infraestructura.yml` y crea el secreto `argos-share-ip-hmac-secret` por Terraform |
 | Secreto | `TF_VAR_phone_hmac_key` | Neo (>= 32 caracteres ASCII imprimibles sin espacios; clave HMAC dedicada del teléfono de la ficha QR de emergencia, Feature 012, `PHONE_HMAC_KEY`, T-05. Generar con `openssl rand -hex 32`; **no reutilizar** ninguna otra clave). Sin versión, la ficha no se conecta en la aplicación (fail-closed). `infraestructura.yml` la valida y crea la versión de `argos-phone-hmac-key`. |
+| Secreto | `TF_VAR_ORIGIN_VERIFY_SECRET` | Neo (H-01, verificación de origen Cloudflare): 32..256 caracteres sin comas (`openssl rand -hex 32`); el mismo valor va en la regla de Cloudflare (cabecera de origen). `infraestructura.yml` lo valida y crea la versión de `argos-origin-verify-secret` (variable `origin_verify_secret`, default vacío = sin versión). |
 | Secreto | `DATABASE_URL_DIRECT` | Neo (URL directa sin `-pooler`, rol `argos_migrator`); la leen la validación de secretos de `infraestructura.yml` y la migración de `deploy-argos.yml` |
 | Secreto | `GOOGLE_OAUTH_CLIENT_ID` | Neo (ID de cliente OAuth de Google con forma `NUMERO-XXXX.apps.googleusercontent.com`, creado en la consola de Google); lo lee `infraestructura.yml` como `TF_VAR_google_oauth_client_id`. El secreto de cliente de Google no entra en GitHub ni en Terraform |
 | Secreto | `GOOGLE_OAUTH_REDIRECT_URI` | Neo (`https://<host>/api/auth/google/callback`, la misma URI registrada en la consola de Google); lo lee `infraestructura.yml` como `TF_VAR_google_oauth_redirect_uri` |

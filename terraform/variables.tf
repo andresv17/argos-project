@@ -61,6 +61,18 @@ variable "phone_hmac_key" {
   }
 }
 
+variable "origin_verify_secret" {
+  description = "Secreto de verificación de origen Cloudflare (H-01, ORIGIN_VERIFY; 32..256 caracteres, sin comas). Vacío = sin versión en Secret Manager (deploy-argos.yml no referencia ARGOS_ORIGIN_VERIFY_SECRET). Llega por TF_VAR_origin_verify_secret."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = var.origin_verify_secret == "" || (length(var.origin_verify_secret) >= 32 && length(var.origin_verify_secret) <= 256 && !can(regex(",", var.origin_verify_secret)))
+    error_message = "origin_verify_secret debe estar vacío o tener entre 32 y 256 caracteres, sin comas (H-01)."
+  }
+}
+
 variable "database_url" {
   description = "URL de Postgres con -pooler y sslmode=require (REQ-SEC-002). Llega por TF_VAR_database_url."
   type        = string

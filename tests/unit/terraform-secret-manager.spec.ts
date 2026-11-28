@@ -28,9 +28,8 @@ describe('terraform/secret_manager.tf (T438)', () => {
     // Feature 012, Bloque D: 7.º secreto (argos-phone-hmac-key, PHONE_HMAC_KEY), con versión (ver el caso siguiente).
     expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(8);
     expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(8);
-    // H-01: contenedor origin-verify sin google_secret_manager_secret_version (el valor se carga fuera de Terraform).
+    // H-01: contenedor origin-verify; su versión es CONDICIONAL y viene de var.origin_verify_secret (ver el caso siguiente).
     expect(c).toMatch(/\$\{var\.project_prefix\}-origin-verify-secret/);
-    expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"origin_verify/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-phone-hmac-key/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-gemini-api-key/);
     expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"gemini_api_key"/);
@@ -38,18 +37,25 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toMatch(/\$\{var\.project_prefix\}-audit-hmac-secret/);
   });
 
-  it('hay una versión por secreto, sin count ni for_each condicional', () => {
+  it('hay una versión por secreto, sin count ni for_each condicional salvo origin_verify_secret (count por variable no vacía)', () => {
     const c = code();
     // Feature 012, Bloque D: la versión de phone_hmac_key viene de var.phone_hmac_key (TF_VAR), nunca de un literal.
-    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(4);
+    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(5);
     expect(c).toMatch(/resource\s+"google_secret_manager_secret_version"\s+"phone_hmac_key"[\s\S]*?secret_data\s*=\s*var\.phone_hmac_key/);
+    // H-01: la versión de origin_verify_secret viene de var.origin_verify_secret (TF_VAR) y solo existe con la variable no vacía; sin valor literal.
+    const ov = block('google_secret_manager_secret_version', 'origin_verify_secret');
+    expect(ov).toMatch(/\bcount\s*=\s*var\.origin_verify_secret\s*!=\s*""\s*\?\s*1\s*:\s*0/);
+    expect(ov).toMatch(/secret_data\s*=\s*var\.origin_verify_secret\b/);
+    expect(ov).not.toMatch(/secret_data\s*=\s*"/);
+    expect(ov).not.toMatch(/\bfor_each\s*=/);
     for (const name of ['database_url', 'audit_hmac_secret']) {
       const v = block('google_secret_manager_secret_version', name);
       expect(v, name).not.toBe('');
       expect(v, name).not.toMatch(/\bcount\s*=/);
       expect(v, name).not.toMatch(/\bfor_each\s*=/);
     }
-    expect(c).not.toMatch(/\bcount\s*=/);
+    // El único count del archivo es el de la versión condicional de origin_verify_secret.
+    expect((c.match(/\bcount\s*=/g) ?? []).length).toBe(1);
   });
 
   it('secret_data sale solo de var.database_url y var.audit_hmac_secret', () => {

@@ -68,6 +68,7 @@ Todo se crea el día 0; nada queda pendiente de inventar. Solo Neo ejecuta estos
 | Secreto | `TF_VAR_audit_hmac_secret` | Neo, paso 3: >= 32 bytes hex |
 | Secreto | `TF_VAR_share_ip_hmac_secret` | Neo, paso 3: >= 32 bytes hex (HMAC de IP de los enlaces compartidos) |
 | Secreto | `TF_VAR_phone_hmac_key` | Neo, paso 3 (Feature 012, Bloque D): >= 32 caracteres ASCII imprimibles sin espacios (`openssl rand -hex 32`); clave HMAC dedicada del teléfono de la ficha QR, distinta de las demás |
+| Secreto | `TF_VAR_ORIGIN_VERIFY_SECRET` | Neo (H-01, verificación de origen Cloudflare): 32..256 caracteres sin comas (`openssl rand -hex 32`); el mismo valor va en la regla de Cloudflare (cabecera de origen). `infraestructura.yml` lo valida y crea la versión de `argos-origin-verify-secret` (variable `origin_verify_secret`, default vacío = sin versión). |
 | Secreto | `DATABASE_URL_DIRECT` | Neo, paso 3: URL directa (rol `argos_migrator`) |
 | Secreto | `GOOGLE_OAUTH_CLIENT_ID` | Neo, paso 3: `gh secret set GOOGLE_OAUTH_CLIENT_ID --repo <dueno/repo>`; *client id* de Google (parámetro público de configuración; el flujo lo pasa como `TF_VAR`) |
 | Secreto | `GOOGLE_OAUTH_REDIRECT_URI` | Neo, paso 3: `gh secret set GOOGLE_OAUTH_REDIRECT_URI --repo <dueno/repo>`; URI de redirección autorizada, fija por entorno (parámetro público de configuración) |
