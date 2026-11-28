@@ -18,6 +18,7 @@ import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { OwnersPanel, OwnershipInbox } from '../components/CoOwners.tsx';
 import { createCoOwnershipApi, type OwnershipView } from '../co-ownership-api.ts';
+import { eligibleSharePets, loadCoOwnedPetIds } from '../share-eligible-pets.ts';
 import { createChipApi } from '../chip-api.ts';
 import { ChipRegisteredDialog, MyChipRequests } from '../components/ChipRegisteredDialog.tsx';
 import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
@@ -56,6 +57,7 @@ export function PetsPage(): JSX.Element {
   const [species, setSpecies] = useState<PetFilterValue | ''>('');
   const searchText = useDebouncedValue(q);
   const [cards, setCards] = useState<PetCardView[]>([]);
+  const [coOwnedPetIds, setCoOwnedPetIds] = useState<ReadonlySet<string>>(new Set());
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PetDashboardView | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('weights');
@@ -115,6 +117,21 @@ export function PetsPage(): JSX.Element {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+  // MEDIA-1 (annex §4, §5.3): en el contexto de un hogar, las mascotas que co-poseo como ACTIVE también entran en el selector del subconjunto.
+  useEffect(() => {
+    if (user === null || contextId === MINE_CONTEXT_ID) {
+      setCoOwnedPetIds(new Set());
+      return;
+    }
+    let alive = true;
+    const mineIds = new Set(cards.filter((c) => c.profile.ownerUserId === user.id).map((c) => c.profile.id));
+    void loadCoOwnedPetIds(createCoOwnershipApi(), user.id, cards.map((c) => c.profile.id), mineIds).then((ids) => {
+      if (alive) setCoOwnedPetIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [cards, contextId, user]);
 
   // H-K1: la ficha del propietario consulta cuántos propietarios ACTIVE hay para decidir si ofrece Eliminar/Transferir; si falla, conserva el comportamiento previo (el servidor rechaza con 409).
   useEffect(() => {
@@ -228,10 +245,11 @@ export function PetsPage(): JSX.Element {
   const filtered = q.trim() !== '' || species !== '';
   const emptyHint = filtered ? undefined : isMine ? 'Usa «Nueva mascota» para añadir la primera.' : 'Quien sea dueño puede asignar mascotas al hogar desde Editar.';
   // «Compartir con mi veterinario» (REQ-VET-001, D5-19): el alcance hogar se ofrece solo si el contexto activo es un hogar donde soy propietario o ADMIN y poseo mascotas en él.
-  const ownedInContext = isMine || user === null ? 0 : cards.filter((c) => c.profile.ownerUserId === user.id).length;
+  // MEDIA-1 (annex §4, §5.3): elegibles = principales propias + co-poseídas ACTIVE (mismo criterio que el servidor).
+  const sharePets = user === null ? [] : eligibleSharePets(cards, user.id, coOwnedPetIds);
+  const ownedInContext = isMine || user === null ? 0 : sharePets.length;
   const shareHousehold = !isMine && ownedInContext > 0 && households.some((h) => h.household.id === contextId && h.myRole === 'ADMIN') ? { id: contextId, petCount: ownedInContext } : null;
   // 012 (T1696, D12-19): en el contexto de un hogar la ficha ofrece el MISMO selector de subconjunto que Hogares; en «Mis mascotas» no hay hogar ni selector (REQ-PET11-001).
-  const sharePets = user === null ? [] : cards.filter((c) => c.profile.ownerUserId === user.id).map((c) => ({ id: c.profile.id, name: c.profile.name }));
   const householdChoices = options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []));
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">

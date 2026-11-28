@@ -14,8 +14,10 @@ import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
 import { PetsRevocationConfirm } from '../components/PetsRevocationConfirm.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
+import { createCoOwnershipApi } from '../co-ownership-api.ts';
 import { guardPetsRevocation, roleChangeCanRevokePetsLinks } from '../pets-link-notice.ts';
 import { createShareApi } from '../share-api.ts';
+import { eligibleSharePets, loadCoOwnedPetIds } from '../share-eligible-pets.ts';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { HouseholdAlbum } from '../components/HouseholdAlbum.tsx';
 import { useSession } from '../session.tsx';
@@ -355,21 +357,37 @@ function HouseholdDetail(props: {
   readonly children: JSX.Element | null;
 }): JSX.Element {
   const { pets, failed } = useHouseholdPets(props.view.household.id);
-  return <HouseholdDetailView {...props} pets={pets} failed={failed} />;
+  const [coOwnedPetIds, setCoOwnedPetIds] = useState<ReadonlySet<string>>(new Set());
+  // MEDIA-1 (annex §4, §5.3): las mascotas que co-poseo como ACTIVE también son elegibles en el subconjunto, igual que en el servidor.
+  useEffect(() => {
+    if (pets === null || props.myUserId === '') return;
+    let alive = true;
+    const mineIds = new Set(pets.filter((p) => p.profile.ownerUserId === props.myUserId).map((p) => p.profile.id));
+    void loadCoOwnedPetIds(createCoOwnershipApi(), props.myUserId, pets.map((p) => p.profile.id), mineIds).then((ids) => {
+      if (alive) setCoOwnedPetIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pets, props.myUserId]);
+  return <HouseholdDetailView {...props} pets={pets} failed={failed} coOwnedPetIds={coOwnedPetIds} />;
 }
 
 /** Vista pura del detalle (exportada para pruebas de presentación; sin cambios en la lógica de permisos). */
-export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, children }: {
+export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, coOwnedPetIds, children }: {
   readonly view: HouseholdView;
   readonly tab: HouseholdTabKey;
   readonly onTab: (key: HouseholdTabKey) => void;
   readonly myUserId: string;
   readonly pets: readonly PetRow[] | null;
   readonly failed: boolean;
+  /** Mascotas del hogar que el usuario co-posee como co-propietario ACTIVE (MEDIA-1): se suman a las suyas como principal en el selector del subconjunto. */
+  readonly coOwnedPetIds?: ReadonlySet<string>;
   readonly children: JSX.Element | null;
 }): JSX.Element {
   const id = view.household.id;
-  const mine = pets === null ? [] : pets.filter((p) => p.profile.ownerUserId === myUserId);
+  const mineIds = new Set(eligibleSharePets(pets ?? [], myUserId, coOwnedPetIds ?? new Set()).map((p) => p.id));
+  const mine = pets === null ? [] : pets.filter((p) => mineIds.has(p.profile.id));
   const activeMembers = view.members.filter((m) => m.membership.status === 'ACTIVE').length;
   const ownerName = view.members.find((m) => m.membership.isHouseholdOwner)?.membership.displayName ?? null;
   const createdAt = (view.household as { readonly createdAt?: string }).createdAt;
