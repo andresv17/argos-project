@@ -488,7 +488,7 @@ describe('P-3 · la migración SQLite 0030 sanea las filas históricas y recalcu
   });
 
   it('[SC-011-015][P-3] es la migración 0030, la última de SQLite, no cambia el esquema y la base ya saneada no cambia al repetir el paso', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-13)).toBe(MIGRATION); // 012: las 0033..0042 (0042 share_link_pets T1692, 0041 emergency_card T1673, 0040 retiro de IU T1658; co_ownership T1613, auditoría T1616, ámbitos rate limit B-4, dispute_evidence T1633, actores admin T1648, metadata H-01, care_mode T1652) son posteriores; 011 T1527: la 0031 (admin_delegates) y la 0032 (user_avatar, T1556) son posteriores
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().find((n) => n === MIGRATION)).toBe(MIGRATION); // por NOMBRE, no por posición desde el final (las migraciones posteriores la desplazan)
     const { db, migrationsDir } = previous();
     const tables = () => db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY name").all();
     const schemaBefore = tables().filter((t) => (t as { name: string }).name !== 'schema_migrations');
@@ -548,7 +548,7 @@ describe('P-3 · la migración PostgreSQL 0026 sanea las filas históricas y rec
   it.skipIf(!HAS_POSTGRES)('[SC-011-015][EDGE-011-018][P-3] sobre PostgreSQL real: tras 0026 no queda texto libre ni biografía, todas las filas son v2 y la huella coincide con la de la aplicación', async () => {
     await withPostgresSchema(async ({ pool }) => {
       const legacy = legacyV1();
-      expect(postgresMigrationFiles().at(-12)).toBe('0026_scene_snapshot_v2.sql'); // 012: las 0029..0037 (0037 emergency_card T1673, 0036 retiro de IU T1658; co_ownership T1613, auditoría T1616, ámbitos B-4, dispute_evidence T1633, actores admin T1648, metadata H-01, care_mode T1652) son posteriores; 011 T1527: la 0027 (admin_delegates) y la 0028 (user_avatar, T1556) son posteriores
+      expect(postgresMigrationFiles().find((n) => n === `${PG_VERSION}.sql`)).toBe('0026_scene_snapshot_v2.sql'); // se localiza por NOMBRE, no por posición desde el final: las migraciones posteriores (0027..0038 y las que vengan) la desplazan y una posición fija se rompe con cada migración nueva
       await applyPostgresMigrations(pool, 'before');
       await dropSceneForeignKeys(pool);
       await pool.query("INSERT INTO home_scenes (id, household_id, owner_user_id, image_id, image_mime, image_size_bytes, image_fingerprint, image_inputs_snapshot, image_created_at, quota_window, created_at, updated_at) VALUES ($1, $2, NULL, $3, 'image/png', 10, $4, $5, $6, '2026-11', $6, $6)", [UUID(900), UUID(500), UUID(501), legacy.fingerprint, legacy.text, '2026-11-25T10:00:00.000Z']);
