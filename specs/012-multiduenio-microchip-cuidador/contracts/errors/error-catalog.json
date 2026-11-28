@@ -334,11 +334,11 @@
     "ERR-VET12-PETS-EMPTY": {
       "type": "urn:argos:error:ERR-VET12-PETS-EMPTY",
       "status": 422,
-      "title": "Elige al menos una mascota para compartir",
+      "title": "Revisa la selección de mascotas",
       "invariantRef": "INV-VET12-001",
-      "detailTemplate": "Selecciona al menos una mascota para crear el enlace.",
+      "detailTemplate": "Revisa la selección de mascotas.",
       "requirementRef": "REQ-VET12-001, REQ-VET12-003",
-      "note": "Lista petIds vacía, inexistente, ajena, no elegible o duplicada tras deduplicar: el mismo error para todas (no distingue la causa; INV-VET12-001/002). Las mascotas omitidas por pérdida de autoridad en un acceso posterior NO usan este código (404 uniforme, REQ-VET12-003)."
+      "note": "Lista petIds vacía (también la query vacía `?petIds=` de la vista previa; una query SIN petIds es ERR-SCHEMA-VALIDATION-FAILED), inexistente, ajena, no elegible o repetida (los repetidos se comprueban ANTES de la elegibilidad y NO se deduplican en silencio, E-2; el esquema solo acepta UUID en minúsculas y las mayúsculas son ERR-SCHEMA-VALIDATION-FAILED, sin normalización): el mismo error para todas (no distingue la causa; INV-VET12-001/002). El título y el detalle son neutros (BAJA-4, BAJA-N5): el código cubre causas que el texto anterior describía mal. El 403 depende solo del creador y nunca de los petIds. Las mascotas omitidas o los enlaces revocados por pérdida de autoridad en un acceso posterior NO usan este código (404 uniforme, REQ-VET12-003; PN-08, E-1). Más de MAX_SHARE_LINK_PETS = 20 es ERR-SCHEMA-VALIDATION-FAILED. Rutas: createPetsShareLink y previewPetsClinicalSummary (share-links-pets.openapi.yaml 0.2.2, DRAFT)."
     }
   }
 }

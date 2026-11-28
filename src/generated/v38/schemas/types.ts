@@ -15,7 +15,8 @@
  * Source: contracts/schemas/owner-request.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet-co-owner.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, DRAFT)
- * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-018, EDGE-012-023, EDGE-012-024, EDGE-012-025, EDGE-012-026, EDGE-012-027, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-063, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-QR12-001, INV-QR12-002, INV-QR12-003, INV-QR12-004, INV-QR12-005, INV-QR12-006, INV-QR12-008, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-QR12-001, REQ-QR12-002, REQ-QR12-003, REQ-QR12-004, REQ-QR12-005, REQ-QR12-006, REQ-QR12-007, REQ-QR12-008, REQ-QR12-009, REQ-QR12-010, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-041, SC-012-042, SC-012-043, SC-012-044, SC-012-045, SC-012-046, SC-012-047, SC-012-048, SC-012-052, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-083, SC-012-085, SC-012-086, SC-012-087, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-106, SC-012-107, SC-012-109, SC-012-110, SC-012-111, SC-012-115, SC-012-116, SC-012-121, SC-012-122, SC-012-123, SC-012-124, SC-012-125, SC-012-126, SC-012-127, SC-012-128, SC-012-129, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
+ * Source: contracts/schemas/share-link-pets.schema.json (v0.2.2, APPROVED)
+ * @implements D12-19, D12-20, D12-21, EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-018, EDGE-012-023, EDGE-012-024, EDGE-012-025, EDGE-012-026, EDGE-012-027, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-063, EDGE-012-064, EDGE-012-066, EDGE-012-070, EDGE-012-071, EDGE-012-072, EDGE-012-073, EDGE-012-074, EDGE-012-075, EDGE-012-076, EDGE-012-077, ENM-005-E, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-QR12-001, INV-QR12-002, INV-QR12-003, INV-QR12-004, INV-QR12-005, INV-QR12-006, INV-QR12-008, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, INV-VET12-001, INV-VET12-002, INV-VET12-003, INV-VET12-004, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-QR12-001, REQ-QR12-002, REQ-QR12-003, REQ-QR12-004, REQ-QR12-005, REQ-QR12-006, REQ-QR12-007, REQ-QR12-008, REQ-QR12-009, REQ-QR12-010, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, REQ-VET12-001, REQ-VET12-002, REQ-VET12-003, REQ-VET12-004, REQ-VET12-005, REQ-VET12-006, REQ-VET12-007, REQ-VET12-008, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-041, SC-012-042, SC-012-043, SC-012-044, SC-012-045, SC-012-046, SC-012-047, SC-012-048, SC-012-052, SC-012-053, SC-012-056, SC-012-058, SC-012-063, SC-012-065, SC-012-066, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-083, SC-012-085, SC-012-086, SC-012-087, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-106, SC-012-107, SC-012-109, SC-012-110, SC-012-111, SC-012-115, SC-012-116, SC-012-121, SC-012-122, SC-012-123, SC-012-124, SC-012-125, SC-012-126, SC-012-127, SC-012-128, SC-012-129, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001, T1690
  */
 
 /**
@@ -1115,6 +1116,57 @@ export type UpdatePetInput = {
   deceasedAt?: DeceasedAt;
   biography?: Biography;
 };
+/**
+ * Identificadores de las mascotas del subconjunto. SIN uniqueItems ni minItems: un uniqueItems daria un error de esquema distinto y romperia la uniformidad; el uniqueItems de PetsShareLinkView.petIds es de RESPUESTA y no se copia aqui. Cada elemento es un Uuid de 001, que solo acepta MINUSCULAS: un UUID con mayusculas o mal formado es ERR-SCHEMA-VALIDATION-FAILED y NO hay normalizacion de dominio. Con la forma valida, el dominio comprueba repetidos ANTES de la elegibilidad; la lista vacia y los IDs inexistentes, ajenos, no elegibles o repetidos los valida el dominio en la misma transaccion que crea el enlace y devuelven todos el MISMO 422 ERR-VET12-PETS-EMPTY sin eco de ningun valor (INV-VET12-001/002, SC-012-063); mas de 20 elementos es ERR-SCHEMA-VALIDATION-FAILED (MAX_SHARE_LINK_PETS, D12-21). En la query de la vista previa el valor vacio ?petIds= es un caso especial que equivale a la lista vacia
+ *
+ * @maxItems 20
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetIdList".
+ */
+export type PetIdList =
+  | []
+  | [Uuid]
+  | [Uuid, Uuid]
+  | [Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+  | [
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid,
+      Uuid
+    ];
 
 /**
  * Columnas nuevas de owner_requests (T1633/T1648; trinity N-3 (a)): los administradores viven en admin_identities (0019_admin_portal.sql), NO en users, por eso resolved_by_user_id y second_approver_user_id (FK a users) no sirven. Columnas de BD: los ids son internos y NO se exponen al usuario final. La vista del expediente usa AdminActorView (alias y rol) y, solo para SUPER_ADMIN, AdminActorIdentity; no esta forma. La tabla fisica de operadores y las FK las declara data-model.md (rama NUEVO-1; migracion de T1648).
@@ -3983,6 +4035,160 @@ export interface TransferPetOwnershipResult {
    * householdId de las asignaciones podadas porque el nuevo dueño no es miembro ACTIVE
    */
   prunedAssignments: Uuid[];
+}
+/**
+ * Cuerpo de creacion de un enlace PETS. El hogar sale de la ruta, nunca del cuerpo. Las opciones replican CreateShareLinkInput de 005 y se aplican a todo el subconjunto. Cabecera Idempotency-Key como en 005 (EDGE-005-16/17)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CreatePetsShareLinkInput".
+ */
+export interface CreatePetsShareLinkInput {
+  petIds: PetIdList;
+  /**
+   * Misma enumeracion que 005 (D5-11, REQ-VET-004)
+   */
+  expiresInDays?: 1 | 7 | 30;
+  /**
+   * Inmutable tras crear; aplica a todas las mascotas del subconjunto (D5-14)
+   */
+  includeMicrochip?: boolean;
+  /**
+   * Inmutable; con false el enlace no sirve ni lista archivos (D5-21)
+   */
+  includeClinicalFiles?: boolean;
+  /**
+   * Inmutable; aplica a las mascotas fallecidas del subconjunto (007, T1026)
+   */
+  includeDeceasedAt?: boolean;
+}
+/**
+ * Reintento 200 con la misma Idempotency-Key: sin URL ni token, sin fila ni auditoria nuevas; misma clave con otros petIds u opciones = 422
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CreatePetsShareLinkReplay".
+ */
+export interface CreatePetsShareLinkReplay {
+  link: PetsShareLinkView;
+  /**
+   * Siempre false: el token no es recuperable (EDGE-005-16/17)
+   */
+  urlAvailable: false;
+}
+/**
+ * Vista privada de un enlace PETS. Nunca incluye token, tokenHash ni URL (la URL solo existe en CreatePetsShareLinkResult.url, una vez) ni householdId: el hogar ya consta en la ruta de las listas del hogar y un co-propietario puede no ser miembro de ese hogar
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetsShareLinkView".
+ */
+export interface PetsShareLinkView {
+  id: Uuid;
+  scope: "PETS";
+  /**
+   * Derivado como en STATE-SHARE-001 de 005; sin estado persistido nuevo
+   */
+  status: "ACTIVE" | "EXPIRED" | "REVOKED";
+  createdAt: IsoTimestamp;
+  expiresAt: IsoTimestamp;
+  revokedAt: IsoTimestamp | null;
+  includeMicrochip: boolean;
+  includeClinicalFiles: boolean;
+  /**
+   * Opcional, como en 005
+   */
+  includeDeceasedAt?: boolean;
+  /**
+   * Solo las mascotas del enlace sobre las que QUIEN CONSULTA tiene autoridad de lectura (REQ-VET12-007: un co-propietario no recibe IDs de mascotas ajenas del mismo enlace). Un enlace con cero visibles para quien consulta NO se devuelve (se omite de items). Estatico: lo fijado al crear menos las retiradas. Con PN-08 el enlace se revoca cuando una mascota sale del hogar o el creador pierde autoridad. uniqueItems solo aplica a esta RESPUESTA
+   *
+   * @minItems 1
+   * @maxItems 20
+   */
+  petIds:
+    | [Uuid]
+    | [Uuid, Uuid]
+    | [Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid]
+    | [
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid,
+        Uuid
+      ];
+  /**
+   * Igual a petIds.length (solo las visibles para quien consulta; nunca el total del enlace)
+   */
+  petCount: number;
+  /**
+   * true si lo creo quien consulta; ninguna identidad ni correo del creador cuando es otro co-propietario (REQ-VET12-007)
+   */
+  createdByMe: boolean;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CreatePetsShareLinkResult".
+ */
+export interface CreatePetsShareLinkResult {
+  link: PetsShareLinkView;
+  /**
+   * URL publica /shared/{token}, UNA sola vez, Cache-Control: no-store, sin registrar ni auditar (INV-005-005)
+   */
+  url: string;
+}
+/**
+ * Objeto de referencia sin validar y deliberadamente abierto: la forma buscada es SharedSummaryView de 005 mas petIds (ver share-link-subset-annex.md 10.3).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetsPreviewView".
+ */
+export interface PetsPreviewView {
+  [k: string]: unknown;
+}
+/**
+ * Lista de enlaces PETS (activos y vencidos o revocados de los ultimos 30 dias, D5-20), orden (createdAt DESC, id DESC)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetsShareLinkList".
+ */
+export interface PetsShareLinkList {
+  /**
+   * Items con al menos una mascota visible para quien consulta; los de filtro vacio se omiten
+   */
+  items: PetsShareLinkView[];
+  /**
+   * En listHouseholdPetsShareLinks: enlaces activos del hogar con scope IN (HOUSEHOLD, PETS), de todos los creadores (el numero que decide el 409 ERR-SHARE-LINK-LIMIT; solo un conteo, sin IDs; puede superar los items). En listPetPetsShareLinks: solo los PETS activos visibles para quien consulta que contienen la mascota. Cambio de semantica respecto de activeCount de 005: cuenta tambien PETS de otros titulares del hogar (solo un numero, sin IDs ni creador; alcance documentado en annex 5.5)
+   */
+  activeCount: number;
+  maxActiveLinks: 20;
 }
 
 export type DisputeId = AdminId;

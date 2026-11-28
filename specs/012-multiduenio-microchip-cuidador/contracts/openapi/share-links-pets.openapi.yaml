@@ -1,0 +1,251 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 012 (Compartir un subconjunto de mascotas con el veterinario, #81)
+  version: 0.2.2
+  description: >
+    Documento INCREMENTAL de la feature 012 (T1690, Bloque E, #81). Archivo NUEVO: no edita share-links.openapi.yaml de 005 (3.5.0). DRAFT 0.2.2 (incorpora T1691, rondas r2 y r3, y las decisiones de Neo del 2026-11-28): sin aprobar; solo Neo aprueba (ENM-005-E).
+
+    ALCANCE PETS (REQ-VET12-001, D12-19): tercer alcance de enlace de solo lectura, ESTATICO, con 1 a MAX_SHARE_LINK_PETS = 20 mascotas elegidas de UN hogar (elegible = asignada ahora al hogar y con el creador como propietario principal o co-propietario ACTIVE, ENM-005-A). Cuenta como UN enlace del hogar de origen para el tope de 20 de REQ-VET-012 (D12-21). 'Todas' sigue creando un enlace HOUSEHOLD (dinamico) por createHouseholdShareLink de 005; en la ficha de la mascota se mantiene el alcance PET sin selector (REQ-PET11-001).
+
+    UN SOLO COMPONENTE, DOS PUNTOS DE ENTRADA (REQ-VET12-002): Mascotas -> [HOGAR] -> Compartir y Hogares -> [HOGAR] -> Compartir llaman a las MISMAS operaciones de este documento (la entrada es siempre un hogar).
+
+    SUPERFICIE PUBLICA: SIN operaciones nuevas. GET /shared/{token}/summary, GET /shared/{token}/files/{mediaId} y GET /shared/{token}/pets/{petId}/avatar de 005 resuelven tambien el alcance PETS (ver share-link-subset-annex.md): mismas cabeceras, mismo 404 uniforme ERR-SHARE-NOT-FOUND, misma limitacion de tasa. Un enlace PETS no expone mascotas excluidas (ni nombre, ID, conteo ni foto) ni nada que un enlace PET no expondria (INV-VET12-004): jamas rutinas, registros de cuidado, QR, telefono ni evidencia de disputa.
+
+    DESPLIEGUE EN DOS FASES OBLIGATORIO: el lector vigente trata cualquier scope distinto de PET como HOUSEHOLD y expondria todas las mascotas del hogar. Fase 1: esquema migrado + lector con switch EXHAUSTIVO default-deny (null/404) en resolveShare, mayRevoke, requireShareAuthority y buildSharedView, creacion de PETS apagada tras bandera. Fase 2: bandera ARGOS_SHARE_PETS_CREATE_ENABLED (defecto OFF, fail-closed: solo la cadena exacta true es ON, sin trim y sensible a mayusculas; se lee al arrancar el proceso y cambiarla exige reiniciar los pods) encendida solo con todos los pods en Fase 1 y la SPA tolerante desplegada. Rollback prohibido tras el primer PETS (procedimiento en quickstart.md). Precondicion bloqueante de la Fase 1: exclusion de la entrada de la ruta de vista previa en el registro de solicitudes de Cloud Run (annex 8.6). Prueba roja en T1693. Consumidores: DEBEN tolerar un scope desconocido (rotulo neutro, nunca HOUSEHOLD). La ENMIENDA de revokeShareLink (DELETE /share-links/{shareLinkId}) NO se repite en este documento (colision de operationId con 005): vive solo en share-link-subset-annex.md 5.2 (para PETS: el creador o cualquier propietario principal o co-propietario ACTIVE de al menos una mascota del enlace revoca el enlace ENTERO; el propietario u ADMIN del hogar no titular recibe 404; sin autoridad, 404 ERR-SHARE-NOT-FOUND; el enlace PETS tambien se revoca automaticamente por PN-08, anexo 5.1).
+
+    SUPERFICIE PRIVADA (cookie argos_session + X-Argos-Request en toda escritura; 403 ERR-AUTH-CSRF-REJECTED si falta). Quien no puede leer el hogar o la mascota recibe 404 uniforme. Errores nuevos: solo ERR-VET12-PETS-EMPTY (422); el resto se REUTILIZA (ERR-ACC-FORBIDDEN, ERR-SHARE-LINK-LIMIT, ERR-SHARE-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-PET-NOT-FOUND, ERR-SCHEMA-VALIDATION-FAILED, ERR-RATE-LIMITED).
+  x-sdd-status: APPROVED
+  x-sdd-metadata:
+    version: 0.2.2
+    status: APPROVED
+    supersedes: null
+    change_type: MINOR
+    change_note: "0.2.2 (2026-11-28, APPROVED por Neo Nivel 2): ronda r3 de T1691 y decisiones de Neo (MINOR mantenido, bandera, filtro de logs, regla owner/ADMIN no titular 404 confirmada); historial completo en share-link-subset-annex.md."
+    traceability: [REQ-VET12-001, REQ-VET12-002, REQ-VET12-003, REQ-VET12-004, REQ-VET12-005, REQ-VET12-006, REQ-VET12-007, REQ-VET12-008, INV-VET12-001, INV-VET12-002, INV-VET12-003, INV-VET12-004, SC-012-053, SC-012-054, SC-012-056, SC-012-058, SC-012-063, SC-012-065, SC-012-066, D12-19, D12-20, D12-21, ENM-005-E, T1690, EDGE-012-070, EDGE-012-071, EDGE-012-072, EDGE-012-073, EDGE-012-074, EDGE-012-075, EDGE-012-076, EDGE-012-077]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: share-links-pets
+  - name: clinical-summary-pets
+
+paths:
+  /households/{householdId}/share-links/pets:
+    parameters:
+      - { $ref: '#/components/parameters/HouseholdId' }
+    post:
+      tags: [share-links-pets]
+      operationId: createPetsShareLink
+      summary: "Crea un enlace de solo lectura de un SUBCONJUNTO estatico de mascotas del hogar [REQ-VET12-001, REQ-VET12-003, REQ-VET12-006, D12-19]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET12-001, REQ-VET12-003, REQ-VET12-006, REQ-VET12-008, REQ-VET-012]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario EN ese hogar: propietario del hogar o ADMIN ACTIVE, como createHouseholdShareLink de 005) Y propietario principal o co-propietario ACTIVE de AL MENOS UNA mascota asignada al hogar; el 403 depende solo del creador (anexo 3.2), ambas condiciones se revalidan dentro del candado del hogar. La elegibilidad por mascota del subconjunto NO produce 403: es 422 ERR-VET12-PETS-EMPTY"
+      x-sdd-audit: [CREATED]
+      x-sdd-error-order: "CSRF -> sesion -> 404 con la bandera ARGOS_SHARE_PETS_CREATE_ENABLED apagada (el mismo 404 del hogar; tambien en un replay) -> Idempotency-Key -> 404 hogar -> 403 creador (SOLO depende del creador, nunca de los petIds) -> comparacion de idempotencia (otro householdId/cuerpo = 422 ERR-SCHEMA-VALIDATION-FAILED) -> forma del cuerpo (422 ERR-SCHEMA-VALIDATION-FAILED, p. ej. mas de 20) -> 422 ERR-VET12-PETS-EMPTY (el esquema ya rechazo mayusculas; PRIMERO repetidos, DESPUES elegibilidad; lista vacia o cualquier ID inexistente, ajeno, no elegible o repetido, el mismo cuerpo) -> 409 ERR-SHARE-LINK-LIMIT bajo el candado del HOGAR. Bloqueos: mascotas pet_id ASC -> hogar -> fila del enlace"
+      description: "Los petIds se validan en el servidor y en la MISMA transaccion que crea el enlace (REQ-VET12-003). Cualquier ID inexistente, de otra cuenta, de otro hogar, sin autoridad del creador, desasignado o repetido da el MISMO 422 ERR-VET12-PETS-EMPTY, sin eco de valores ni pista de cual fallo (INV-VET12-001/002, SC-012-063). El enlace persiste share_links.scope = PETS con household_id del hogar de la ruta y las filas share_link_pets; el subconjunto es ESTATICO: una mascota nueva del hogar NO aparece (SC-012-062). Cuenta como UN enlace activo del hogar (D12-21, SC-012-066). Un subconjunto que coincide con todas las mascotas sigue siendo PETS. Un creador que no es propietario del hogar ni ADMIN ACTIVE, o sin autoridad sobre NINGUNA mascota asignada al hogar (evaluado sobre el hogar completo, independiente del cuerpo), recibe 403 ERR-ACC-FORBIDDEN; todo fallo derivado de los petIds es 422, jamas 403 (sin oraculo). El esquema solo acepta UUID en minusculas (mayusculas = 422 ERR-SCHEMA-VALIDATION-FAILED; no hay normalizacion de dominio) y los repetidos se comprueban ANTES de la elegibilidad (la consulta de elegibilidad se ejecuta siempre). Con la bandera ARGOS_SHARE_PETS_CREATE_ENABLED apagada (defecto, anexo 8.2.2), la operacion responde 404 como si no existiera, tras sesion/CSRF y antes de Idempotency-Key; un replay con la bandera apagada tambien da 404. Idempotencia: se compara el householdId de la ruta, el CONJUNTO de petIds (sin orden) y las opciones con sus defaults resueltos; el 404/403 de la ruta actual precede al replay; otro householdId u otro cuerpo con la misma clave = 422 ERR-SCHEMA-VALIDATION-FAILED. Auditoria CREATED (sin token ni URL, sin nombres; el alcance consta en share_links.scope) visible a los demas co-propietarios de esas mascotas por listPetPetsShareLinks (REQ-VET12-007). Cache-Control: no-store."
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/CreatePetsShareLinkInput' }
+      responses:
+        '200':
+          description: "Reintento con la misma Idempotency-Key y el mismo cuerpo: metadatos SIN url ni token, sin fila ni auditoria nuevas, aun con 20 activos. Misma clave con otros petIds u opciones = 422 ERR-SCHEMA-VALIDATION-FAILED"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/CreatePetsShareLinkReplay' }
+        '201':
+          description: "Enlace creado; la URL no se vuelve a mostrar"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/CreatePetsShareLinkResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      tags: [share-links-pets]
+      operationId: listHouseholdPetsShareLinks
+      summary: "Lista los enlaces PETS del hogar (solo metadatos, nunca el token) [REQ-VET12-001, REQ-VET12-007]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET12-001, REQ-VET12-007, REQ-VET-005]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario en el hogar); cada petIds se filtra a las mascotas sobre las que quien consulta tiene autoridad de lectura; un enlace cuyo filtro queda vacio SE OMITE de items"
+      description: "Unica fuente de los enlaces PETS del hogar. listHouseholdShareLinks de 005 NO devuelve enlaces PETS en items (su forma y ShareLinkView no cambian) pero su activeCount cuenta scope IN (HOUSEHOLD, PETS) del hogar, de todos los creadores, no revocados ni vencidos (ENM-005-E, D12-21): es el numero del 409 ERR-SHARE-LINK-LIMIT; puede ser mayor que los items de esa lista. El activeCount de ESTA lista es el mismo numero del hogar (solo un conteo, sin IDs). Items sin householdId (ya es el de la ruta) y con petIds filtrados a la autoridad de quien consulta; los items con filtro vacio se omiten. Cache-Control: no-store."
+      responses:
+        '200':
+          description: "Enlaces PETS activos y los vencidos o revocados de los ultimos 30 dias (D5-20)"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/PetsShareLinkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /pets/{petId}/share-links/pets:
+    parameters:
+      - { $ref: '#/components/parameters/PetId' }
+    get:
+      tags: [share-links-pets]
+      operationId: listPetPetsShareLinks
+      summary: "Enlaces PETS que incluyen esta mascota, visibles para sus co-propietarios [REQ-VET12-007, INV-VET12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET12-007, REQ-VET12-008]
+      x-sdd-rbac-action: "propietario principal o co-propietario ACTIVE de la mascota (ENM-005-A); cualquier otro usuario, incluido un ADMIN de hogar no titular, recibe 404 uniforme ERR-PET-NOT-FOUND. SIN householdId en la respuesta (el co-propietario puede no ser miembro del hogar de origen)"
+      description: "Da a cada co-propietario la visibilidad de que existe un enlace que expone SU mascota y la via para revocarlo o retirarla (REQ-VET12-007, trinity H-14). Cada item lleva solo las mascotas del enlace sobre las que quien consulta tiene autoridad (petIds, petCount); createdByMe indica si lo creo el, sin identidad de otro creador ni householdId. Los enlaces con cero mascotas visibles se omiten. activeCount cuenta solo los PETS activos visibles que contienen la mascota. Incluye los vencidos o revocados de 30 dias. Cache-Control: no-store."
+      responses:
+        '200':
+          description: "Enlaces PETS que contienen la mascota"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/PetsShareLinkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /share-links/{shareLinkId}/pets/{petId}:
+    parameters:
+      - { $ref: '#/components/parameters/ShareLinkId' }
+      - { $ref: '#/components/parameters/PetId' }
+    delete:
+      tags: [share-links-pets]
+      operationId: withdrawPetFromShareLink
+      summary: "Retira UNA mascota de un enlace PETS sin revocar el enlace para las demas [REQ-VET12-007, INV-VET12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET12-007]
+      x-sdd-rbac-action: "propietario principal o co-propietario ACTIVE de ESA mascota (no basta serlo de otra mascota del enlace)"
+      x-sdd-audit: [REVOKED]
+      description: "Borra la fila (share_link_id, pet_id) bajo el bloqueo de la mascota y de la fila del enlace. La desasignacion de la mascota tambien borra su fila en el acto (anexo 5.1). Si era la ULTIMA mascota, el enlace pasa a REVOKED en la misma transaccion (auditoria REVOKED): un enlace PETS vivo nunca queda con cero filas. NO emite evento propio (PET_WITHDRAWN no existe en el contrato; ver DEUDA-012-WITHDRAW-AUDIT). UNA SOLA respuesta de error: 404 ERR-SHARE-NOT-FOUND uniforme para enlace inexistente, ajeno, PET/HOUSEHOLD, ya REVOCADO o vencido, mascota que no esta en el enlace o YA RETIRADA, y solicitante que no es titular de esa mascota. 204 solo cuando se borro la fila en esta peticion; repetirla da 404 (sin idempotencia ambigua). El enlace es ESTATICO: la retirada es definitiva; para volver a compartirla se crea otro enlace. No ofrece eco de las demas mascotas."
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204':
+          description: "Mascota retirada en esta peticion; repetirla da 404 ERR-SHARE-NOT-FOUND"
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem', description: "ERR-AUTH-CSRF-REJECTED si falta X-Argos-Request" }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /households/{householdId}/clinical-summary/pets:
+    parameters:
+      - { $ref: '#/components/parameters/HouseholdId' }
+    get:
+      tags: [clinical-summary-pets]
+      operationId: previewPetsClinicalSummary
+      summary: "Vista previa autenticada de un subconjunto CANDIDATO, tal como la veria el veterinario [REQ-VET12-005, SC-012-065]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET12-003, REQ-VET12-005, REQ-SUM-004]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario EN ese hogar): el 403 depende solo del creador; todo fallo derivado de petIds es 422 (anexo 4.7); no crea ni devuelve token"
+      x-sdd-error-order: "sesion -> 404 con la bandera ARGOS_SHARE_PETS_CREATE_ENABLED apagada (antes del 422 por petIds ausente) -> 404 hogar -> 403 creador -> 429 -> 422 de forma -> 422 ERR-VET12-PETS-EMPTY"
+      description: "petIds se repite en la query (style=form, explode=true, hasta 20; los registros de la APLICACION no guardan esta query, pero el registro de solicitudes de Cloud Run SI hasta aplicar la exclusion del anexo 8.6). Misma validacion y mismo orden (403 solo del creador; repetidos antes que elegibilidad) y MISMO 422 ERR-VET12-PETS-EMPTY que createPetsShareLink para IDs inexistentes, ajenos, no elegibles o repetidos. UNA SOLA regla de la query. CASO ESPECIAL: el valor vacio ?petIds= no es un Uuid y se evalua ANTES de items (es la unica excepcion al items: Uuid). Sin el parametro petIds = 422 ERR-SCHEMA-VALIDATION-FAILED (es required); petIds presente pero vacio (?petIds=, unica ocurrencia con valor vacio, equivale a lista vacia) = 422 ERR-VET12-PETS-EMPTY; UUID con mayusculas o mal formado, o mas de 20 = 422 ERR-SCHEMA-VALIDATION-FAILED. La respuesta sale de UNA sola transaccion/snapshot. Con la bandera apagada responde 404 del hogar, antes de validar petIds. Devuelve las mismas mascotas, en el mismo orden (REQ-PET-005) y con las mismas reglas de 011 (foto por ruta dedicada) que veria /shared/{token}; sin mascotas excluidas. Las flags includeMicrochip, includeClinicalFiles e includeDeceasedAt replican las de 005. Cache-Control: no-store. Limitador por usuario: 429 ERR-RATE-LIMITED (construye hasta 20 resumenes)."
+      parameters:
+        - name: petIds
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              oneOf:
+                - { $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid' }
+                - { type: string, maxLength: 0, description: "Caso especial ?petIds= (unica ocurrencia vacia): lista vacia, 422 ERR-VET12-PETS-EMPTY" }
+        - { $ref: '#/components/parameters/IncludeMicrochip' }
+        - { $ref: '#/components/parameters/IncludeClinicalFiles' }
+        - { $ref: '#/components/parameters/IncludeDeceasedAt' }
+      responses:
+        '200':
+          description: "Envoltorio de vista; validUntil es null"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/share-link-pets.schema.json#/$defs/PetsPreviewView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem', description: "Hogar inexistente o ajeno, o bandera ARGOS_SHARE_PETS_CREATE_ENABLED apagada (mismo 404 uniforme)" }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 001/002 (nunca la de /admin)
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    ShareLinkId:
+      name: shareLinkId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED (INV-AUTH-007)
+      schema: { type: string, const: '1' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID v4 del cliente, uno por intento de creacion y reutilizado en los reintentos (EDGE-005-16/17); unico por (creador, clave)
+      schema: { type: string, format: uuid }
+    IncludeMicrochip:
+      name: includeMicrochip
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+    IncludeClinicalFiles:
+      name: includeClinicalFiles
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+    IncludeDeceasedAt:
+      name: includeDeceasedAt
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+  headers:
+    NoStore:
+      description: "no-store: respuestas con metadatos de enlaces o con la URL de un solo uso"
+      schema: { type: string, const: 'no-store' }
+  responses:
+    Problem:
+      description: "Error tipado del catalogo (RFC 9457). 404 uniforme (ERR-HOUSE-NOT-FOUND, ERR-PET-NOT-FOUND o ERR-SHARE-NOT-FOUND segun el recurso); 403 ERR-AUTH-CSRF-REJECTED sin cabecera y ERR-ACC-FORBIDDEN en createPetsShareLink sin autoridad de creacion; 409 ERR-SHARE-LINK-LIMIT; 422 ERR-VET12-PETS-EMPTY o ERR-SCHEMA-VALIDATION-FAILED; 429 ERR-RATE-LIMITED"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

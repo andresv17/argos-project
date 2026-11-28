@@ -81,6 +81,12 @@ La cola de disputas exige que cada administrador que resuelva o confirme tenga `
 3. **Comprobar:** `SELECT email, person_id FROM admin_identities WHERE person_id IS NOT NULL;` debe listar a ambos. La prueba de `T1637` abre la cola `/admin` con cada uno (la reautenticación del step-up en local es nominal; la real es `DEUDA-012-ADMIN-STEPUP-PROD`, `claude/deuda-012-admin-stepup-prod.md`).
 4. **Producción:** el mismo `UPDATE` sobre PostgreSQL lo ejecuta Neo con acceso a la base; no es una operación de agentes ni de la aplicación. Una ruta o interfaz de asignación para `SUPER_ADMIN` queda **fuera de la 012** y solo se abre si Neo lo decide.
 
+### Despliegue en dos fases de `ENM-005-E` (`#81`, `T1693`, `T1695`; annex §8.2 y §8.6)
+
+1. **Precondición bloqueante de la Fase 1** (`DEUDA-012-TERRAFORM-LOGS-QR`): la ruta `GET /households/{householdId}/clinical-summary/pets` queda desplegada con la bandera apagada y Cloud Run registra su `httpRequest.requestUrl` (con `?petIds=`). Antes de desplegar la Fase 1, Neo aplica en `terraform/logging.tf` (rama de infraestructura, tras `terraform plan`) la exclusión de la entrada de esa ruta. Las exclusiones descartan la entrada entera, no un campo.
+2. **Fase 1**: esquema migrado y lector exhaustivo con `ARGOS_SHARE_PETS_CREATE_ENABLED` ausente u OFF. **Fase 2**: con todos los pods en Fase 1 y la SPA tolerante desplegada, fijar `ARGOS_SHARE_PETS_CREATE_ENABLED=true` (solo la cadena exacta `true`) y **reiniciar los pods** (la bandera se lee al arrancar).
+3. **Rollback tras el primer `PETS`** (annex §8.2.4): (a) apagar la bandera y reiniciar los pods; (b) revocar todos los `PETS` (`UPDATE share_links SET revoked_at = … WHERE scope = 'PETS' AND revoked_at IS NULL`); (c) solo entonces retirar el código. Nunca volver a un lector sin la rama `PETS` con enlaces `PETS` activos.
+
 ### Criterio de release bloqueante del QR en producción (`T1681`, `T1682`, `T1685`; `SC-012-107`)
 
 El código del QR (Bloque D) puede probarse en local, pero **no se activa en producción** hasta que Neo marque todas las casillas de `claude/release-qr-012-checklist.md`. Las deudas que lo bloquean:

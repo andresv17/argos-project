@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/share-link-pets.schema.json",
+  "title": "ShareLinkPetsSchema",
+  "description": "Alcance PETS de los enlaces de solo lectura para el veterinario [REQ-VET12-001..008, D12-19..D12-21, ENM-005-E]. Esquemas INCREMENTALES de la feature 012 (DRAFT 0.2.2, Bloque E, #81, T1690). Objetos cerrados. NO edita share-link.schema.json ni clinical-summary.schema.json de 005 (APPROVED/DRAFT ajenos): las vistas de 005 para PET/HOUSEHOLD no cambian; el tercer valor de alcance PETS y su efecto en 005 se declaran como enmienda ENM-005-E en share-link-subset-annex.md, que firma solo Neo. Sin tokenHash, sin token en vistas de lectura (INV-005-005). La respuesta publica /shared/{token}/summary conserva el envoltorio SharedSummaryView de 005 sin cambio de forma.",
+  "x-sdd-metadata": {
+    "version": "0.2.2",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "change_note": "0.2.2 (2026-11-28, APPROVED por Neo Nivel 2): ronda r3 de T1691 y decisiones de Neo; historial completo en share-link-subset-annex.md.",
+    "traceability": [
+      "REQ-VET12-001",
+      "REQ-VET12-002",
+      "REQ-VET12-003",
+      "REQ-VET12-004",
+      "REQ-VET12-005",
+      "REQ-VET12-006",
+      "REQ-VET12-007",
+      "REQ-VET12-008",
+      "INV-VET12-001",
+      "INV-VET12-002",
+      "INV-VET12-003",
+      "INV-VET12-004",
+      "SC-012-053",
+      "SC-012-056",
+      "SC-012-058",
+      "SC-012-063",
+      "SC-012-065",
+      "SC-012-066",
+      "D12-19",
+      "D12-20",
+      "D12-21",
+      "ENM-005-E",
+      "T1690",
+      "EDGE-012-070",
+      "EDGE-012-071",
+      "EDGE-012-072",
+      "EDGE-012-073",
+      "EDGE-012-074",
+      "EDGE-012-075",
+      "EDGE-012-076",
+      "EDGE-012-077"
+    ]
+  },
+  "x-sdd-constants": {
+    "MAX_SHARE_LINK_PETS": {
+      "value": 20,
+      "rule": "maximo de mascotas por enlace PETS (D12-21); un petIds de mas de 20 es ERR-SCHEMA-VALIDATION-FAILED; la lista vacia o con IDs inexistentes, ajenos, no elegibles o repetidos es ERR-VET12-PETS-EMPTY (REQ-VET12-001, REQ-VET12-003, SC-012-063)"
+    },
+    "SHARE_LINK_ACTIVE_CAP_COUNT": {
+      "value": 1,
+      "where": "REQ-VET-012 de 005 (D5-18, 20 enlaces activos por hogar)",
+      "rule": "un enlace PETS cuenta como UNO para el tope de 20 del hogar de origen sin importar cuantas mascotas incluya (D12-21, SC-012-066); el tope se cuenta junto con los enlaces HOUSEHOLD del mismo hogar bajo el candado del hogar"
+    },
+    "AUDIT_EVENTS": {
+      "value": [
+        "CREATED",
+        "REVOKED"
+      ]
+    }
+  },
+  "$defs": {
+    "PetIdList": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+      },
+      "description": "Identificadores de las mascotas del subconjunto. SIN uniqueItems ni minItems: un uniqueItems daria un error de esquema distinto y romperia la uniformidad; el uniqueItems de PetsShareLinkView.petIds es de RESPUESTA y no se copia aqui. Cada elemento es un Uuid de 001, que solo acepta MINUSCULAS: un UUID con mayusculas o mal formado es ERR-SCHEMA-VALIDATION-FAILED y NO hay normalizacion de dominio. Con la forma valida, el dominio comprueba repetidos ANTES de la elegibilidad; la lista vacia y los IDs inexistentes, ajenos, no elegibles o repetidos los valida el dominio en la misma transaccion que crea el enlace y devuelven todos el MISMO 422 ERR-VET12-PETS-EMPTY sin eco de ningun valor (INV-VET12-001/002, SC-012-063); mas de 20 elementos es ERR-SCHEMA-VALIDATION-FAILED (MAX_SHARE_LINK_PETS, D12-21). En la query de la vista previa el valor vacio ?petIds= es un caso especial que equivale a la lista vacia"
+    },
+    "CreatePetsShareLinkInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petIds"
+      ],
+      "properties": {
+        "petIds": {
+          "$ref": "#/$defs/PetIdList"
+        },
+        "expiresInDays": {
+          "type": "integer",
+          "enum": [
+            1,
+            7,
+            30
+          ],
+          "default": 7,
+          "description": "Misma enumeracion que 005 (D5-11, REQ-VET-004)"
+        },
+        "includeMicrochip": {
+          "type": "boolean",
+          "default": false,
+          "description": "Inmutable tras crear; aplica a todas las mascotas del subconjunto (D5-14)"
+        },
+        "includeClinicalFiles": {
+          "type": "boolean",
+          "default": false,
+          "description": "Inmutable; con false el enlace no sirve ni lista archivos (D5-21)"
+        },
+        "includeDeceasedAt": {
+          "type": "boolean",
+          "default": false,
+          "description": "Inmutable; aplica a las mascotas fallecidas del subconjunto (007, T1026)"
+        }
+      },
+      "description": "Cuerpo de creacion de un enlace PETS. El hogar sale de la ruta, nunca del cuerpo. Las opciones replican CreateShareLinkInput de 005 y se aplican a todo el subconjunto. Cabecera Idempotency-Key como en 005 (EDGE-005-16/17)"
+    },
+    "PetsShareLinkView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "scope",
+        "status",
+        "createdAt",
+        "expiresAt",
+        "revokedAt",
+        "includeMicrochip",
+        "includeClinicalFiles",
+        "petIds",
+        "petCount",
+        "createdByMe"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "scope": {
+          "type": "string",
+          "const": "PETS"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "EXPIRED",
+            "REVOKED"
+          ],
+          "description": "Derivado como en STATE-SHARE-001 de 005; sin estado persistido nuevo"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "expiresAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "revokedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "includeMicrochip": {
+          "type": "boolean"
+        },
+        "includeClinicalFiles": {
+          "type": "boolean"
+        },
+        "includeDeceasedAt": {
+          "type": "boolean",
+          "description": "Opcional, como en 005"
+        },
+        "petIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+          },
+          "description": "Solo las mascotas del enlace sobre las que QUIEN CONSULTA tiene autoridad de lectura (REQ-VET12-007: un co-propietario no recibe IDs de mascotas ajenas del mismo enlace). Un enlace con cero visibles para quien consulta NO se devuelve (se omite de items). Estatico: lo fijado al crear menos las retiradas. Con PN-08 el enlace se revoca cuando una mascota sale del hogar o el creador pierde autoridad. uniqueItems solo aplica a esta RESPUESTA"
+        },
+        "petCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Igual a petIds.length (solo las visibles para quien consulta; nunca el total del enlace)"
+        },
+        "createdByMe": {
+          "type": "boolean",
+          "description": "true si lo creo quien consulta; ninguna identidad ni correo del creador cuando es otro co-propietario (REQ-VET12-007)"
+        }
+      },
+      "description": "Vista privada de un enlace PETS. Nunca incluye token, tokenHash ni URL (la URL solo existe en CreatePetsShareLinkResult.url, una vez) ni householdId: el hogar ya consta en la ruta de las listas del hogar y un co-propietario puede no ser miembro de ese hogar"
+    },
+    "CreatePetsShareLinkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link",
+        "url"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/PetsShareLinkView"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://[^\\s?#]+/shared/[A-Za-z0-9_-]{43}$",
+          "maxLength": 2048,
+          "description": "URL publica /shared/{token}, UNA sola vez, Cache-Control: no-store, sin registrar ni auditar (INV-005-005)"
+        }
+      }
+    },
+    "CreatePetsShareLinkReplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link",
+        "urlAvailable"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/PetsShareLinkView"
+        },
+        "urlAvailable": {
+          "type": "boolean",
+          "const": false,
+          "description": "Siempre false: el token no es recuperable (EDGE-005-16/17)"
+        }
+      },
+      "description": "Reintento 200 con la misma Idempotency-Key: sin URL ni token, sin fila ni auditoria nuevas; misma clave con otros petIds u opciones = 422"
+    },
+    "PetsShareLinkList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "activeCount",
+        "maxActiveLinks"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PetsShareLinkView"
+          },
+          "description": "Items con al menos una mascota visible para quien consulta; los de filtro vacio se omiten"
+        },
+        "activeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20,
+          "description": "En listHouseholdPetsShareLinks: enlaces activos del hogar con scope IN (HOUSEHOLD, PETS), de todos los creadores (el numero que decide el 409 ERR-SHARE-LINK-LIMIT; solo un conteo, sin IDs; puede superar los items). En listPetPetsShareLinks: solo los PETS activos visibles para quien consulta que contienen la mascota. Cambio de semantica respecto de activeCount de 005: cuenta tambien PETS de otros titulares del hogar (solo un numero, sin IDs ni creador; alcance documentado en annex 5.5)"
+        },
+        "maxActiveLinks": {
+          "type": "integer",
+          "const": 20
+        }
+      },
+      "description": "Lista de enlaces PETS (activos y vencidos o revocados de los ultimos 30 dias, D5-20), orden (createdAt DESC, id DESC)"
+    },
+    "PetsPreviewView": {
+      "type": "object",
+      "description": "Objeto de referencia sin validar y deliberadamente abierto: la forma buscada es SharedSummaryView de 005 mas petIds (ver share-link-subset-annex.md 10.3).",
+      "additionalProperties": true
+    }
+  }
+}
