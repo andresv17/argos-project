@@ -3,6 +3,8 @@
  *
  * @implements REQ-VET12-007, D-1
  */
+import { useEffect, useRef } from 'react';
+import { attachDialogFocus, handleDialogKey } from '../alert-dialog-focus.ts';
 import { PETS_ACTION_REVOCATION_NOTICE } from '../pets-link-notice.ts';
 import { Button } from './Field.tsx';
 
@@ -12,8 +14,20 @@ export function PetsRevocationConfirm({ id, confirmLabel, onConfirm, onCancel }:
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }): JSX.Element {
+  const container = useRef<HTMLDivElement>(null);
+  // El disparador es el elemento activo en el montaje (el efecto corre antes de que el foco se mueva).
+  useEffect(() => attachDialogFocus(container.current, document.activeElement as HTMLElement | null), []);
   return (
-    <div role="alertdialog" aria-labelledby={`${id}-notice`} data-pets-revocation-notice className="grid gap-2 rounded-2xl border-2 border-danger bg-red-50 p-4">
+    <div
+      ref={container}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (handleDialogKey(event.key, onCancel)) event.stopPropagation();
+      }}
+      role="alertdialog"
+      aria-labelledby={`${id}-notice`}
+      data-pets-revocation-notice
+      className="grid gap-2 outline-none rounded-2xl border-2 border-danger bg-red-50 p-4">
       <p id={`${id}-notice`} className="text-sm font-semibold text-red-900">
         {PETS_ACTION_REVOCATION_NOTICE}
       </p>
