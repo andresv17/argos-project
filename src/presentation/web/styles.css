@@ -122,9 +122,19 @@ body {
   display: none;
 }
 
+/* Tamaño A6 en milímetros (la palabra clave `A6` no existe en Chromium) mediante página con nombre: la hoja cuelga directo de `body` (portal), así que `page:` aplica. */
+@page qr-a6 {
+  size: 105mm 148mm;
+  margin: 0;
+}
+
+.qr-a6 {
+  page: qr-a6;
+}
+
 @media print {
   /* Solo la hoja (MEDIA-1 de /sati): el resto de la app sale del flujo con `display: none` (no ocupa papel ni se repite en cada página) y la hoja queda en flujo normal; los ancestros de la hoja
-     se quedan visibles pero sin relleno, margen ni altura mínima. El tamaño A6 (105 x 148 mm; la palabra clave `A6` no existe en Chromium) lo fija un `@page` SIN nombre que `EmergencyCard` inyecta mientras dure `printing-qr` (`page: nombre` no aplica a una hoja anidada). */
+     se quedan visibles pero sin relleno, margen ni altura mínima. El tamaño A6 lo fija `@page qr-a6` (hoja montada bajo `body` por portal). */
   body.printing-qr :not(.qr-a6, .qr-a6 *, :has(.qr-a6)) {
     display: none !important;
   }

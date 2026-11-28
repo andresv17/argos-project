@@ -50,24 +50,43 @@ export function isSafeQrSvg(svg: string): boolean {
 
 export const qrFileName = (extension: 'svg' | 'png'): string => `ficha-qr-emergencia.${extension}`;
 
-/** Descarga por `Blob` y atributo `download` (jamás HTML en línea); el enlace temporal se retira y la URL se revoca. */
+let pendingUrl: string | null = null;
+let pagehideBound = false;
+const releasePending = (): void => {
+  if (pendingUrl !== null) URL.revokeObjectURL(pendingUrl);
+  pendingUrl = null;
+};
+
+/**
+ * Descarga por `Blob` y atributo `download` (jamás HTML en línea). La URL NO se revoca en el mismo turno que `click()` (algunos navegadores cancelan la descarga):
+ * se revoca al empezar la descarga siguiente o al salir de la página (`pagehide`); sin temporizadores en la UI (REQ-UI-002).
+ */
 export function downloadBlobAs(blob: Blob, fileName: string): void {
+  releasePending();
   const url = URL.createObjectURL(blob);
+  pendingUrl = url;
+  if (!pagehideBound) {
+    pagehideBound = true;
+    window.addEventListener('pagehide', releasePending);
+  }
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
+  link.rel = 'noopener';
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
 }
+
+/** `data:` URI del SVG: la CSP de producción (`img-src 'self' data:`) NO admite `blob:`. Solo tras `isSafeQrSvg`; devuelve `null` si el SVG no es seguro. */
+export const svgDataUri = (svg: string): string | null => (isSafeQrSvg(svg) ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null);
 
 export const svgBlob = (svg: string): Blob => new Blob([svg], { type: 'image/svg+xml' });
 
 /** PNG en el cliente desde el mismo SVG (canvas), `size` px de lado con margen blanco; falla con `null` si el navegador no lo permite. */
 export async function svgToPngBlob(svg: string, size = 1024): Promise<Blob | null> {
-  if (!isSafeQrSvg(svg)) return null;
-  const url = URL.createObjectURL(svgBlob(svg));
+  const url = svgDataUri(svg);
+  if (url === null) return null;
   try {
     const image = new Image();
     await new Promise<void>((resolve, reject) => {
@@ -87,7 +106,5 @@ export async function svgToPngBlob(svg: string, size = 1024): Promise<Blob | nul
     return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   } catch {
     return null;
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }

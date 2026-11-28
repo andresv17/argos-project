@@ -7,6 +7,7 @@
 #         respeto a `nosemgrep`). La aproximacion puede dar falsos positivos (cadenas, comentarios de una linea); CI manda.
 #   (ii)  tests/ no puede leer `claude/` ni archivos sin seguimiento de git (en CI el arbol limpio no los tiene: ver t841).
 #   (iii) sin archivos rastreados modificados fuera de commit (ni en el indice) en .env.example, src/, tests/, terraform/ y .github/.
+#   (iv)  ninguna spec de Vitest (tests/{unit,integration,property,security}/) importa playwright sin guarda skipIf + executablePath.
 #
 # Uso: bash scripts/verify-ci-ready.sh [--root DIR]
 # Entorno: ARGOS_CI_READY_FORCE_STATIC=1 fuerza la comprobacion estatica aunque semgrep exista (pruebas).
@@ -77,6 +78,19 @@ else
     fail "archivos rastreados modificados sin commit (CI no los vera):"
     printf '%s\n' "$DIRTY" | sed 's/^/         /'
   fi
+fi
+
+echo "== (iv) tests Vitest sin dependencia no protegida de navegadores Playwright =="
+if [ -d tests ]; then
+  PW_OUT="$(node "$SCRIPT_DIR/lib/ci-ready-playwright-guard.mjs")"
+  if [ -z "$PW_OUT" ]; then
+    pass "tests Vitest no lanzan Playwright sin guarda skipIf + executablePath"
+  else
+    fail "tests Vitest importan playwright sin guarda (test-gate.yml no instala navegadores):"
+    printf '%s\n' "$PW_OUT" | sed 's/^/         /'
+  fi
+else
+  pass "sin tests/: nada que analizar"
 fi
 
 echo

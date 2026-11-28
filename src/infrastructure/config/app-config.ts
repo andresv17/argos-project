@@ -100,6 +100,8 @@ export interface AppConfig {
   readonly adminEmails: readonly string[];
   /** Fase 2 del despliegue de `ENM-005-E` (feature 012, Bloque E): `ARGOS_SHARE_PETS_CREATE_ENABLED`. Solo la cadena exacta `true` (sin `trim`, sensible a mayúsculas) enciende la creación del alcance `PETS`; defecto OFF; fijada al arrancar. */
   readonly sharePetsCreateEnabled: boolean;
+  /** Secreto compartido con Cloudflare (`ARGOS_ORIGIN_VERIFY_SECRET`): opcional; presente = exige cabecera `X-Origin-Verify` en rutas públicas/API. Propiedad NO enumerable. */
+  readonly originVerifySecret: string | null;
 }
 
 /** @implements REQ-SSO8-007, NFR-008-004, INV-ARCH-006 */
@@ -377,6 +379,9 @@ export function isValidGoogleRedirectUri(value: string): boolean {
 const AUDIT_SECRET_NAME = 'ARGOS_AUDIT_HMAC_SECRET';
 /** >= 32 bytes en hexadecimal: 64 o más caracteres hexadecimales, en número par. */
 const AUDIT_SECRET_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/;
+const ORIGIN_VERIFY_SECRET_NAME = 'ARGOS_ORIGIN_VERIFY_SECRET';
+/** Secreto compartido con Cloudflare: 32..256 caracteres ASCII visibles sin espacios ni comas. */
+const ORIGIN_VERIFY_SECRET_PATTERN = /^[\x21-\x7e]{32,256}$/;
 
 const validateRawConfig = new Ajv({ allErrors: true }).compile(APP_CONFIG_SCHEMA);
 
@@ -558,8 +563,10 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience || invalidPublicBase) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidPublicBase ? [PUBLIC_BASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  const originVerifySecret = present(ORIGIN_VERIFY_SECRET_NAME) ?? null;
+  const invalidOriginVerifySecret = originVerifySecret !== null && (!ORIGIN_VERIFY_SECRET_PATTERN.test(originVerifySecret) || originVerifySecret.includes(','));
+  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidOriginVerifySecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience || invalidPublicBase) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidPublicBase ? [PUBLIC_BASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : []), ...(invalidOriginVerifySecret ? [ORIGIN_VERIFY_SECRET_NAME] : [])]);
   }
   const scene: SceneConfig = Object.defineProperty(
     {
@@ -581,7 +588,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     'geminiApiKey',
     { value: geminiActive || geminiRouted ? geminiKey! : null, enumerable: false, writable: false, configurable: false },
   ) as SceneConfig;
-  return {
+  const result = {
     port: Number(raw.PORT),
     host: raw.HOST as AppConfig['host'],
     databasePath: raw.DATABASE_PATH,
@@ -615,4 +622,10 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
       ? {}
       : { google: Object.defineProperty({ clientId: googleId, redirectUri: googleRedirect }, 'clientSecret', { value: googleSecret, enumerable: false, writable: false, configurable: false }) as GoogleOAuthConfig }),
   };
+  return Object.defineProperty(result, 'originVerifySecret', {
+    value: originVerifySecret,
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  }) as unknown as AppConfig;
 }

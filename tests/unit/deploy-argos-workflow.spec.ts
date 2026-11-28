@@ -223,14 +223,17 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     const step = /^ {6}- name:\s*[^\n]*Smoke test[^\n]*\n(?: {8}[^\n]*\n|\n)*/m.exec(d)?.[0] ?? '';
     expect(step).not.toBe('');
     const curls = step.split('\n').filter((l) => /curl/.test(l) && l.includes('${TAG_URL}'));
-    expect(curls).toHaveLength(2);
+    // H-01: rama condicional ORIGIN_VERIFY_ENABLED. Sondeo de estado (sin --fail) + fallback con reintentos.
+    expect(curls).toHaveLength(3);
+    expect(step).toMatch(/\$\{ORIGIN_VERIFY_ENABLED:-false\}" = "true"/);
+    expect(step).toContain('"$STATUS" != "403"');
     const jobName = /^ {4}name:\s*(.+)$/m.exec(d)?.[1] ?? '';
     const stepName = /^ {6}- name:\s*(.*Smoke test.*)$/m.exec(d)?.[1] ?? '';
     expect(jobName).toContain('Smoke test');
     expect(jobName).not.toMatch(/humo/i);
     expect(stepName).not.toMatch(/humo/i);
     for (const url of ['${TAG_URL}/readyz', '${TAG_URL}/']) {
-      const curl = curls.find((l) => new RegExp(url.replace(/[$/{}]/g, '\\$&') + '(["\\s]|$)').test(l)) ?? '';
+      const curl = curls.find((l) => new RegExp(url.replace(/[$/{}]/g, '\\$&') + '(["\\s]|$)').test(l) && /--fail/.test(l)) ?? '';
       expect(curl, url).not.toBe('');
       expect(curl).toContain('--fail');
       expect(curl).toMatch(/--retry 18(\s|$)/);

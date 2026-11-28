@@ -255,6 +255,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     ...(config.mediaDriver === 'gcs' && config.mediaBucket !== null ? { mediaHost: mediaBucketHost(config.mediaBucket) } : {}),
     // Ruta de desarrollo `/__dev/media/…` solo con el adaptador de memoria; la configuración ya impide ese driver con NODE_ENV=production (T566).
     ...(config.mediaDriver === 'memory' && mediaStorage !== null ? { devMedia: { storage: mediaStorage } } : {}),
+    // Bloqueo de acceso directo a *.run.app cuando el secreto compartido con Cloudflare está configurado.
+    ...(config.originVerifySecret === null ? {} : { originVerifySecret: config.originVerifySecret }),
   });
   logging.app = app;
   app.addHook('onClose', () => persistence.close());

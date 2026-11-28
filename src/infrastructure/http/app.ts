@@ -11,6 +11,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { registerAdminGate } from './admin-gate.ts';
 import { registerCsrfGuard } from './plugins/csrf-guard.ts';
+import { registerOriginVerifyGuard } from './plugins/origin-verify.ts';
 import { registerProblemDetails } from './plugins/problem-details.ts';
 import { registerDevMediaRoutes, type DevMediaOptions } from './routes/dev-media.routes.ts';
 import { registerSecurityHeaders } from './plugins/security-headers.ts';
@@ -63,10 +64,12 @@ export interface HttpAppOptions {
   readonly mediaHost?: string;
   /** Adaptador de memoria y entorno para la ruta de desarrollo `/__dev/media/…` (T571); ausente con el driver gcs. */
   readonly devMedia?: DevMediaOptions;
+  /** Secreto compartido con Cloudflare (`ARGOS_ORIGIN_VERIFY_SECRET`): si está presente exige cabecera `X-Origin-Verify`. */
+  readonly originVerifySecret?: string | null;
 }
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
-export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia, originVerifySecret }: HttpAppOptions): Promise<FastifyInstance> {
   // `frameworkErrors` (EDGE-005-25): la URL mal codificada bajo `/api/shared/` responde el 404 uniforme del enlace veterinario, no el 400 de Fastify.
   const sharedFailure: { current: ReturnType<typeof createSharedFailure> | null } = { current: null };
   const app = Fastify({
@@ -80,6 +83,9 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
   app.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
   registerProblemDetails(app);
   registerSecurityHeaders(app, mediaHost === undefined ? {} : { mediaHost });
+  if (originVerifySecret !== undefined && originVerifySecret !== null) {
+    registerOriginVerifyGuard(app, originVerifySecret);
+  }
   // La página HTML `/shared/{token}` (SPA sin datos) lleva las mismas cabeceras de REQ-VET-006 y su CSP propia, también en el fallback estático (REQ-VET-006, A-15).
   app.addHook('onRequest', async (request, reply) => {
     if (isSharedPagePath(request.url)) applySharedHeaders(reply, true);

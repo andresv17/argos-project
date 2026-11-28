@@ -190,9 +190,44 @@ resource "google_secret_manager_secret" "phone_hmac_key" {
   depends_on = [google_project_service.apis]
 }
 
+# Verificación de origen Cloudflare (bloqueo de acceso directo a *.run.app, mitigación H-01 a costo $0).
+# El valor llega por TF_VAR_origin_verify_secret (GitHub Secret) y nunca se escribe aquí. La versión es CONDICIONAL (count): con la variable
+# vacía no se crea versión y deploy-argos.yml no referencia ARGOS_ORIGIN_VERIFY_SECRET (el despliegue no falla). Una versión cargada a mano con
+# gcloud sigue siendo válida (el recurso solo agrega versiones y la deja en ABANDON al destruir).
+resource "google_secret_manager_secret" "origin_verify_secret" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-origin-verify-secret"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_secret_manager_secret_version" "phone_hmac_key" {
   secret          = google_secret_manager_secret.phone_hmac_key.id
   secret_data     = var.phone_hmac_key
+  deletion_policy = "ABANDON"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_secret_manager_secret_version" "origin_verify_secret" {
+  count           = var.origin_verify_secret != "" ? 1 : 0
+  secret          = google_secret_manager_secret.origin_verify_secret.id
+  secret_data     = var.origin_verify_secret
   deletion_policy = "ABANDON"
 
   lifecycle {
