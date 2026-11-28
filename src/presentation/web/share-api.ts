@@ -157,6 +157,8 @@ export interface ShareApi {
   createPetsShareLink(householdId: string, body: CreatePetsShareLinkBody, idempotencyKey: string): Promise<CreatePetsShareLinkOutcome>;
   /** Enlaces `PETS` del hogar visibles para quien consulta. */
   listPets(householdId: string): Promise<PetsShareLinkListResult>;
+  /** Enlaces `PETS` que incluyen una mascota y son visibles para quien consulta (`listPetPetsShareLinks`, annex §5.3). */
+  listPetPets(petId: string): Promise<PetsShareLinkListResult>;
   /** Retira UNA mascota de un enlace `PETS` sin revocarlo para las demás (404 uniforme si no aplica). */
   withdrawPet(shareLinkId: string, petId: string): Promise<void>;
   revoke(shareLinkId: string): Promise<void>;
@@ -218,6 +220,10 @@ export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...a
     },
     async listPets(householdId) {
       const response = await send(`/households/${householdId}/share-links/pets`, authed('GET'));
+      return { ...(await json<PetsShareLinkList>(response)), serverNow: parseHttpDate(response.headers.get('date')) };
+    },
+    async listPetPets(petId) {
+      const response = await send(`/pets/${encodeURIComponent(petId)}/share-links/pets`, authed('GET'));
       return { ...(await json<PetsShareLinkList>(response)), serverNow: parseHttpDate(response.headers.get('date')) };
     },
     async withdrawPet(shareLinkId, petId) {

@@ -12,7 +12,10 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
 import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
+import { PetsRevocationConfirm } from '../components/PetsRevocationConfirm.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
+import { guardPetsRevocation, roleChangeCanRevokePetsLinks } from '../pets-link-notice.ts';
+import { createShareApi } from '../share-api.ts';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { HouseholdAlbum } from '../components/HouseholdAlbum.tsx';
 import { useSession } from '../session.tsx';
@@ -468,6 +471,7 @@ export function HouseholdsPage(): JSX.Element {
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [petsNotice, setPetsNotice] = useState<{ householdId: string; label: string; proceed: () => void } | null>(null);
   const [pendingTransfer, setPendingTransfer] = useState<{ householdId: string; userId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -526,13 +530,20 @@ export function HouseholdsPage(): JSX.Element {
     },
   });
 
+  /** Annex §5.1 / `D-1 = (a)`: salir, ser expulsado o degradarse puede revocar enteros los enlaces `PETS` del hogar; con enlaces activos visibles se pide confirmación antes. */
+  const withPetsNotice = (householdId: string, label: string, proceed: () => void): void => {
+    void guardPetsRevocation(async () => (await createShareApi().listPets(householdId)).items, proceed, (confirm) => setPetsNotice({ householdId, label, proceed: confirm }));
+  };
+
   const onMemberAction = (householdId: string) => (userId: string): void => {
-    void run(() => unwrap(api.DELETE('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } } })));
+    withPetsNotice(householdId, 'Continuar', () => void run(() => unwrap(api.DELETE('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } } }))));
   };
 
   const onChangeRole = (householdId: string) => (userId: string, role: HouseholdRole): void => {
     setNotice(null);
-    void run(() => unwrap(api.PATCH('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } }, body: { role } })));
+    const change = (): void => void run(() => unwrap(api.PATCH('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } }, body: { role } })));
+    if (roleChangeCanRevokePetsLinks(role)) withPetsNotice(householdId, 'Cambiar el rol', change);
+    else change();
   };
 
   const confirmTransfer = (): void => {
@@ -631,6 +642,18 @@ export function HouseholdsPage(): JSX.Element {
                   inviteForm={current.isHouseholdOwner ? <InviteForm householdId={current.household.id} onInvited={load} /> : null}
                 />
               </HouseholdDetail>
+              {petsNotice?.householdId === current.household.id ? (
+                <PetsRevocationConfirm
+                  id={`pets-notice-${current.household.id}`}
+                  confirmLabel={petsNotice.label}
+                  onConfirm={() => {
+                    const { proceed } = petsNotice;
+                    setPetsNotice(null);
+                    proceed();
+                  }}
+                  onCancel={() => setPetsNotice(null)}
+                />
+              ) : null}
               {pendingTransfer?.householdId === current.household.id ? (
                 <div role="alertdialog" aria-labelledby={`transfer-${current.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">
                   <p id={`transfer-${current.household.id}`} className="text-sm text-slate-900">

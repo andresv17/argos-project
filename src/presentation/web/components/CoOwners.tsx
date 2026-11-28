@@ -16,7 +16,10 @@ import {
   type OwnershipView,
 } from '../co-ownership-api.ts';
 import { canOfferLeave } from '../co-ownership-gating.ts';
+import { guardPetsRevocation } from '../pets-link-notice.ts';
+import { createShareApi, type ShareApi } from '../share-api.ts';
 import { Button } from './Field.tsx';
+import { PetsRevocationConfirm } from './PetsRevocationConfirm.tsx';
 
 const messageOf = (error: unknown): string => ownershipProblemMessage(error instanceof CoOwnershipApiError ? error.code : 'ERR-INTERNAL-UNEXPECTED');
 
@@ -69,7 +72,7 @@ function OwnersList({ ownership }: { readonly ownership: OwnershipView }): JSX.E
 }
 
 /** @implements REQ-OWN12-002, REQ-OWN12-004, REQ-OWN12-006, INV-OWN12-004 */
-export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwnershipLoaded, api = createCoOwnershipApi() }: {
+export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwnershipLoaded, api = createCoOwnershipApi(), shareApi }: {
   readonly petId: string;
   readonly petName: string;
   readonly currentUserId: string;
@@ -78,6 +81,8 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   /** H-K1: avisa a la ficha del número de propietarios ACTIVE tras cada lectura, para ocultar Eliminar/Transferir. */
   readonly onOwnershipLoaded?: (view: OwnershipView) => void;
   readonly api?: CoOwnershipApi;
+  /** Cliente de enlaces para el aviso previo de revocación (annex §5.1); por defecto el de la sesión. */
+  readonly shareApi?: ShareApi;
 }): JSX.Element {
   const [ownership, setOwnership] = useState<OwnershipView | null>(null);
   const [username, setUsername] = useState('');
@@ -85,6 +90,11 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  /** Ceder el principal o salir de la co-propiedad revoca enteros los enlaces `PETS` afectados (annex §5.1, D-1): con enlaces activos se pide confirmación antes. */
+  const [petsNotice, setPetsNotice] = useState<{ readonly label: string; readonly proceed: () => void } | null>(null);
+  const withPetsNotice = (label: string, proceed: () => void): void => {
+    void guardPetsRevocation(async () => (await (shareApi ?? createShareApi()).listPetPets(petId)).items, proceed, (confirm) => setPetsNotice({ label, proceed: confirm }));
+  };
   const headingRef = useRef<HTMLHeadingElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   // La función de aviso cambia en cada render de la ficha: se lee por referencia para no relanzar la consulta.
@@ -232,7 +242,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
                 )}
                 {isPrincipal
                   ? coOwnersActive.map((row) => (
-                      <Button key={row.id} variant="secondary" disabled={busy} ariaLabel={`Pedir que @${row.username} sea el propietario principal`} onClick={() => void run(async () => { await api.createRequest(petId, { action: 'CHANGE_PRINCIPAL', targetUserId: row.userId }); return `Pediste que @${row.username} sea el propietario principal.`; })}>
+                      <Button key={row.id} variant="secondary" disabled={busy} ariaLabel={`Pedir que @${row.username} sea el propietario principal`} onClick={() => withPetsNotice('Pedir el cambio de principal', () => void run(async () => { await api.createRequest(petId, { action: 'CHANGE_PRINCIPAL', targetUserId: row.userId }); return `Pediste que @${row.username} sea el propietario principal.`; }))}>
                         {`Pasar el principal a @${row.username}`}
                       </Button>
                     ))
@@ -262,7 +272,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
                   {isPrincipal ? 'Vas a salir como propietario principal: el principal pasa al co-propietario más antiguo.' : 'Vas a dejar de ser propietario de esta mascota.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="danger" disabled={busy} onClick={() => void run(async () => { await api.leave(petId); return null; }, () => onChanged?.())}>
+                  <Button variant="danger" disabled={busy} onClick={() => withPetsNotice('Salir de todos modos', () => void run(async () => { await api.leave(petId); return null; }, () => onChanged?.()))}>
                     Sí, salir
                   </Button>
                   <Button variant="secondary" onClick={() => setConfirmLeave(false)}>
@@ -279,6 +289,18 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
             )}
           </div>
           ) : null}
+          {petsNotice === null ? null : (
+            <PetsRevocationConfirm
+              id={`owners-pets-${petId}`}
+              confirmLabel={petsNotice.label}
+              onConfirm={() => {
+                const { proceed } = petsNotice;
+                setPetsNotice(null);
+                proceed();
+              }}
+              onCancel={() => setPetsNotice(null)}
+            />
+          )}
         </>
       )}
     </section>
