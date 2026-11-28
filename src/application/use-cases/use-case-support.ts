@@ -169,6 +169,20 @@ export interface AdminServices {
   readonly allowedEmails: readonly string[];
 }
 
+/**
+ * Ficha QR de emergencia (feature 012, Bloque D, #32, T1675): configuración ya validada por la composición (`emergency-config.ts`, INV-ARCH-006) y la entropía del token (puerto CSPRNG). `phoneHmacKey` es la
+ * clave DEDICADA del teléfono (`PHONE_HMAC_KEY`); `publicBaseUrl` es la ÚNICA fuente de la URL del QR (`ARGOS_PUBLIC_BASE_URL`); la versión vigente del aviso y su entrada en vigor salen de `feature-012-limits.ts`.
+ * Ausente: los casos de uso de la ficha fallan cerrados con un error interno.
+ */
+export interface EmergencyServices {
+  readonly phoneHmacKey: string;
+  readonly publicBaseUrl: string;
+  readonly noticeVersion: string;
+  readonly noticeEffectiveAt: string;
+  /** 32 bytes de CSPRNG por llamada (`generateEmergencyToken`); la implementación real vive en infraestructura. */
+  readonly entropy: { next32(): Uint8Array };
+}
+
 export interface ApplicationDeps {
   /**
    * Tope de hogares ACTIVOS por persona (feature 011, REQ-HOG11-004, INV-HOG11-001): lo inyecta la composición desde `MAX_HOUSEHOLDS_PER_USER` (`app-config.ts`, única fuente).
@@ -220,6 +234,8 @@ export interface ApplicationDeps {
   readonly structuredLog?: StructuredLogPort;
   /** Análisis antimalware de la evidencia de disputas (feature 012, T1641). Ausente: la subida de evidencia falla cerrada (503). */
   readonly malwareScanner?: MalwareScannerPort;
+  /** Ficha QR de emergencia (feature 012, Bloque D, T1675). Ausente: los casos de uso de la ficha fallan cerrados. */
+  readonly emergency?: EmergencyServices;
 }
 
 /** Puerto mínimo del log estructurado de servidor para eventos operativos. */

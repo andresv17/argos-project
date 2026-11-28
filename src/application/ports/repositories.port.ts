@@ -24,6 +24,7 @@ import type { CoOwnerRepositoryPort, OwnerRequestRepositoryPort } from './co-own
 import type { IpRateEventRepositoryPort } from './ip-rate-events.port.ts';
 import type { DisputeEvidenceRepositoryPort } from './dispute-evidence.port.ts';
 import type { CareLogRepositoryPort, CareRoutineRepositoryPort, CaregiverAccessRepositoryPort } from './care.port.ts';
+import type { EmergencyCardRepositoryPort, EmergencyConsentRepositoryPort } from './emergency.port.ts';
 import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -45,6 +46,11 @@ export interface UserAccount extends UserSelfProfile {
    */
   readonly adultDeclaredAt?: string;
   readonly adultNoticeVersion?: string;
+  /**
+   * Teléfono E.164 de la cuenta (012, Bloque D, REQ-QR12-001): columna propia de `users` (NO vive en `users.data`); ausente = sin teléfono. `insert` y `update` NUNCA lo modifican: solo `setPhone`.
+   * Solo la cuenta titular lo ve; no entra en `toSelfProfile` ni en ninguna vista.
+   */
+  readonly phone?: string;
 }
 
 export interface UserRepositoryPort {
@@ -95,6 +101,8 @@ export interface UserRepositoryPort {
   replaceAvatar(userId: string, objectId: string): Promise<AvatarState>;
   /** Quita la foto: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia. */
   clearAvatar(userId: string): Promise<void>;
+  /** Fija o borra (`null`) el teléfono E.164 ya normalizado por el dominio (012, REQ-QR12-001). Falla si el usuario no existe. */
+  setPhone(userId: string, phone: string | null): Promise<void>;
   /**
    * Filas de cualquier tabla que referencian al usuario por id (mascotas, hogares, membresías, sesiones, invitaciones,
    * token, eventos de frecuencia) más su propia fila. Postcondición B10: 0 tras eliminar la cuenta.
@@ -150,7 +158,7 @@ export interface ConfirmationTokenRepositoryPort {
 }
 
 /** `CO_OWNER_INVITE` y `OWNER_REQUEST`: ámbitos propios de la co-propiedad (012, B-4; migraciones 0035 SQLite / 0031 PostgreSQL). */
-export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' | 'CO_OWNER_INVITE' | 'OWNER_REQUEST';
+export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' | 'CO_OWNER_INVITE' | 'OWNER_REQUEST' | 'QR_CARD_MUTATION' | 'QR_PRIVATE_WRITE';
 
 export interface RateLimitEvent {
   readonly id: string;
@@ -165,6 +173,8 @@ export interface RateLimitRepositoryPort {
   /** Eventos del ámbito y del usuario con occurredAt estrictamente posterior a `sinceExclusive`. */
   countSince(scope: RateLimitScope, userId: string, sinceExclusive: string): Promise<number>;
   deleteForUser(userId: string): Promise<void>;
+  /** Mantenimiento (012 #32, SC-012-121): borra los eventos de esos ámbitos anteriores al corte; devuelve cuántos. */
+  purgeScopesBefore(scopes: readonly RateLimitScope[], cutoffExclusive: string): Promise<number>;
 }
 
 /** Invitación a un hogar (REQ-HOUSE2-001): `inviteeUserId` nulo es una invitación inerte (el username no existía). */
@@ -378,6 +388,20 @@ export interface AuditLogRepositoryPort {
   insert(entry: AuditEntry): Promise<void>;
   /** Sustituye `userId` por `hmac` en `executor_user_id` y en `entity_id` de todas las filas donde aparezca. */
   pseudonymizeUser(userId: string, hmac: string): Promise<void>;
+  /**
+   * Eventos de la entidad con alguno de esos tipos de mutación y `timestamp` estrictamente posterior al corte (012 #32: avisos derivados `lastChange` y `criticalAllergiesChange`). Solo lectura de
+   * tipo, actor y fecha; la auditoría no guarda contenido. Sin orden garantizado.
+   */
+  listEvents(entityType: string, entityId: string, mutationTypes: readonly string[], sinceExclusive: string): Promise<AuditEventRow[]>;
+  /** Mantenimiento (012 #32): borra las filas de esos tipos con `timestamp` anterior al corte (auditoría `EMERGENCY_*` a 90 días); devuelve cuántas. */
+  purgeMutationTypesBefore(mutationTypes: readonly string[], cutoffExclusive: string): Promise<number>;
+}
+
+/** Lo que la ficha QR lee de la auditoría: tipo de mutación, quien ejecutó (o su seudónimo / `SYSTEM`) y el instante. */
+export interface AuditEventRow {
+  readonly mutationType: string;
+  readonly executorUserId: string;
+  readonly timestamp: string;
 }
 
 export interface RepositorySet {
@@ -431,4 +455,8 @@ export interface RepositorySet {
   readonly careRoutines: CareRoutineRepositoryPort;
   readonly careLog: CareLogRepositoryPort;
   readonly caregiverAccess: CaregiverAccessRepositoryPort;
+  /** Ficha QR de emergencia (012 #32, T1675): `pet_emergency_cards` y `pets.critical_allergies`. */
+  readonly emergencyCards: EmergencyCardRepositoryPort;
+  /** Consentimientos de teléfono por mascota (012 #32): `pet_emergency_phone_consents`. */
+  readonly emergencyConsents: EmergencyConsentRepositoryPort;
 }

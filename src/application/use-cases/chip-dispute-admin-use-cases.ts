@@ -33,6 +33,7 @@ import {
 import type { OwnerRequestRecord } from '../ports/co-ownership.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { materializeExpiredInvitations, ownersOf, recordOwnershipAudit, retryable, revokeLinksOfNonOwners, runOwnershipTransaction, settledRequest } from './co-ownership-support.ts';
+import { onOwnerRemoved } from './emergency-support.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
 export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR' | 'SUPPORT';
@@ -269,6 +270,8 @@ async function executeDecision(deps: ApplicationDeps, repositories: RepositorySe
       if ((await repositories.pets.bumpOwnershipVersion(petId, state.ownershipVersion)) !== 1) throw retryable();
       if (!(await repositories.coOwners.transition(targetRow.id, 'ACTIVE', { status: 'ENDED', leftAt: now }))) throw retryable();
       await revokeLinksOfNonOwners(deps, repositories, petId, requester, now);
+      // 012 Bloque D (REQ-QR12-010): el consentimiento de teléfono del titular cuya co-propiedad termina se borra y la ficha se reconcilia.
+      if (target !== null) await onOwnerRemoved(deps, repositories, petId, target);
       break;
     }
     default:

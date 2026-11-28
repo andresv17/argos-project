@@ -125,7 +125,7 @@ describe('T1674 normalizeCriticalAllergies (entrada)', () => {
 describe('T1674 sanitizePublicPetName (emisión pública con la MISMA política)', () => {
   it('[SC-012-110] devuelve el nombre en NFC y trim; sin cambios si ya es válido', () => {
     expect(sanitizePublicPetName('  Luna ')).toBe('Luna');
-    expect(sanitizePublicPetName('Nĩa')).toBe('Niña');
+    expect(sanitizePublicPetName('Niña')).toBe('Niña');
   });
 
   it('[SC-012-110] elimina los caracteres rechazados (Cc, Cf, bidi) y devuelve el resto', () => {

@@ -73,7 +73,7 @@ const userRow = (over: Row = {}): Row => ({
   ...over,
 });
 const SESSION = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
-const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
+const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, phone, data FROM users';
 
 /** Toda sentencia emitida usa solo `$1..$n` consecutivos y ningún valor aparece dentro del texto SQL. */
 function expectParametrized(calls: ReadonlyArray<{ sql: string; values: unknown[] }>) {
@@ -330,7 +330,7 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
     const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
     const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
-    expect(firstArguments.length).toBe(31); // T1627 (012): +1 por sessions.findLastActivityOfUser (parámetro $1, sin interpolar); T1556 (011, #78): +3 por users.findAvatar, users.replaceAvatar y users.clearAvatar (parámetros $1/$2, sin interpolar); T1246 (009): +1 por sessions.findOwnerAccountStatus (parámetro $1, sin interpolar); H-A21-2 (REQ-VIN8-004): +1 por sessions.findByTokenHash (parámetro $1, sin interpolar); T1117: +2 por users.findVerifiedByEmail y users.releaseUnverifiedEmail (parámetro $1, sin interpolar); T1190: +1 por users.searchUsernamesByPrefix (parámetros $1..$3, sin interpolar); T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
+    expect(firstArguments.length).toBe(33); // T1675 (012 #32): +2 por users.setPhone y rateLimits.purgeScopesBefore (parámetros $n, sin interpolar); T1627 (012): +1 por sessions.findLastActivityOfUser (parámetro $1, sin interpolar); T1556 (011, #78): +3 por users.findAvatar, users.replaceAvatar y users.clearAvatar (parámetros $1/$2, sin interpolar); T1246 (009): +1 por sessions.findOwnerAccountStatus (parámetro $1, sin interpolar); H-A21-2 (REQ-VIN8-004): +1 por sessions.findByTokenHash (parámetro $1, sin interpolar); T1117: +2 por users.findVerifiedByEmail y users.releaseUnverifiedEmail (parámetro $1, sin interpolar); T1190: +1 por users.searchUsernamesByPrefix (parámetros $1..$3, sin interpolar); T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
       expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);

@@ -72,6 +72,7 @@ import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-s
 import { parseAccountStatus, type AccountStatus } from '../../../domain/account/account-status.ts';
 import { sqliteDisputeEvidenceRepository, sqliteIpRateEventRepository } from './sqlite-chip-repositories.ts';
 import { sqliteCareLogRepository, sqliteCareRoutineRepository, sqliteCaregiverAccessRepository } from './sqlite-care-repositories.ts';
+import { sqliteEmergencyCardRepository, sqliteEmergencyConsentRepository } from './sqlite-emergency-repositories.ts';
 import { sqliteCoOwnerRepository, sqliteOwnerRequestRepository, sqliteOwnershipOps } from './sqlite-ownership-repositories.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
@@ -179,6 +180,8 @@ interface UserRow {
   readonly adult_declared_at: string | null;
   readonly adult_notice_version: string | null;
   readonly account_status: string;
+  /** Teléfono E.164 (012 #32, columna propia; no vive en `data`). */
+  readonly phone: string | null;
   readonly data: string;
 }
 interface SessionRow {
@@ -249,7 +252,7 @@ interface MembershipRow {
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, phone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
   // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
@@ -266,6 +269,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const avatarOf = db.prepare<[string], UserAvatarRow>('SELECT avatar_version, avatar_object_id FROM users WHERE id = ?');
   const bumpAvatar = db.prepare<[string, string], UserAvatarRow>('UPDATE users SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
   const dropAvatar = db.prepare('UPDATE users SET avatar_object_id = NULL WHERE id = ?');
+  const writePhone = db.prepare('UPDATE users SET phone = ? WHERE id = ?');
   const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
     `SELECT (SELECT COUNT(*) FROM users WHERE id = ?)
           + (SELECT COUNT(*) FROM pets WHERE owner_user_id = ?)
@@ -293,10 +297,11 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       ...(row.account_status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(row.account_status, row.id) }),
       ...(row.adult_declared_at === null ? {} : { adultDeclaredAt: row.adult_declared_at }),
       ...(row.adult_notice_version === null ? {} : { adultNoticeVersion: row.adult_notice_version }),
+      ...(row.phone === null || row.phone === undefined ? {} : { phone: row.phone }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, phone: _phone, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -355,6 +360,9 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     },
     async clearAvatar(userId) {
       dropAvatar.run(userId);
+    },
+    async setPhone(userId, phone) {
+      if (writePhone.run(phone, userId).changes !== 1) throw new Error('FOREIGN KEY constraint failed: users');
     },
     async countReferences(userId) {
       return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
@@ -1015,6 +1023,7 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
     'SELECT COUNT(*) AS n FROM rate_limit_events WHERE scope = ? AND subject_user_id = ? AND occurred_at > ?',
   );
   const remove = db.prepare('DELETE FROM rate_limit_events WHERE subject_user_id = ?');
+  const purge = db.prepare('DELETE FROM rate_limit_events WHERE scope IN (SELECT value FROM json_each(?)) AND occurred_at < ?');
   return {
     async record(event) {
       insert.run(event.id, event.scope, event.userId, event.occurredAt);
@@ -1024,6 +1033,9 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
     },
     async deleteForUser(userId) {
       remove.run(userId);
+    },
+    async purgeScopesBefore(scopes, cutoffExclusive) {
+      return purge.run(list(scopes), cutoffExclusive).changes;
     },
   };
 }
@@ -1096,6 +1108,10 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
   const insert = db.prepare(
     'INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
+  const events = db.prepare<[string, string, string, string], { readonly mutation_type: string; readonly executor_user_id: string; readonly timestamp: string }>(
+    'SELECT mutation_type, executor_user_id, timestamp FROM audit_log WHERE entity_type = ? AND entity_id = ? AND mutation_type IN (SELECT value FROM json_each(?)) AND timestamp > ?',
+  );
+  const purgeTypes = db.prepare('DELETE FROM audit_log WHERE mutation_type IN (SELECT value FROM json_each(?)) AND timestamp < ?');
   const pseudonymize = db.prepare(
     'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = @userId THEN @hmac ELSE executor_user_id END, entity_id = CASE WHEN entity_id = @userId THEN @hmac ELSE entity_id END WHERE executor_user_id = @userId OR entity_id = @userId',
   );
@@ -1105,6 +1121,14 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
     },
     async pseudonymizeUser(userId, hmac) {
       pseudonymize.run({ userId, hmac });
+    },
+    async listEvents(entityType, entityId, mutationTypes, sinceExclusive) {
+      return events
+        .all(entityType, entityId, list(mutationTypes), sinceExclusive)
+        .map((row) => ({ mutationType: row.mutation_type, executorUserId: row.executor_user_id, timestamp: row.timestamp }));
+    },
+    async purgeMutationTypesBefore(mutationTypes, cutoffExclusive) {
+      return purgeTypes.run(list(mutationTypes), cutoffExclusive).changes;
     },
   };
 }
@@ -1257,5 +1281,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     careRoutines: sqliteCareRoutineRepository(db),
     careLog: sqliteCareLogRepository(db),
     caregiverAccess: sqliteCaregiverAccessRepository(db),
+    emergencyCards: sqliteEmergencyCardRepository(db),
+    emergencyConsents: sqliteEmergencyConsentRepository(db),
   };
 }

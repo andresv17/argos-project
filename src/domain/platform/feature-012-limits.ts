@@ -109,3 +109,39 @@ export const CARE_LOG_MEDICATION_RETENTION_DAYS = 1095;
 export const CARE_LOG_OTHER_RETENTION_DAYS = 365;
 export const CARE_LOG_REVERTED_RETENTION_DAYS = 30;
 export const CARE_ROUTINE_INACTIVE_RETENTION_DAYS = 365;
+
+/**
+ * Ficha QR de emergencia (Bloque D, #32, T1675/T1684): cifras de `emergency-card.schema.json` (`x-sdd-constants`, 0.3.0 APPROVED). Fuente única (INV-ARCH-006).
+ * @implements REQ-QR12-002, REQ-QR12-003, REQ-QR12-004, REQ-QR12-005, REQ-QR12-006, REQ-QR12-007, INV-ARCH-006
+ */
+/** Alergias críticas por mascota (REQ-QR12-002) y teléfonos publicados por ficha (REQ-QR12-004). */
+export const MAX_CRITICAL_ALLERGIES = 5;
+export const MAX_EMERGENCY_PHONES = 2;
+/** Longitud de un elemento de `criticalAllergies`, en puntos de código tras NFC y trim. */
+export const CRITICAL_ALLERGY_MAX_CODE_POINTS = 60;
+/** URL del QR = `ARGOS_PUBLIC_BASE_URL` + `/e/` + token(43), ASCII y a lo sumo 106 bytes (versión 6-M; INV-QR12-005). */
+export const QR_URL_MAX_BYTES = 106;
+/** Lecturas públicas por IP (HMAC; IPv6 por /64) y minuto: contador EN MEMORIA acotado por proceso (REQ-QR12-007, SC-012-129). */
+export const QR_SCAN_MAX_PER_IP_PER_MINUTE = 30;
+/** Tope de entradas del mapa de IP del contador público (propuesta del Architect: 10000); lleno = se descartan vencidas y luego la menos reciente, sin rechazar. */
+export const QR_SCAN_MAX_TRACKED_IPS = 10_000;
+/** Granularidad de `last_scanned_at`: una escritura por intervalo y ficha (INV-QR12-006). */
+export const QR_LAST_SCANNED_GRANULARITY_MINUTES = 60;
+/** Topes por usuario y hora móvil (decisión de Neo 2026-11-27 (d)): `activate`+`regenerate`+`deactivate` comparten cubo; consentimiento + alergias + teléfono de cuenta, el otro. */
+export const QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20;
+export const QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60;
+/** Retención del historial de la ficha tras `OFF` y de la auditoría `EMERGENCY_*` (decisión de Neo 2026-11-27 (c), (3)). */
+export const EMERGENCY_HISTORY_RETENTION_DAYS = 90;
+/** Espera máxima de un consentimiento de teléfono tras un cambio MINOR/MAJOR del aviso, desde `EMERGENCY_NOTICE_EFFECTIVE_AT` (decisión de Neo 2026-11-27 (1)). */
+export const EMERGENCY_NOTICE_WAIT_DAYS = 90;
+/** Versión vigente del aviso de consentimiento (DRAFT hasta la validación legal, DEUDA-012-LEGAL-DISPUTAS-QR) y su entrada en vigor: se actualiza SOLO con un cambio MAJOR o MINOR. */
+export const EMERGENCY_NOTICE_VERSION = '0.1.0';
+export const EMERGENCY_NOTICE_EFFECTIVE_AT = '2026-11-27T00:00:00.000Z';
+/** `instance` CONSTANTE de todo 404 y 429 público (INV-QR12-002, trinity T-01). */
+export const PUBLIC_PROBLEM_INSTANCE = '/emergency';
+/** Clave HMAC dedicada del teléfono (nombre de la variable de despliegue; el valor nunca vive en el código ni se registra). */
+export const PHONE_HMAC_KEY = 'PHONE_HMAC_KEY';
+/** Forma del token opaco (256 bits en base64url, sin relleno). */
+export const QR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+/** Ventana de purga de `rate_limit_events` de los ámbitos `QR_*` (la ventana útil es de 1 h; SC-012-121). */
+export const QR_RATE_EVENTS_RETENTION_HOURS = 2;

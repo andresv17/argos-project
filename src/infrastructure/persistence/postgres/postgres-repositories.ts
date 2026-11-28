@@ -58,6 +58,7 @@ import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
 import { postgresDisputeEvidenceRepository, postgresIpRateEventRepository } from './postgres-chip-repositories.ts';
 import { postgresCareLogRepository, postgresCareRoutineRepository, postgresCaregiverAccessRepository } from './postgres-care-repositories.ts';
+import { postgresEmergencyCardRepository, postgresEmergencyConsentRepository } from './postgres-emergency-repositories.ts';
 import { postgresCoOwnerRepository, postgresOwnerRequestRepository, postgresOwnershipOps } from './postgres-ownership-repositories.ts';
 import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
@@ -92,7 +93,7 @@ const isStringArray: Check<string[]> = (value): value is string[] => Array.isArr
 /** COUNT(*) llega como bigint en texto. */
 const count = (row: Row | undefined): number => Number(row?.['n'] ?? 0);
 
-const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
+const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, phone, data FROM users';
 /** `$1` se reutiliza en las 11 subconsultas: un solo parámetro posicional. */
 const COUNT_REFERENCES =
   'SELECT (SELECT COUNT(*) FROM users WHERE id = $1)' +
@@ -130,10 +131,11 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       ...(status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(status, id) }),
       ...(adultAt === null || adultAt === undefined ? {} : { adultDeclaredAt: String(adultAt) }),
       ...(adultVersion === null || adultVersion === undefined ? {} : { adultNoticeVersion: String(adultVersion) }),
+      ...(row['phone'] === null || row['phone'] === undefined ? {} : { phone: String(row['phone']) }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, phone: _phone, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -201,6 +203,10 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     },
     async clearAvatar(userId) {
       await client.query('UPDATE users SET avatar_object_id = NULL WHERE id = $1', [userId]);
+    },
+    async setPhone(userId, phone) {
+      const result = await client.query('UPDATE users SET phone = $1 WHERE id = $2', [phone, userId]);
+      if (result.rowCount !== 1) throw new Error('FOREIGN KEY constraint failed: users');
     },
     async countReferences(userId) {
       const { rows } = await client.query(COUNT_REFERENCES, [userId]);
@@ -338,6 +344,10 @@ function rateLimitRepository(client: PoolClientLike): RateLimitRepositoryPort {
     },
     async deleteForUser(userId) {
       await client.query('DELETE FROM rate_limit_events WHERE subject_user_id = $1', [userId]);
+    },
+    async purgeScopesBefore(scopes, cutoffExclusive) {
+      const result = await client.query('DELETE FROM rate_limit_events WHERE scope = ANY($1::text[]) AND occurred_at::timestamptz < $2::timestamptz', [[...scopes], cutoffExclusive]);
+      return result.rowCount ?? 0;
     },
   };
 }
@@ -838,6 +848,17 @@ function auditLogRepository(client: PoolClientLike): AuditLogRepositoryPort {
         [userId, hmac],
       );
     },
+    async listEvents(entityType, entityId, mutationTypes, sinceExclusive) {
+      const { rows } = await client.query(
+        'SELECT mutation_type, executor_user_id, timestamp FROM audit_log WHERE entity_type = $1 AND entity_id = $2 AND mutation_type = ANY($3::text[]) AND timestamp::timestamptz > $4::timestamptz',
+        [entityType, entityId, [...mutationTypes], sinceExclusive],
+      );
+      return rows.map((row) => ({ mutationType: String(row['mutation_type']), executorUserId: String(row['executor_user_id']), timestamp: String(row['timestamp']) }));
+    },
+    async purgeMutationTypesBefore(mutationTypes, cutoffExclusive) {
+      const result = await client.query('DELETE FROM audit_log WHERE mutation_type = ANY($1::text[]) AND timestamp::timestamptz < $2::timestamptz', [[...mutationTypes], cutoffExclusive]);
+      return result.rowCount ?? 0;
+    },
   };
 }
 
@@ -884,5 +905,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     careRoutines: postgresCareRoutineRepository(client),
     careLog: postgresCareLogRepository(client),
     caregiverAccess: postgresCaregiverAccessRepository(client),
+    emergencyCards: postgresEmergencyCardRepository(client),
+    emergencyConsents: postgresEmergencyConsentRepository(client),
   };
 }

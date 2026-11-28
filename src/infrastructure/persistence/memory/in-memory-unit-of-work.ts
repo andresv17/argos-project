@@ -71,12 +71,13 @@ import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../../../application/ports/co-ownership.port.ts';
 import { memoryDisputeEvidenceRepository, memoryIpRateEventRepository, type ChipMemoryState } from './in-memory-chip-repositories.ts';
 import { memoryCareLogRepository, memoryCareRoutineRepository, memoryCaregiverAccessRepository, type CareMemoryState } from './in-memory-care-repositories.ts';
+import { memoryEmergencyCardRepository, memoryEmergencyConsentRepository, type EmergencyMemoryState } from './in-memory-emergency-repositories.ts';
 import { memoryCoOwnerRepository, memoryOwnerRequestRepository, memoryOwnershipOps } from './in-memory-ownership-repositories.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
 const RECORD_MODULE_NAMES: readonly RecordModule[] = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings', 'medicalVisits', 'customParameters'];
 
-export interface MemoryState extends SceneMemoryState, CareMemoryState {
+export interface MemoryState extends SceneMemoryState, CareMemoryState, EmergencyMemoryState {
   users: UserAccount[];
   sessions: Record<string, SessionRecord>;
   loginFailures: Record<string, string[]>;
@@ -225,17 +226,19 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       if (user.emailVerifiedAt !== undefined && user.email !== null && state.users.some((u) => u.emailVerifiedAt !== undefined && u.email?.toLowerCase() === user.email?.toLowerCase())) {
         throw new Error('users: el correo verificado ya tiene titular'); // índice único parcial users_email_verified_unique
       }
-      state.users.push(copy(user));
+      const { phone: _phone, ...withoutPhone } = copy(user); // `phone` solo lo fija `setPhone` (columna propia, 012 #32)
+      state.users.push(withoutPhone);
     },
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      const { emailVerifiedAt: _ignored, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...rest } = copy(user); // update nunca modifica email_verified_at, account_status (lo decide la aprobación, T1247) ni la declaración 18+ (010)
+      const { emailVerifiedAt: _ignored, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, phone: _phone, ...rest } = copy(user); // update nunca modifica email_verified_at, account_status (lo decide la aprobación, T1247) ni la declaración 18+ (010)
       const prior = state.users[index]!.emailVerifiedAt;
       const priorStatus = state.users[index]!.accountStatus;
       const priorAdultAt = state.users[index]!.adultDeclaredAt;
       const priorAdultVersion = state.users[index]!.adultNoticeVersion;
-      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }), ...(priorAdultAt === undefined ? {} : { adultDeclaredAt: priorAdultAt }), ...(priorAdultVersion === undefined ? {} : { adultNoticeVersion: priorAdultVersion }) };
+      const priorPhone = state.users[index]!.phone; // el teléfono (012 #32) solo lo cambia `setPhone`
+      state.users[index] = { ...rest, ...(priorPhone === undefined ? {} : { phone: priorPhone }), ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }), ...(priorAdultAt === undefined ? {} : { adultDeclaredAt: priorAdultAt }), ...(priorAdultVersion === undefined ? {} : { adultNoticeVersion: priorAdultVersion }) };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
@@ -243,6 +246,9 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       state.authIdentities = (state.authIdentities ?? []).filter((i) => i.userId !== userId);
       state.oauthFlows = (state.oauthFlows ?? []).filter((f) => f.userId !== userId);
       if (state.userAvatars !== undefined) delete state.userAvatars[userId]; // la foto es una columna de `users`: cae con la fila
+      // Ficha QR (012 #32): los consentimientos del usuario caen (CASCADE) y `consented_by_user_id` queda NULL (SET NULL).
+      if (state.emergencyConsents !== undefined) state.emergencyConsents = state.emergencyConsents.filter((c) => c.userId !== userId);
+      if (state.emergencyCards !== undefined) state.emergencyCards = state.emergencyCards.map((c) => (c.consentedByUserId === userId ? { ...c, consentedByUserId: null } : c));
       // Modo Cuidador (012 #26): niveles del usuario caen (CASCADE); autor, revertidor y concedente quedan NULL (SET NULL, SC-012-076).
       if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.userId !== userId).map((a) => (a.grantedByUserId === userId ? { ...a, grantedByUserId: null } : a));
       if (state.careRoutines !== undefined) state.careRoutines = state.careRoutines.map((r) => (r.createdByUserId === userId ? { ...r, createdByUserId: null } : r));
@@ -258,6 +264,12 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       const next = { version: (avatars[userId]?.version ?? 0) + 1, objectId };
       avatars[userId] = next;
       return copy(next);
+    },
+    async setPhone(userId, phone) {
+      const index = state.users.findIndex((u) => u.id === userId);
+      if (index < 0) throw new Error('users: el usuario no existe');
+      const { phone: _previous, ...rest } = state.users[index]!;
+      state.users[index] = phone === null ? rest : { ...rest, phone };
     },
     async clearAvatar(userId) {
       const current = state.userAvatars?.[userId];
@@ -365,6 +377,11 @@ function rateLimitRepository(state: MemoryState): RateLimitRepositoryPort {
     async deleteForUser(userId) {
       state.rateEvents = state.rateEvents.filter((e) => e.userId !== userId);
     },
+    async purgeScopesBefore(scopes, cutoffExclusive) {
+      const before = state.rateEvents.length;
+      state.rateEvents = state.rateEvents.filter((e) => !(scopes.includes(e.scope) && e.occurredAt < cutoffExclusive));
+      return before - state.rateEvents.length;
+    },
   };
 }
 
@@ -446,6 +463,10 @@ function petRepository(state: MemoryState): PetRepositoryPort {
         if (state.careLog !== undefined) state.careLog = state.careLog.filter((e) => !gone.has(e.routineId));
       }
       if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.petId !== petId);
+      // Ficha QR (012 #32): la ficha, sus consentimientos y las alergias críticas caen con la mascota (CASCADE; `critical_allergies` es columna de `pets`).
+      if (state.emergencyCards !== undefined) state.emergencyCards = state.emergencyCards.filter((c) => c.petId !== petId);
+      if (state.emergencyConsents !== undefined) state.emergencyConsents = state.emergencyConsents.filter((c) => c.petId !== petId);
+      if (state.petAllergies !== undefined) delete state.petAllergies[petId];
     },
     async findAvatarVersions(petIds) {
       const wanted = new Set(petIds);
@@ -676,6 +697,16 @@ function auditLogRepository(state: MemoryState): AuditLogRepositoryPort {
         executorUserId: e.executorUserId === userId ? hmac : e.executorUserId,
         entityId: e.entityId === userId ? hmac : e.entityId,
       }));
+    },
+    async listEvents(entityType, entityId, mutationTypes, sinceExclusive) {
+      return state.auditLog
+        .filter((e) => e.entityType === entityType && e.entityId === entityId && mutationTypes.includes(e.mutationType) && e.timestamp > sinceExclusive)
+        .map((e) => ({ mutationType: e.mutationType, executorUserId: e.executorUserId, timestamp: e.timestamp }));
+    },
+    async purgeMutationTypesBefore(mutationTypes, cutoffExclusive) {
+      const before = state.auditLog.length;
+      state.auditLog = state.auditLog.filter((e) => !(mutationTypes.includes(e.mutationType) && e.timestamp < cutoffExclusive));
+      return before - state.auditLog.length;
     },
   };
 }
@@ -1190,6 +1221,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     careRoutines: memoryCareRoutineRepository(state),
     careLog: memoryCareLogRepository(state),
     caregiverAccess: memoryCaregiverAccessRepository(state),
+    emergencyCards: memoryEmergencyCardRepository(state),
+    emergencyConsents: memoryEmergencyConsentRepository(state),
   };
 }
 

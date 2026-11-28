@@ -49,6 +49,9 @@ for name, data in CASES.items():
             sys.exit(f"DISCREPANCIA entre qrcodegen y qrcode en {name} mascara {mask}")
         assert len(a) == 41 and all(len(r) == 41 for r in a)
         entry["masks"][str(mask)] = a
+    # `autoMask` (BAJA-2, oráculo T1672): es la máscara que elige la penalización N1..N4 de qrcodegen con mask = -1 (selección automática) y es la expectativa de
+    # `encodeQr` sin `options.mask`. La selección automática SOLO la fija qrcodegen; las ocho máscaras forzadas sí se cotejan bit a bit con python-qrcode (el `sys.exit`
+    # de arriba). Se exige además que la matriz automática sea idéntica a la de esa máscara forzada.
     auto_rows, auto_mask = seg(data, -1)
     entry["autoMask"] = auto_mask
     assert auto_rows == entry["masks"][str(auto_mask)]

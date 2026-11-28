@@ -33,6 +33,7 @@ import {
   settledRequest,
   withEffectiveStatus,
 } from './co-ownership-support.ts';
+import { onOwnerRemoved } from './emergency-support.ts';
 import { assertMatchesSchema, type ApplicationDeps } from './use-case-support.ts';
 
 const notFound = (): DomainError => new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
@@ -304,6 +305,8 @@ export async function applyLeave(
     await withdrawDepartingOwner(deps, repositories, petId, leavingUserId, now);
     await mootAbsenceDisputesOnLeave(deps, repositories, petId, leavingUserId, now);
     await revokeLinksOfNonOwners(deps, repositories, petId, leavingUserId, now);
+    // 012 Bloque D (REQ-QR12-010, SC-012-087): el consentimiento de teléfono de quien sale se borra y la ficha se reconcilia (puede caer a OFF con AUTO_GUARD_LOST), en esta misma transacción.
+    await onOwnerRemoved(deps, repositories, petId, leavingUserId);
     return { plan, resultingPrincipalUserId: plan.resultingPrincipalUserId };
   }
   throw retryable();

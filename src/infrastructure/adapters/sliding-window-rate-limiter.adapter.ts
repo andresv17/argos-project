@@ -11,7 +11,7 @@ import type { IdGeneratorPort } from '../../application/ports/id-generator.port.
 import type { RateLimitScope, RateLimiterPort } from '../../application/ports/rate-limiter.port.ts';
 import type { RepositorySet } from '../../application/ports/repositories.port.ts';
 import { addMillis } from '../../domain/auth/utc-timestamp.ts';
-import { CO_OWNER_INVITES_PER_USER_PER_DAY, OWNER_REQUESTS_PER_USER_PER_DAY } from '../../domain/platform/feature-012-limits.ts';
+import { CO_OWNER_INVITES_PER_USER_PER_DAY, OWNER_REQUESTS_PER_USER_PER_DAY, QR_CARD_MUTATIONS_PER_USER_PER_HOUR, QR_PRIVATE_WRITES_PER_USER_PER_HOUR } from '../../domain/platform/feature-012-limits.ts';
 import type { AppConfig } from '../config/app-config.ts';
 
 export interface RateLimit {
@@ -19,13 +19,16 @@ export interface RateLimit {
   readonly windowMinutes: number;
 }
 /** Los ámbitos de la 012 son opcionales: sin entrada rigen las constantes de `feature-012-limits.ts` (no dependen de `app-config.ts`, tocado por H-01). */
-type CoOwnershipScope = 'CO_OWNER_INVITE' | 'OWNER_REQUEST';
+type CoOwnershipScope = 'CO_OWNER_INVITE' | 'OWNER_REQUEST' | 'QR_CARD_MUTATION' | 'QR_PRIVATE_WRITE';
 export type RateLimits = Readonly<Record<Exclude<RateLimitScope, CoOwnershipScope>, RateLimit>> & Readonly<Partial<Record<CoOwnershipScope, RateLimit>>>;
 
 /** H-02: intentos de invitación por invitador y día; H-10: solicitudes críticas (crear, aprobar, rechazar) por usuario y día. */
 const CO_OWNERSHIP_LIMITS: Readonly<Record<CoOwnershipScope, RateLimit>> = {
   CO_OWNER_INVITE: { maxPerWindow: CO_OWNER_INVITES_PER_USER_PER_DAY, windowMinutes: 1440 },
   OWNER_REQUEST: { maxPerWindow: OWNER_REQUESTS_PER_USER_PER_DAY, windowMinutes: 1440 },
+  /** Ficha QR (Bloque D, REQ-QR12-007): topes por usuario y hora móvil; `deactivate` comparte el cubo `QR_CARD_MUTATION` con activar y regenerar. */
+  QR_CARD_MUTATION: { maxPerWindow: QR_CARD_MUTATIONS_PER_USER_PER_HOUR, windowMinutes: 60 },
+  QR_PRIVATE_WRITE: { maxPerWindow: QR_PRIVATE_WRITES_PER_USER_PER_HOUR, windowMinutes: 60 },
 };
 
 /** Límites de la configuración validada (EXPORT_*, INVITE_* y MICROCHIP_DUPLICATE_*). @implements INV-ARCH-006 */

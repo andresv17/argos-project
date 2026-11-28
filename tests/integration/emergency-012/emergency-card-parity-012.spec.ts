@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { unshare } from '../../fixtures/co-ownership-012.ts';
 import { ANDRES, BASE_URL, ENGINE_FACTORIES, KEY_B, LUCIA, MARIA, NOTICE, PET, PHONE_A, PHONE_L, PHONE_M, T0, accountPhone, cardRow, codeOf, consentRows, daysAfter, emergencyCases, emergencyDeps, hoursAfter, makeCoOwners, setPhoneOutOfBand, sha256, type Engine012 } from '../../fixtures/emergency-012.ts';
 
 /**
@@ -221,6 +222,7 @@ for (const factory of ENGINE_FACTORIES) {
       await use.setConsent(MARIA, PET, { visible: true, noticeVersion: NOTICE });
       await use.activate(MARIA, PET, { ...ON, showMyPhone: true });
       expect(((await cardRow(e))!)['consentedByUserId']).toBe(MARIA);
+      await unshare(e.deps); // el hogar compartido del estado canónico bloquea la supresión por la regla de 002 (ERR-ACCOUNT-OWNS-SHARED-PETS), ajena a la 012; precedente de co-ownership-erasure-012
       await use.coOwners.erase(MARIA);
       expect(await consentRows(e)).toEqual([]);
       const row = (await cardRow(e))!;

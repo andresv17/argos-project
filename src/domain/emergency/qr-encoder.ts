@@ -307,6 +307,10 @@ export function encodeQr(data: string | Uint8Array, options: { readonly mask?: n
  * scripts, estilos ni enlaces (`SVG_DELIVERY`). Determinista: misma matriz, mismo texto.
  */
 export function qrToSvg(qr: QrMatrix): string {
+  // BAJA-1 (oráculo T1672): una matriz que no sea la 41x41 de la versión 6 no es un QR de ARGOS; falla cerrada en lugar de emitir un SVG que no escanea.
+  if (qr.size !== QR_SIZE || qr.modules.length !== QR_SIZE || qr.modules.some((row) => row.length !== QR_SIZE)) {
+    throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'La matriz del QR no tiene el tamaño de la versión 6.');
+  }
   const dimension = qr.size + QR_QUIET_ZONE * 2;
   const cells: string[] = [];
   for (let y = 0; y < qr.size; y += 1) {
