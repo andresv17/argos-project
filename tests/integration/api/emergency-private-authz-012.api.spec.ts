@@ -47,13 +47,28 @@ const ROUTES = [
 // Las alergias críticas tienen su propia regla de rol (ADMIN escribe, CAREGIVER y READER 403) y no forman parte de este 404 uniforme.
 describe('S-1: el miembro de hogar que no es titular recibe 404 uniforme y no escribe nada', () => {
   it.each(['ADMIN', 'CAREGIVER', 'READER'] as const)('[SC-012-083] %s del hogar: estado, activar, regenerar, desactivar, y consentimiento dan 404 ERR-PET-NOT-FOUND sin escritura', async (role) => {
-    const { maria } = await setup(role);
+    const { andres, maria } = await setup(role);
+    // BAJA-1: ficha ON del titular ANTES del bucle, para que el 404 sea por autorización y no por «sin ficha».
+    expect((await api.call('PUT', `/api/pets/${PET}/critical-allergies`, { cookie: andres, body: { criticalAllergies: ['Penicilina'] }, ...NC })).status).toBe(200);
+    expect((await api.call('POST', `/api/pets/${PET}/emergency-card/activate`, { cookie: andres, body: ON, ...NC })).status).toBe(201);
+    const statusOf = () => api.db.prepare('SELECT status FROM pet_emergency_cards WHERE pet_id = ?').get(PET) as { status: string } | undefined;
+    expect(statusOf()?.status).toBe('ON');
     const before = { cards: count('pet_emergency_cards'), consents: count('pet_emergency_phone_consents'), audits: auditCount() };
     for (const [method, url, body] of ROUTES.filter(([, u]) => u.includes('/emergency-card'))) {
       const res = await api.call(method, url, { cookie: maria, ...(body === undefined ? {} : { body }), ...NC });
       expect([res.status, problemOf(res).code], `${method} ${url}`).toEqual([404, 'ERR-PET-NOT-FOUND']);
     }
     expect({ cards: count('pet_emergency_cards'), consents: count('pet_emergency_phone_consents'), audits: auditCount() }).toEqual(before);
+    expect(statusOf()?.status).toBe('ON'); // ningún intento ajeno apagó ni tocó la ficha
+  });
+
+  it('[SC-012-083] CAREGIVER recibe 403 ERR-ACC-FORBIDDEN en PUT critical-allergies y no escribe', async () => {
+    const { maria } = await setup('CAREGIVER');
+    const before = auditCount();
+    const res = await api.call('PUT', `/api/pets/${PET}/critical-allergies`, { cookie: maria, body: { criticalAllergies: ['Penicilina'] }, ...NC });
+    expect([res.status, problemOf(res).code]).toEqual([403, 'ERR-ACC-FORBIDDEN']);
+    expect(auditCount()).toBe(before);
+    expect((api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE mutation_type = 'PET_CRITICAL_ALLERGIES_UPDATED'").get() as { n: number }).n).toBe(0);
   });
 });
 
