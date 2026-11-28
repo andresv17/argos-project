@@ -93,6 +93,17 @@ describe('rutas privadas de la ficha QR', () => {
     expect((await api.call('PUT', '/api/account/phone', { cookie: andres, body: { phone: '+57 300 111 2233' }, ...NC })).json).toEqual({ phone: '+573001112233' });
   });
 
+  it('[SC-012-106] la 61.ª escritura privada del QR en una hora da 429 con Retry-After y no se registra; el cubo de mutaciones de ficha es independiente', async () => {
+    const { andres } = await setup();
+    const put = () => api.call('PUT', `/api/pets/${PET}/critical-allergies`, { cookie: andres, body: { criticalAllergies: ['Penicilina'] }, ...NC });
+    for (let i = 0; i < 60; i += 1) expect((await put()).status).toBe(200);
+    const limited = await put();
+    expect([limited.status, problemOf(limited).code]).toEqual([429, 'ERR-RATE-LIMITED']);
+    expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+    expect((await put()).status).toBe(429);
+    expect((await api.call('POST', `/api/pets/${PET}/emergency-card/deactivate`, { cookie: andres, ...NC })).status).toBe(204);
+  });
+
   it('[SC-012-047] el teléfono: normaliza, rechaza lo inválido sin eco y solo la cuenta propia lo ve', async () => {
     const { andres, maria } = await setup();
     const bad = await api.call('PUT', '/api/account/phone', { cookie: andres, body: { phone: 'no-es-un-telefono' }, ...NC });
@@ -173,5 +184,15 @@ describe('superficie pública /api/emergency y /e', () => {
     expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
     expect(JSON.parse(limited.text)).toMatchObject({ code: 'ERR-RATE-LIMITED', instance: '/emergency' });
     expect((await api.call('GET', `/api/emergency/${token}`, { cookie: null, ip: '203.0.113.51', ...NC })).status).toBe(200);
+  });
+
+  it('[SC-012-087] HEAD y OPTIONS agotado el tope por IP también dan 429 con Retry-After', async () => {
+    const { token } = await activated();
+    for (let i = 0; i < 30; i += 1) expect((await api.call('GET', `/api/emergency/${token}`, { cookie: null, ip: '203.0.113.60', ...NC })).status).toBe(200);
+    for (const method of ['HEAD', 'OPTIONS'] as const) {
+      const limited = await api.call(method, `/api/emergency/${token}`, { cookie: null, csrf: false, ip: '203.0.113.60', ...NC });
+      expect([method, limited.status]).toEqual([method, 429]);
+      expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+    }
   });
 });
