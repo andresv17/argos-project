@@ -1,11 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { loadEmergencyModule, type QrModule } from '../../fixtures/emergency-modules.ts';
+import { QR_MAX_BYTES, QR_SIZE, encodeQr, qrToSvg } from '../../../src/domain/emergency/qr-encoder.ts';
 import { domainErrorOf } from './_support.ts';
-
-const qrModule = await loadEmergencyModule<QrModule>('domain/emergency/qr-encoder');
-const encodeQr: QrModule['encodeQr'] = (data, options) => qrModule.encodeQr(data, options);
-const qrToSvg: QrModule['qrToSvg'] = (qr) => qrModule.qrToSvg(qr);
 
 /**
  * T1674 (Feature 012, Bloque D, #32; verde con T1672; `/keymaker`): codificador QR propio y puro 6-M (`src/domain/emergency/qr-encoder.ts`, ADR-012-07, `D12-17 = B`) contra los vectores de
@@ -59,8 +55,8 @@ describe('T1674/T1672 codificador QR 6-M contra fixtures externos', () => {
 
 describe('T1674/T1672 contrato del codificador', () => {
   it('versión fija 6-M: 41x41 y capacidad de 106 bytes; 107 bytes falla cerrado con ERR-QR12-URL-TOO-LONG (sin truncar)', () => {
-    expect(qrModule.QR_SIZE).toBe(41);
-    expect(qrModule.QR_MAX_BYTES).toBe(106);
+    expect(QR_SIZE).toBe(41);
+    expect(QR_MAX_BYTES).toBe(106);
     expect(encodeQr('x'.repeat(106)).modules).toHaveLength(41);
     expect(domainErrorOf(() => encodeQr('x'.repeat(107))).code).toBe('ERR-QR12-URL-TOO-LONG');
     expect(domainErrorOf(() => encodeQr(new Uint8Array(107))).code).toBe('ERR-QR12-URL-TOO-LONG');
@@ -73,7 +69,7 @@ describe('T1674/T1672 contrato del codificador', () => {
   });
 
   it('rechaza una máscara fuera de 0..7', () => {
-    for (const mask of [-1, 8, 1.5, Number.NaN]) expect(() => encodeQr('A', { mask })).toThrow(/^(?!módulo ausente)/);
+    for (const mask of [-1, 8, 1.5, Number.NaN]) expect(() => encodeQr('A', { mask })).toThrow(RangeError);
   });
 
   it('es puro y determinista: misma entrada, misma matriz; no muta la entrada', () => {
@@ -86,12 +82,12 @@ describe('T1674/T1672 contrato del codificador', () => {
   it('estructura fija: tres buscadores, patrón de alineación en (34,34), temporización y módulo oscuro en (33,8)', () => {
     const { modules: m } = encodeQr('https://argos.example/e/x');
     const finder = ['1111111', '1000001', '1011101', '1011101', '1011101', '1000001', '1111111'];
-    const at = (r0: number, c0: number): string[] => finder.map((_, i) => m[r0 + i]!.slice(c0, c0 + 7).map((v: boolean) => (v ? '1' : '0')).join(''));
+    const at = (r0: number, c0: number): string[] => finder.map((_, i) => m[r0 + i]!.slice(c0, c0 + 7).map((v) => (v ? '1' : '0')).join(''));
     expect(at(0, 0)).toEqual(finder);
     expect(at(0, 34)).toEqual(finder);
     expect(at(34, 0)).toEqual(finder);
     const align = ['11111', '10001', '10101', '10001', '11111'];
-    expect([32, 33, 34, 35, 36].map((r) => m[r]!.slice(32, 37).map((v: boolean) => (v ? '1' : '0')).join(''))).toEqual(align);
+    expect([32, 33, 34, 35, 36].map((r) => m[r]!.slice(32, 37).map((v) => (v ? '1' : '0')).join(''))).toEqual(align);
     for (let i = 8; i <= 32; i += 1) {
       expect(m[6]![i]).toBe(i % 2 === 0);
       expect(m[i]![6]).toBe(i % 2 === 0);
