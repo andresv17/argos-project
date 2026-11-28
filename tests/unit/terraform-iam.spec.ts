@@ -31,9 +31,9 @@ describe('terraform/iam.tf (T439)', () => {
     expect(ids).toEqual(['argos-deployer', 'argos-run', 'argos-scene-tasks', 'argos-scheduler']);
   });
 
-  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 7 secretos (D9-30 (8) / T1316; Feature 012 Bloque D añade phone_hmac_key; no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
+  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 8 secretos (D9-30 (8) / T1316; Feature 012 Bloque D añade phone_hmac_key; H-01 añade origin_verify_secret; no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
     const run = forSa('run').filter((b) => b.type === 'google_secret_manager_secret_iam_member');
-    expect(run.length).toBe(7);
+    expect(run.length).toBe(8);
     for (const b of run) {
       expect(b.type).toBe('google_secret_manager_secret_iam_member');
       expect(roles(b)).toEqual(['roles/secretmanager.secretAccessor']);
@@ -45,17 +45,19 @@ describe('terraform/iam.tf (T439)', () => {
       'google_secret_manager_secret.database_url.secret_id',
       'google_secret_manager_secret.gemini_api_key.secret_id',
       'google_secret_manager_secret.google_oauth_client_secret.secret_id',
+      'google_secret_manager_secret.origin_verify_secret.secret_id',
       'google_secret_manager_secret.phone_hmac_key.secret_id',
       'google_secret_manager_secret.share_ip_hmac_secret.secret_id',
     ]);
   });
 
-  it('argos-deployer: run.developer, artifactregistry.writer, serviceAccountUser solo sobre argos-run y secretmanager.viewer sobre 7 secretos (D-30; D9-30 (8) / T1316 añade el de Gemini; Feature 012 Bloque D añade el de la ficha QR)', () => {
+  it('argos-deployer: run.developer, artifactregistry.writer, serviceAccountUser solo sobre argos-run y secretmanager.viewer sobre 8 secretos (D-30; D9-30 (8) / T1316 añade el de Gemini; Feature 012 Bloque D añade el de la ficha QR; H-01 añade el de verificación de origen, solo metadatos)', () => {
     const dep = forSa('deployer');
     expect(dep.flatMap(roles).sort()).toEqual([
       'roles/artifactregistry.writer',
       'roles/iam.serviceAccountUser',
       'roles/run.developer',
+      'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',

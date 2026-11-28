@@ -26,8 +26,11 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toContain('audit-hmac-secret');
     // D9-30 (8) / T1316: 6.º secreto (argos-gemini-api-key), solo contenedor, sin google_secret_manager_secret_version.
     // Feature 012, Bloque D: 7.º secreto (argos-phone-hmac-key, PHONE_HMAC_KEY), con versión (ver el caso siguiente).
-    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(7);
-    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(7);
+    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(8);
+    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(8);
+    // H-01: contenedor origin-verify sin google_secret_manager_secret_version (el valor se carga fuera de Terraform).
+    expect(c).toMatch(/\$\{var\.project_prefix\}-origin-verify-secret/);
+    expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"origin_verify/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-phone-hmac-key/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-gemini-api-key/);
     expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"gemini_api_key"/);
