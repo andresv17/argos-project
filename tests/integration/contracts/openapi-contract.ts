@@ -105,6 +105,35 @@ export interface ContractCheck {
   readonly errors: readonly string[];
 }
 
+const E164 = /^\+[1-9][0-9]{7,14}$/;
+
+/**
+ * Anexo aditivo de la 012 (`emergency-additive-annex.md` §1, APPROVED): `phone` (E.164 o `null`) en el perfil propio de cuenta (002) y `criticalAllergies` (0 a 5 textos de 1 a 60) en el perfil de la
+ * mascota (004) son opcionales y NO editan los contratos cerrados de 001..011. Se validan aquí con su forma propia y se retiran del cuerpo antes de validar contra el esquema base; cualquier otra
+ * propiedad adicional sigue fallando.
+ */
+function withoutAnnexFields(node: unknown, errors: string[]): unknown {
+  if (Array.isArray(node)) return node.map((item) => withoutAnnexFields(item, errors));
+  if (typeof node !== 'object' || node === null) return node;
+  const source = node as Json;
+  const out: Json = {};
+  const isSelfProfile = 'preferredLanguage' in source && 'timezone' in source && 'username' in source;
+  const isPetProfile = 'avatarVersion' in source && 'species' in source && 'ownerUserId' in source;
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'phone' && isSelfProfile) {
+      if (value !== null && !(typeof value === 'string' && E164.test(value))) errors.push('anexo 012: phone debe ser E.164 o null');
+      continue;
+    }
+    if (key === 'criticalAllergies' && isPetProfile) {
+      const ok = Array.isArray(value) && value.length <= 5 && value.every((t) => typeof t === 'string' && t.length >= 1 && t.length <= 60);
+      if (!ok) errors.push('anexo 012: criticalAllergies debe ser 0 a 5 textos de 1 a 60');
+      continue;
+    }
+    out[key] = withoutAnnexFields(value, errors);
+  }
+  return out;
+}
+
 /**
  * Comprueba una respuesta contra el OpenAPI: estado declarado, tipo de contenido y cuerpo según el esquema.
  * Sin operación que coincida, o con un estado no declarado, devuelve el error correspondiente.
@@ -132,8 +161,10 @@ export function checkResponse(method: string, url: string, status: number, conte
     validate = ajv.compile({ $ref: ref });
     validators.set(ref, validate);
   }
+  const annexErrors: string[] = [];
+  const stripped = withoutAnnexFields(body, annexErrors);
   return {
     operationId: op.operationId,
-    errors: validate(body) ? [] : (validate.errors ?? []).map((e) => `${op.operationId} ${status}: ${e.instancePath} ${e.message}`),
+    errors: [...annexErrors, ...(validate(stripped) ? [] : (validate.errors ?? []).map((e) => `${op.operationId} ${status}: ${e.instancePath} ${e.message}`))],
   };
 }

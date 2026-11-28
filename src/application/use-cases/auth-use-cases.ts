@@ -73,7 +73,9 @@ function parseLoginInput(input: unknown): LoginInput {
  * `UserSelfProfile`) añade los dos booleanos de métodos de acceso; sin él la forma es la de siempre.
  */
 export function toSessionView(account: UserAccount, session: SessionRecord, authMethods?: AuthMethods): SessionView {
-  const user = authMethods === undefined ? toSelfProfile(account) : { ...toSelfProfile(account), authMethods };
+  // 012 (anexo §1): `phone` aditivo y opcional de la cuenta PROPIA (E.164 o `null`); solo viaja en la sesión de su titular, nunca en vistas públicas ni de miembros.
+  const own = { ...toSelfProfile(account), phone: account.phone ?? null };
+  const user = authMethods === undefined ? own : { ...own, authMethods };
   return { user, createdAt: session.createdAt, lastActivityAt: session.lastActivityAt, ...sessionExpiries(session) };
 }
 

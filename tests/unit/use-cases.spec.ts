@@ -49,7 +49,7 @@ const ABSOLUTE_AT = '2026-11-06T12:00:00.000Z';
 const MISSING_PET = '11111111-1111-4111-8111-111111111999';
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const publicUser = (id: string) => USERS.find((u) => u.id === id)!;
-const selfProfile = (id: string) => ({ ...publicUser(id), email: null, preferredLanguage: 'es', timezone: 'America/Bogota' });
+const selfProfile = (id: string) => ({ ...publicUser(id), email: null, preferredLanguage: 'es', timezone: 'America/Bogota', phone: null });
 
 async function outcome(promise: Promise<unknown>): Promise<string> {
   try {
@@ -355,7 +355,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
     expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements.map(rev), [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null, revision: 0 }))]);
-    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, biography: null, version: 1 }, { years: 4, months: 5, totalDays: 1640 }, 1]);
+    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null, criticalAllergies: [], lifeStatus: 'ALIVE', deceasedAt: null, biography: null, version: 1 }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
 

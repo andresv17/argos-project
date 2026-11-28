@@ -231,12 +231,13 @@ export class GetPetDashboardUseCase {
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
       const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
+      const criticalAllergies = await repositories.emergencyCards.findAllergies(petId); // 012 (anexo §1): aditivo, solo a quien ya lee la ficha de la mascota
       const deceased = pet.lifeStatus === 'DECEASED';
       const vaccinations = silenceAlertsOfDeceased(deceased, evaluateVaccinationAlerts(records.vaccinations, today));
       const dewormings = silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today));
       return {
         // REQ-BIO8-002: la ficha expone la biografía (null si no hay); la tarjeta del listado, el resumen veterinario y la escena no la llevan.
-        profile: { ...normalizePetProfile(pet), biography: pet.biography ?? null, avatarVersion },
+        profile: { ...normalizePetProfile(pet), biography: pet.biography ?? null, avatarVersion, criticalAllergies },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),
