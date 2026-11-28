@@ -4,7 +4,7 @@
  * acciones críticas (eliminar la mascota o cambiar de principal) y reconocer el aviso «Ahora eres propietario principal». La bandeja lista las invitaciones recibidas y las solicitudes propias o
  * por decidir. La decisión la toma la API (404 uniforme a terceros); la UI solo ofrece lo que la API permite y traduce sus códigos a texto.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CoOwnershipApiError,
   createCoOwnershipApi,
@@ -72,7 +72,7 @@ function OwnersList({ ownership }: { readonly ownership: OwnershipView }): JSX.E
 }
 
 /** @implements REQ-OWN12-002, REQ-OWN12-004, REQ-OWN12-006, INV-OWN12-004 */
-export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwnershipLoaded, api = createCoOwnershipApi(), shareApi }: {
+export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwnershipLoaded, api: apiProp, shareApi }: {
   readonly petId: string;
   readonly petName: string;
   readonly currentUserId: string;
@@ -84,6 +84,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   /** Cliente de enlaces para el aviso previo de revocación (annex §5.1); por defecto el de la sesión. */
   readonly shareApi?: ShareApi;
 }): JSX.Element {
+  const api = useMemo(() => apiProp ?? createCoOwnershipApi(), [apiProp]);
   const [ownership, setOwnership] = useState<OwnershipView | null>(null);
   const [username, setUsername] = useState('');
   const [busy, setBusy] = useState(false);
@@ -337,7 +338,8 @@ function RequestRow({ item, busy, onApprove, onReject, onCancel }: { readonly it
 }
 
 /** Bandeja de invitaciones recibidas y de solicitudes propias o por decidir; no se pinta si no hay nada. @implements REQ-OWN12-002, REQ-OWN12-004, INV-OWN12-004 */
-export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { readonly onChanged?: () => void; readonly api?: CoOwnershipApi }): JSX.Element | null {
+export function OwnershipInbox({ onChanged, api: apiProp }: { readonly onChanged?: () => void; readonly api?: CoOwnershipApi }): JSX.Element | null {
+  const api = useMemo(() => apiProp ?? createCoOwnershipApi(), [apiProp]);
   const [invitations, setInvitations] = useState<CoOwnerInvitationView[] | null>(null);
   const [requests, setRequests] = useState<OwnerRequestItem[] | null>(null);
   const [busy, setBusy] = useState(false);

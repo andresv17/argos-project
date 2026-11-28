@@ -15,7 +15,7 @@
  *
  * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051, EDGE-005-22, REQ-HOG11-005, REQ-HOG11-006, EDGE-011-014, REQ-VET12-001, REQ-VET12-002, REQ-VET12-007, D12-19, EDGE-012-077
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './Field.tsx';
 import { PetSubsetSelector, type SubsetPet } from './PetSubsetSelector.tsx';
@@ -450,7 +450,8 @@ export interface ShareLinksPanelProps {
 }
 
 /** Contenedor con estado de S4. @implements REQ-VET-001, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051 */
-export function ShareLinksPanel({ petId, petName, household, canCreateLinks = false, hideScopeChoice = false, householdPets, api = createShareApi() }: ShareLinksPanelProps): JSX.Element {
+export function ShareLinksPanel({ petId, petName, household, canCreateLinks = false, hideScopeChoice = false, householdPets, api: apiProp }: ShareLinksPanelProps): JSX.Element {
+  const api = useMemo(() => apiProp ?? createShareApi(), [apiProp]);
   const navigate = useNavigate();
   const defaultScope: ShareScopeName = hideScopeChoice && household !== null ? 'HOUSEHOLD' : 'PET';
   const [scope, setScope] = useState<ShareScopeName>(defaultScope);
