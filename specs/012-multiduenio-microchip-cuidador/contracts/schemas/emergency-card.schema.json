@@ -116,7 +116,6 @@
           "fields": [
             "petId",
             "actorUserId",
-            "actorRole",
             "occurredAt"
           ],
           "forbidden": [
@@ -131,11 +130,6 @@
             "url"
           ],
           "requirement": "REQ-QR12-002, SC-012-048, T1662",
-          "actorRoleValues": [
-            "OWNER",
-            "CO_OWNER",
-            "ADMIN"
-          ],
           "retention": "politica estandar de auditoria de mascota (audit_log, 002); NO se acorta a 90 dias (decision de Neo 2026-11-27 (3)); el aviso derivado criticalAllergiesChange solo la lee dentro de EMERGENCY_HISTORY_RETENTION_DAYS"
         },
         "EMERGENCY_CARD_ACTIVATED": {
@@ -207,7 +201,7 @@
             "occurredAt"
           ],
           "forbidden": [
-            "cualquier actor (actorUserId, actorRole)",
+            "cualquier actor (actorUserId)",
             "ip",
             "userAgent",
             "token",
@@ -229,8 +223,7 @@
           "when": "alta, baja o reconfirmacion del opt-in de telefono por mascota: setEmergencyPhoneConsent, activateEmergencyCard con showMyPhone = true y updateAccountPhone cuando invalida consentimientos (un evento por mascota, visible = false); tambien por vencimiento de EMERGENCY_NOTICE_WAIT_DAYS y por la rotacion de PHONE_HMAC_KEY cuando una fila no se puede recalcular (visible = false)",
           "fields": [
             "petId",
-            "actorUserId (NULL solo en los dos eventos de SISTEMA: rotacion de PHONE_HMAC_KEY y vencimiento de EMERGENCY_NOTICE_WAIT_DAYS; entonces origin = PHONE_HMAC_KEY_ROTATION o NOTICE_WAIT_EXPIRED)",
-            "origin (solo en eventos de sistema)",
+            "actorUserId (NULL solo en los dos eventos de SISTEMA: rotacion de PHONE_HMAC_KEY y vencimiento de EMERGENCY_NOTICE_WAIT_DAYS; sin origin en la auditoria)",
             "visible",
             "noticeVersion (solo si visible = true)",
             "occurredAt"
@@ -251,7 +244,7 @@
         }
       },
       "where": "auditoria de la 012 (src/domain/emergency y pets)",
-      "rule": "eventos de auditoria de la ficha QR y de las alergias criticas; NINGUNO incluye token, hash, URL, telefono, phone_hmac, ip, userAgent ni contenido de alergias (REQ-QR12-002, REQ-QR12-010, T1662, trinity hueco 8). El borrado de consentimientos al pasar a OFF no genera un evento por fila: lo cubre el evento de la transicion. Al eliminar una cuenta, eraseAccountInTransaction SEUDONIMIZA actorUserId y details de los eventos EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED (mismo HMAC de pseudonymizeUser); un actor seudonimizado da lastChange.byMe = false. Retencion (decision de Neo 2026-11-27 (3)): los eventos EMERGENCY_* se conservan EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (purga del mantenimiento existente sobre audit_log); PET_CRITICAL_ALLERGIES_UPDATED conserva la politica estandar de auditoria de mascota (730 d provisionales de 002). Como lastChange se deriva de EMERGENCY_*, pasados 90 dias sin evento nuevo es null tambien con la ficha ON"
+      "rule": "H-D1 (b), decision de Neo 2026-11-27: todo evento EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED entrega newStateHash = null (sin cuerpo ni hash de metadatos), sin actorRole ni origin (decision 3a, NFR-012-002); eventos de auditoria de la ficha QR y de las alergias criticas; NINGUNO incluye token, hash, URL, telefono, phone_hmac, ip, userAgent ni contenido de alergias (REQ-QR12-002, REQ-QR12-010, T1662, trinity hueco 8). El borrado de consentimientos al pasar a OFF no genera un evento por fila: lo cubre el evento de la transicion. Al eliminar una cuenta, eraseAccountInTransaction SEUDONIMIZA actorUserId y details de los eventos EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED (mismo HMAC de pseudonymizeUser); un actor seudonimizado da lastChange.byMe = false. Retencion (decision de Neo 2026-11-27 (3)): los eventos EMERGENCY_* se conservan EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (purga del mantenimiento existente sobre audit_log); PET_CRITICAL_ALLERGIES_UPDATED conserva la politica estandar de auditoria de mascota (730 d provisionales de 002). Como lastChange se deriva de EMERGENCY_*, pasados 90 dias sin evento nuevo es null tambien con la ficha ON"
     },
     "TEXTS": {
       "value": {
@@ -413,7 +406,7 @@
     "ADMIN_SCOPE": {
       "value": "ADMIN de hogar con la mascota en su hogar activo (rol efectivo de REQ-RBAC-001)",
       "where": "updateCriticalAllergies",
-      "rule": "Decision de Neo 2026-11-27 (a): puede EDITAR criticalAllergies (auditoria PET_CRITICAL_ALLERGIES_UPDATED con actorRole = ADMIN, sin contenido). SUPER_ADMIN y OPERATOR de plataforma (cookie de /admin) quedan EXCLUIDOS de lectura y escritura de alergias. Un ADMIN no titular NO activa, regenera, desactiva ni opta por telefono, y no lee getEmergencyCardStatus (404 uniforme). ADMIN de otro hogar: 404 uniforme (rama P-02)"
+      "rule": "Decision de Neo 2026-11-27 (a): puede EDITAR criticalAllergies (auditoria PET_CRITICAL_ALLERGIES_UPDATED sin contenido y sin actorRole). SUPER_ADMIN y OPERATOR de plataforma (cookie de /admin) quedan EXCLUIDOS de lectura y escritura de alergias. Un ADMIN no titular NO activa, regenera, desactiva ni opta por telefono, y no lee getEmergencyCardStatus (404 uniforme). ADMIN de otro hogar: 404 uniforme (rama P-02)"
     },
     "PHONE_HMAC_KEY": {
       "value": "clave dedicada del Secret Manager (version unica vigente)",
