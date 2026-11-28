@@ -33,19 +33,19 @@ const byName = (name: string): Exclusion => {
 describe('terraform/logging.tf: exclusiones de la ficha QR de emergencia (Feature 012, Bloque D)', () => {
   it('la exclusión de la vista pública /e/{token} filtra solo solicitudes de Cloud Run con esa ruta', () => {
     const e = byName('emergency_qr_page_requests');
-    expect(e.filter).toBe('resource.type=\\"cloud_run_revision\\" AND httpRequest.requestUrl:\\"/e/\\"');
+    expect(e.filter).toBe('resource.type=\\"cloud_run_revision\\" AND httpRequest.requestUrl =~ \\"^https?://[^/]+/e/\\"');
     expect(e.body).toMatch(/project\s*=\s*var\.project_id/);
     expect(e.body).toMatch(/depends_on\s*=\s*\[google_project_service\.apis\]/);
   });
 
   it('la exclusión de la API /api/emergency/{token} filtra solo solicitudes de Cloud Run con esa ruta', () => {
     const e = byName('emergency_qr_api_requests');
-    expect(e.filter).toBe('resource.type=\\"cloud_run_revision\\" AND httpRequest.requestUrl:\\"/api/emergency/\\"');
+    expect(e.filter).toBe('resource.type=\\"cloud_run_revision\\" AND httpRequest.requestUrl =~ \\"^https?://[^/]+/api/emergency/\\"');
   });
 
   it('toda exclusión de la ficha QR acota por tipo de recurso y por la ruta (no descarta registros ajenos)', () => {
     for (const e of exclusions().filter((x) => x.name.startsWith('emergency_qr_'))) {
-      expect(e.filter).toMatch(/^resource\.type=\\"cloud_run_revision\\" AND httpRequest\.requestUrl:\\"\/[^"\\]+\/\\"$/);
+      expect(e.filter).toMatch(/^resource\.type=\\"cloud_run_revision\\" AND httpRequest\.requestUrl =~ \\"\^https\?:\/\/\[\^\/\]\+\/[^"\\]+\/\\"$/);
     }
   });
 

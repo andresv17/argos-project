@@ -55,7 +55,7 @@ resource "google_logging_project_exclusion" "emergency_qr_page_requests" {
   project     = var.project_id
   name        = "${var.project_prefix}-exclude-emergency-qr-page-requests"
   description = "Excluye del sumidero _Default las solicitudes a la vista pública de la ficha QR (/e/{token}; el token no debe quedar en el registro)."
-  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/e/\""
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl =~ \"^https?://[^/]+/e/\""
 
   depends_on = [google_project_service.apis]
 }
@@ -64,7 +64,7 @@ resource "google_logging_project_exclusion" "emergency_qr_api_requests" {
   project     = var.project_id
   name        = "${var.project_prefix}-exclude-emergency-qr-api-requests"
   description = "Excluye del sumidero _Default las solicitudes a la API pública de la ficha QR (/api/emergency/{token}; el token no debe quedar en el registro)."
-  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/api/emergency/\""
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl =~ \"^https?://[^/]+/api/emergency/\""
 
   depends_on = [google_project_service.apis]
 }
