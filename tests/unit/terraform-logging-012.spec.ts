@@ -53,3 +53,11 @@ describe('terraform/logging.tf: exclusiones de la ficha QR de emergencia (Featur
     expect(read('terraform/logging.tf')).not.toMatch(/[A-Za-z0-9_-]{43}/);
   });
 });
+
+describe('terraform/logging.tf: exclusión de la vista previa PETS (Feature 012, Bloque E; annex §8.6.1)', () => {
+  it('excluye la ruta clinical-summary/pets de las solicitudes de Cloud Run (la query petIds no debe quedar en _Default)', () => {
+    const e = byName('pets_preview_requests');
+    expect(e.filter).toBe('resource.type=\\"cloud_run_revision\\" AND httpRequest.requestUrl:\\"/clinical-summary/pets\\"');
+    expect(e.body).toMatch(/depends_on\s*=\s*\[google_project_service\.apis\]/);
+  });
+});

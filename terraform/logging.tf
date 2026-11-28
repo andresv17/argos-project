@@ -68,3 +68,16 @@ resource "google_logging_project_exclusion" "emergency_qr_api_requests" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Vista previa de mascotas para un enlace PETS (Feature 012, Bloque E; anexo share-link-subset §8.6.1, Neo). La ruta
+# GET /households/{householdId}/clinical-summary/pets lleva petIds en la query; el registro de solicitudes de Cloud Run guardaría
+# httpRequest.requestUrl (con ?petIds=...). Una exclusión de Cloud Logging descarta la entrada entera: el filtro apunta a la ruta.
+# Precondición bloqueante de la FASE 1 (lector desplegado con la bandera apagada), no solo de la Fase 2.
+resource "google_logging_project_exclusion" "pets_preview_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-pets-preview-requests"
+  description = "Excluye del sumidero _Default las solicitudes a la vista previa de mascotas de un enlace PETS (petIds no debe quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/clinical-summary/pets\""
+
+  depends_on = [google_project_service.apis]
+}
