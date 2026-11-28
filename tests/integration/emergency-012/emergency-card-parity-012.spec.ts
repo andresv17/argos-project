@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
+import type { ApplicationDeps } from '../../../src/application/use-cases/use-case-support.ts';
 import { unshare } from '../../fixtures/co-ownership-012.ts';
 import { ANDRES, BASE_URL, ENGINE_FACTORIES, KEY_B, LUCIA, MARIA, NOTICE, PET, PHONE_A, PHONE_L, PHONE_M, T0, accountPhone, cardRow, codeOf, consentRows, daysAfter, emergencyCases, emergencyDeps, hoursAfter, makeCoOwners, setPhoneOutOfBand, sha256, type Engine012 } from '../../fixtures/emergency-012.ts';
 
@@ -378,6 +380,41 @@ for (const factory of ENGINE_FACTORIES) {
       expect(Object.keys((await cardRow(e))!).filter((k) => /ip|agent/i.test(k))).toEqual([]);
       await use.deactivate(ANDRES, PET);
       expect(((await cardRow(e))!)['lastScannedAt'] ?? null).toBeNull();
+    });
+
+    it('[SC-012-050][SC-012-051] un fallo de sentencia al marcar last_scanned_at no degrada la respuesta pública (la marca corre FUERA de la transacción de lectura; en PostgreSQL el error aborta solo su transacción)', async () => {
+      const { e, use, deps } = await boot();
+      await use.updateAllergies(ANDRES, PET, ['Polen']);
+      const { token } = (await use.activate(ANDRES, PET)) as { token: string };
+      let reads = 0;
+      let failedTouches = 0;
+      const failing = {
+        ...deps,
+        uow: {
+          ...deps.uow,
+          runInTransaction: <T>(work: (r: RepositorySet) => Promise<T>, options?: { readonly boundedLockWait?: boolean }): Promise<T> =>
+            deps.uow.runInTransaction((r) => {
+              reads += 1;
+              const cards = Object.create(r.emergencyCards) as RepositorySet['emergencyCards'];
+              (cards as { touchLastScanned: unknown }).touchLastScanned = async (petId: string) => {
+                failedTouches += 1;
+                const card = await r.emergencyCards.findByPet(petId);
+                // sentencia que el motor rechaza (CHECK de longitud del hash): en PostgreSQL aborta la transacción en curso
+                await r.emergencyCards.save({ ...card!, tokenHash: 'corto' });
+                throw new Error('touchLastScanned fallido');
+              };
+              return work(Object.assign(Object.create(r) as RepositorySet, { emergencyCards: cards }));
+            }, options),
+        },
+      } as ApplicationDeps;
+      e.setNow('2026-11-26T12:00:00.000Z');
+      const view = await emergencyCases(failing).publicView(token);
+      expect(Object.keys(view).sort()).toEqual(['contactPhones', 'criticalAllergies', 'petName']);
+      expect(failedTouches).toBe(1);
+      expect(reads).toBeGreaterThan(1);
+      expect((await cardRow(e))!['tokenHash']).toBe(sha256(token));
+      expect((await cardRow(e))!['status']).toBe('ON');
+      expect((await emergencyCases(deps).publicView(token))['petName']).toBe(view['petName']);
     });
 
     it('[SC-012-106] tope por usuario de 20 por hora (activar+regenerar+desactivar, también las peticiones que acaban en 404): la 21.ª da 429 ERR-RATE-LIMITED, no se registra ni prolonga la ventana, y se libera a la hora', async () => {

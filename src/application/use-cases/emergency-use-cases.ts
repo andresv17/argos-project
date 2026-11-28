@@ -269,23 +269,28 @@ export class GetEmergencyCardPublicUseCase {
   async lookupByTokenHash(tokenHash: string): Promise<PublicLookup> {
     const { deps } = this;
     const config = emergencyOf(deps);
-    return deps.uow.runInTransaction(async (repositories) => {
+    const now = deps.clock.nowIsoTimestamp();
+    let refreshPetId: string | null = null;
+    const view = await deps.uow.runInTransaction(async (repositories): Promise<PublicLookup> => {
       const card = await repositories.emergencyCards.findByTokenHash(tokenHash);
       if (card === null || card.status !== 'ON' || card.tokenHash === null || !sameHex(card.tokenHash, tokenHash)) return null;
       const state = await loadCardState(repositories, config, card.petId);
       if (state === null || state.deceased || !state.guardSatisfied) return null;
       const petName = sanitizePublicPetName(state.pet.name);
       if (petName === null) return null;
-      const now = deps.clock.nowIsoTimestamp();
-      if (shouldRefreshLastScanned(card.lastScannedAt, now)) {
-        try {
-          await repositories.emergencyCards.touchLastScanned(card.petId, tokenHash, truncateLastScanned(now));
-        } catch {
-          // Su fallo no rompe la lectura pública (contrato): la marca solo informa a los titulares.
-        }
-      }
+      if (shouldRefreshLastScanned(card.lastScannedAt, now)) refreshPetId = card.petId;
       return { petName, criticalAllergies: state.allergies as EmergencyCardPublicView['criticalAllergies'], contactPhones: state.phones.map((phone) => ({ phone })) as EmergencyCardPublicView['contactPhones'] };
     });
+    if (view !== null && refreshPetId !== null) {
+      const petId: string = refreshPetId;
+      // Fuera de la transacción de lectura: en PostgreSQL un error de sentencia aborta la transacción y degradaría el COMMIT de la respuesta pública.
+      try {
+        await deps.uow.runInTransaction((repositories) => repositories.emergencyCards.touchLastScanned(petId, tokenHash, truncateLastScanned(now)));
+      } catch {
+        // Su fallo no rompe la lectura pública (contrato): la marca solo informa a los titulares.
+      }
+    }
+    return view;
   }
 }
 
