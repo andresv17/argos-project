@@ -5,7 +5,8 @@
  *
  * @implements REQ-QR12-003, REQ-QR12-005, REQ-QR12-006, REQ-QR12-009, REQ-QR12-010, INV-QR12-003
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from './Field.tsx';
 import {
   EmergencyApiError,
@@ -16,12 +17,9 @@ import {
   type EmergencyCardOwnerView,
 } from '../emergency-api.ts';
 import { EMERGENCY_NOTICE_VERSION, EMERGENCY_TEXTS, EMERGENCY_UI, phoneOptInLabel } from '../emergency-texts.ts';
-import { autoOffNotice, downloadBlobAs, isSafeQrSvg, otherOwnerNotice, qrFileName, svgBlob, svgToPngBlob } from '../emergency-view.ts';
+import { autoOffNotice, downloadBlobAs, isSafeQrSvg, otherOwnerNotice, qrFileName, svgBlob, svgDataUri, svgToPngBlob } from '../emergency-view.ts';
 
 const CARD = 'grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
-
-/** `@page` sin nombre que se inyecta solo mientras dura la impresión de la hoja A6 (`page: nombre` no aplica a una hoja anidada, MEDIA-1 de /sati). El tamaño va en milímetros: la palabra clave `A6` no existe en Chromium y la hoja saldría en Letter. */
-export const QR_PRINT_PAGE_CSS = '@page { size: 105mm 148mm; margin: 0 }';
 
 /** Hoja imprimible A6 (REQ-QR12-005): nombre, leyenda del contrato y QR de 60 mm de lado (el mínimo del contrato es 30 mm). Solo existe en papel (`.qr-a6`, `@media print`). */
 export function EmergencyPrintSheet({ petName, qrSrc }: { readonly petName: string; readonly qrSrc: string }): JSX.Element {
@@ -32,6 +30,12 @@ export function EmergencyPrintSheet({ petName, qrSrc }: { readonly petName: stri
       <p className="qr-a6__caption">{EMERGENCY_TEXTS.printSheetCaption}</p>
     </div>
   );
+}
+
+/** Hoja A6 montada directamente bajo `document.body` (hermana de la app, sin ancestros que la recorten); sin `document` (render estático) queda en línea. */
+export function EmergencyPrintPortal({ petName, qrSrc }: { readonly petName: string; readonly qrSrc: string }): JSX.Element {
+  const sheet = <EmergencyPrintSheet petName={petName} qrSrc={qrSrc} />;
+  return typeof document === 'undefined' ? sheet : createPortal(sheet, document.body);
 }
 
 export interface EmergencyCardViewProps {
@@ -205,7 +209,6 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
   const [showMyPhone, setShowMyPhone] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const urlRef = useRef<string | null>(null);
 
   const fail = useCallback((e: unknown) => setError(emergencyProblemMessage(e instanceof EmergencyApiError ? e : new EmergencyApiError('ERR-INTERNAL-UNEXPECTED', 0))), []);
   const refresh = useCallback(async () => {
@@ -221,8 +224,6 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
   }, [refresh]);
 
   const clearIssued = useCallback(() => {
-    if (urlRef.current !== null) URL.revokeObjectURL(urlRef.current);
-    urlRef.current = null;
     setQrSrc(null);
     setIssued(null);
   }, []);
@@ -246,8 +247,7 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
       const result = status?.status === 'ON' ? await client.regenerate(petId, body) : await client.activate(petId, body);
       if (!isSafeQrSvg(result.qrSvg)) throw new EmergencyApiError('ERR-INTERNAL-UNEXPECTED', 0);
       clearIssued();
-      urlRef.current = URL.createObjectURL(svgBlob(result.qrSvg));
-      setQrSrc(urlRef.current);
+      setQrSrc(svgDataUri(result.qrSvg));
       setIssued({ result, pngFailed: false });
       setFormOpen(false);
       setConsent(false);
@@ -264,13 +264,8 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
   };
   const print = (): void => {
     document.body.classList.add('printing-qr');
-    // `@page` no se condiciona por clase: se inyecta (sin nombre) solo mientras dura la impresión de la hoja A6.
-    const pageStyle = document.createElement('style');
-    pageStyle.textContent = QR_PRINT_PAGE_CSS;
-    document.head.appendChild(pageStyle);
     const done = (): void => {
       document.body.classList.remove('printing-qr');
-      pageStyle.remove();
       window.removeEventListener('afterprint', done);
     };
     window.addEventListener('afterprint', done);
@@ -324,7 +319,7 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
           })
         }
       />
-      {qrSrc !== null ? <EmergencyPrintSheet petName={petName} qrSrc={qrSrc} /> : null}
+      {qrSrc !== null ? <EmergencyPrintPortal petName={petName} qrSrc={qrSrc} /> : null}
     </>
   );
 }
