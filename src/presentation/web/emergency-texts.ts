@@ -59,6 +59,7 @@ export const EMERGENCY_UI = {
   publicUnavailable: 'El código no es válido o la ficha ya no está activa.',
   publicRateLimited: 'Demasiados intentos. Espera un momento y vuelve a escanear.',
   publicError: 'No se pudo cargar la ficha. Inténtalo de nuevo.',
+  publicRetry: 'Reintentar',
   publicPhonesTitle: 'Teléfonos de contacto',
   publicNoPhones: 'El dueño no dejó teléfonos de contacto en esta ficha.',
   publicAllergiesTitle: 'Alergias críticas',

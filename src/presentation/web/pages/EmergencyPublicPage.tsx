@@ -12,12 +12,14 @@ import { EMERGENCY_TEXTS, EMERGENCY_UI, publicHeading } from '../emergency-texts
 
 export type EmergencyPublicState = { readonly kind: 'LOADING' } | { readonly kind: 'READY'; readonly view: EmergencyPublicView } | { readonly kind: 'NOT_FOUND' } | { readonly kind: 'RATE_LIMITED' } | { readonly kind: 'ERROR' };
 
-export function EmergencyPublicDocument({ state }: { readonly state: EmergencyPublicState }): JSX.Element {
+export function EmergencyPublicDocument({ state, onRetry }: { readonly state: EmergencyPublicState; readonly onRetry?: () => void }): JSX.Element {
   if (state.kind === 'LOADING')
     return (
-      <p role="status" className="p-4 text-slate-800">
-        Cargando…
-      </p>
+      <main className="mx-auto grid max-w-xl gap-2 p-4 text-slate-800">
+        <h1 role="status" className="text-xl font-semibold">
+          Cargando…
+        </h1>
+      </main>
     );
   if (state.kind === 'READY') {
     const { petName, criticalAllergies, contactPhones } = state.view;
@@ -60,9 +62,16 @@ export function EmergencyPublicDocument({ state }: { readonly state: EmergencyPu
   }
   if (state.kind === 'ERROR')
     return (
-      <p role="alert" className="p-4 text-slate-900">
-        {EMERGENCY_UI.publicError}
-      </p>
+      <main className="mx-auto grid max-w-xl gap-3 p-4 text-slate-900">
+        <h1 role="alert" className="text-xl font-semibold">
+          {EMERGENCY_UI.publicError}
+        </h1>
+        {onRetry === undefined ? null : (
+          <button type="button" onClick={onRetry} className="min-h-[44px] w-fit rounded-xl bg-slate-900 px-5 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+            {EMERGENCY_UI.publicRetry}
+          </button>
+        )}
+      </main>
     );
   return (
     <main className="mx-auto grid max-w-xl gap-2 p-4 text-slate-900">
@@ -77,6 +86,7 @@ export function EmergencyPublicDocument({ state }: { readonly state: EmergencyPu
 export function EmergencyPublicPage({ fetcher }: { readonly fetcher?: typeof fetchEmergencyPublic }): JSX.Element {
   const { token = '' } = useParams();
   const [state, setState] = useState<EmergencyPublicState>({ kind: 'LOADING' });
+  const [attempt, setAttempt] = useState(0);
   const load = useRef(fetcher ?? fetchEmergencyPublic);
   useEffect(() => {
     let active = true;
@@ -91,14 +101,20 @@ export function EmergencyPublicPage({ fetcher }: { readonly fetcher?: typeof fet
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, attempt]);
   useEffect(() => {
     document.title = state.kind === 'READY' ? 'Ficha de emergencia' : state.kind === 'LOADING' ? 'Cargando…' : 'Ficha no disponible';
     if (state.kind === 'NOT_FOUND' || state.kind === 'RATE_LIMITED') document.getElementById('emergency-unavailable-title')?.focus();
   }, [state]);
   return (
     <div lang="es" className="min-h-screen bg-cream">
-      <EmergencyPublicDocument state={state} />
+      <EmergencyPublicDocument
+        state={state}
+        onRetry={() => {
+          setState({ kind: 'LOADING' });
+          setAttempt((n) => n + 1);
+        }}
+      />
     </div>
   );
 }

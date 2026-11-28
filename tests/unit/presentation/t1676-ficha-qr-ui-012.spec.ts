@@ -179,6 +179,12 @@ describe('T1676 vista pública /e/:token (REQ-QR12-004, REQ-QR12-009, INV-QR12-0
     const notFound = renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'NOT_FOUND' } }));
     expect(notFound).toContain('Esta ficha no está disponible');
     expect(renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'RATE_LIMITED' } }))).toContain('Demasiados intentos');
+    // BAJA-2 de /sati: LOADING y ERROR también llevan main y h1; ERROR ofrece reintento.
+    const loading = renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'LOADING' } }));
+    const failed = renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'ERROR' }, onRetry: noop }));
+    for (const markup of [loading, failed]) expect(markup).toMatch(/<main[^>]*>[\s\S]*<h1[^>]*>[\s\S]*<\/h1>/);
+    expect(failed).toContain('Reintentar');
+    expect(renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'ERROR' } }))).not.toContain('Reintentar');
     expect(renderToStaticMarkup(h(EmergencyPublicDocument, { state: { kind: 'ERROR' } }))).toContain('No se pudo cargar');
   });
 
