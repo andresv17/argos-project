@@ -4,9 +4,9 @@
  *
  * @implements REQ-QR12-001, REQ-QR12-006
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from './Field.tsx';
-import { EmergencyApiError, createEmergencyApi, emergencyProblemMessage, type EmergencyApi } from '../emergency-api.ts';
+import { EmergencyApiError, createEmergencyApi, emergencyProblemMessage, type AccountPhoneView, type EmergencyApi } from '../emergency-api.ts';
 import { EMERGENCY_UI } from '../emergency-texts.ts';
 
 export interface AccountPhoneViewProps {
@@ -16,14 +16,21 @@ export interface AccountPhoneViewProps {
   readonly saved: string | null;
   readonly onValue: (value: string) => void;
   readonly onSave: () => void;
+  /** El teléfono vigente NO llegó del servidor (campo ausente, distinto de `null`): no hay campo ni guardado, para no borrar lo que no se pudo leer. */
+  readonly unavailable?: boolean;
 }
 
-export function AccountPhoneSectionView({ value, busy, error, saved, onValue, onSave }: AccountPhoneViewProps): JSX.Element {
+export function AccountPhoneSectionView({ value, busy, error, saved, onValue, onSave, unavailable = false }: AccountPhoneViewProps): JSX.Element {
   return (
     <section aria-labelledby="phone-title" className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 id="phone-title" className="text-lg font-semibold">
         {EMERGENCY_UI.accountPhoneTitle}
       </h2>
+      {unavailable ? (
+        <p role="status" className="max-w-prose rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900">
+          {EMERGENCY_UI.accountPhoneUnavailable}
+        </p>
+      ) : (
       <form
         noValidate
         aria-label="Teléfono de contacto"
@@ -68,23 +75,35 @@ export function AccountPhoneSectionView({ value, busy, error, saved, onValue, on
           )}
         </div>
       </form>
+      )}
     </section>
   );
 }
 
-export function AccountPhoneSection({ initial = null, api }: { readonly initial?: string | null; readonly api?: EmergencyApi }): JSX.Element {
+/** Guarda SOLO si el teléfono vigente llegó del servidor (`loaded`): con el campo ausente no hay PUT (devuelve `null`). Un texto vacío con el dato cargado borra el teléfono (`null` explícito). */
+export async function updatePhoneIfLoaded(api: Pick<EmergencyApi, 'updatePhone'>, loaded: boolean, value: string): Promise<AccountPhoneView | null> {
+  return loaded ? api.updatePhone(value.trim() === '' ? null : value.trim()) : null;
+}
+
+/** `initial` AUSENTE (`undefined`) = el servidor no entregó el teléfono: no se muestra campo ni se guarda nada; `null` explícito = sin teléfono (campo vacío y editable). */
+export function AccountPhoneSection({ initial, api }: { readonly initial?: string | null | undefined; readonly api?: EmergencyApi }): JSX.Element {
   const client = useMemo(() => api ?? createEmergencyApi(), [api]);
+  const loaded = initial !== undefined;
   const [value, setValue] = useState(initial ?? '');
+  useEffect(() => {
+    if (initial !== undefined) setValue(initial ?? '');
+  }, [initial]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const save = async (): Promise<void> => {
+    if (!loaded) return;
     setBusy(true);
     setError(null);
     setSaved(null);
     try {
-      const empty = value.trim() === '';
-      const view = await client.updatePhone(empty ? null : value.trim());
+      const view = await updatePhoneIfLoaded(client, loaded, value);
+      if (view === null) return;
       setValue(view.phone ?? '');
       setSaved(view.phone === null ? EMERGENCY_UI.accountPhoneRemoved : EMERGENCY_UI.accountPhoneSaved);
     } catch (e) {
@@ -93,5 +112,5 @@ export function AccountPhoneSection({ initial = null, api }: { readonly initial?
       setBusy(false);
     }
   };
-  return <AccountPhoneSectionView value={value} busy={busy} error={error} saved={saved} onValue={setValue} onSave={() => void save()} />;
+  return <AccountPhoneSectionView value={value} busy={busy} error={error} saved={saved} onValue={setValue} onSave={() => void save()} unavailable={!loaded} />;
 }

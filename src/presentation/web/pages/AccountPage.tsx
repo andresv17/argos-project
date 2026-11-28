@@ -492,7 +492,7 @@ export function AccountPage(): JSX.Element {
       <h1 className="text-2xl font-bold">Perfil</h1>
       <AvatarSection />
       <ProfileSection />
-      <AccountPhoneSection initial={(user as { readonly phone?: string | null } | null)?.phone ?? null} />
+      <AccountPhoneSection initial={(user as { readonly phone?: string | null } | null)?.phone} />
       {hasGoogle ? <GoogleLinkedStatus /> : hasPassword ? <GoogleLinkSection /> : null}
       {hasPassword ? (
         <>

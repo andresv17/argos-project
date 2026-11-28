@@ -350,9 +350,9 @@ export function PetsPage(): JSX.Element {
                         <>
                           <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
                           {/* 012, T1676: alergias críticas (titular o ADMIN de hogar) y ficha QR (solo titulares; el servidor decide con 404 uniforme). */}
-                          <CriticalAllergiesEditor key={`allergies-${dashboard.profile.id}`} petId={dashboard.profile.id} initial={(dashboard.profile as { readonly criticalAllergies?: readonly string[] }).criticalAllergies ?? []} />
+                          <CriticalAllergiesEditor key={`allergies-${dashboard.profile.id}`} petId={dashboard.profile.id} initial={(dashboard.profile as { readonly criticalAllergies?: readonly string[] }).criticalAllergies} />
                           {dashboard.myRole === 'OWNER' ? (
-                            <EmergencyCardPanel key={`qr-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} hasPhone={(user as { readonly phone?: string | null } | null)?.phone !== null} />
+                            <EmergencyCardPanel key={`qr-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} hasPhone={typeof (user as { readonly phone?: string | null } | null)?.phone === 'string'} />
                           ) : null}
                         </>
                       ),
