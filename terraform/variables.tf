@@ -50,6 +50,17 @@ variable "share_ip_hmac_secret" {
   }
 }
 
+variable "phone_hmac_key" {
+  description = "Clave HMAC dedicada del teléfono de la ficha QR de emergencia (Feature 012, PHONE_HMAC_KEY, T-05; >= 32 caracteres ASCII imprimibles, sin espacios). Distinta de la de sesión y de la de IP. Llega por TF_VAR_phone_hmac_key."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.phone_hmac_key) >= 32 && can(regex("^[!-~]+$", var.phone_hmac_key))
+    error_message = "phone_hmac_key debe tener al menos 32 caracteres ASCII imprimibles, sin espacios ni saltos de línea (PHONE_HMAC_KEY, Feature 012)."
+  }
+}
+
 variable "database_url" {
   description = "URL de Postgres con -pooler y sslmode=require (REQ-SEC-002). Llega por TF_VAR_database_url."
   type        = string

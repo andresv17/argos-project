@@ -25,8 +25,10 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toContain('database-url');
     expect(c).toContain('audit-hmac-secret');
     // D9-30 (8) / T1316: 6.º secreto (argos-gemini-api-key), solo contenedor, sin google_secret_manager_secret_version.
-    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(6);
-    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(6);
+    // Feature 012, Bloque D: 7.º secreto (argos-phone-hmac-key, PHONE_HMAC_KEY), con versión (ver el caso siguiente).
+    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(7);
+    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(7);
+    expect(c).toMatch(/\$\{var\.project_prefix\}-phone-hmac-key/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-gemini-api-key/);
     expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"gemini_api_key"/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-database-url/);
@@ -35,7 +37,9 @@ describe('terraform/secret_manager.tf (T438)', () => {
 
   it('hay una versión por secreto, sin count ni for_each condicional', () => {
     const c = code();
-    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(3);
+    // Feature 012, Bloque D: la versión de phone_hmac_key viene de var.phone_hmac_key (TF_VAR), nunca de un literal.
+    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(4);
+    expect(c).toMatch(/resource\s+"google_secret_manager_secret_version"\s+"phone_hmac_key"[\s\S]*?secret_data\s*=\s*var\.phone_hmac_key/);
     for (const name of ['database_url', 'audit_hmac_secret']) {
       const v = block('google_secret_manager_secret_version', name);
       expect(v, name).not.toBe('');

@@ -191,6 +191,20 @@ jobs:
           else
             echo "Secreto argos-gemini-api-key sin versión habilitada: GEMINI_API_KEY no se inyecta en esta revisión." >&2
           fi
+          # Ficha QR de emergencia (Feature 012, Bloque D, PHONE_HMAC_KEY, T-05): opcional con el mismo criterio que Gemini. Sin versión habilitada la
+          # ficha no se conecta en la aplicación (fail-closed: rutas 404) y el despliegue no falla. Nunca latest: solo la versión numérica más alta.
+          PHONE_HMAC_KEY_VERSION="$(optional_latest_version argos-phone-hmac-key)"
+          PHONE_SECRET_FLAG=""
+          if [ -n "$PHONE_HMAC_KEY_VERSION" ]; then
+            if ! printf '%s' "$PHONE_HMAC_KEY_VERSION" | grep -Eq '^[0-9]+$'; then
+              echo "Versión de secreto de la ficha QR no numérica; se aborta el despliegue." >&2
+              exit 1
+            fi
+            echo "::add-mask::${PHONE_HMAC_KEY_VERSION}"
+            PHONE_SECRET_FLAG=",PHONE_HMAC_KEY=argos-phone-hmac-key:${PHONE_HMAC_KEY_VERSION}"
+          else
+            echo "Secreto argos-phone-hmac-key sin versión habilitada: PHONE_HMAC_KEY no se inyecta; la ficha QR queda desconectada." >&2
+          fi
           for v in "$DB_VERSION" "$HMAC_VERSION" "$SHARE_HMAC_VERSION" "$OAUTH_SECRET_VERSION" "$ADMIN_EMAILS_VERSION"; do
             if ! printf '%s' "$v" | grep -Eq '^[0-9]+$'; then
               echo "Versión de secreto no numérica; se aborta el despliegue." >&2
@@ -204,6 +218,7 @@ jobs:
           echo "::add-mask::${ADMIN_EMAILS_VERSION}"
           {
             echo "GEMINI_SECRET_FLAG=${GEMINI_SECRET_FLAG}"
+            echo "PHONE_SECRET_FLAG=${PHONE_SECRET_FLAG}"
             echo "DB_VERSION=${DB_VERSION}"
             echo "HMAC_VERSION=${HMAC_VERSION}"
             echo "SHARE_HMAC_VERSION=${SHARE_HMAC_VERSION}"
@@ -266,7 +281,7 @@ jobs:
             --image "$IMAGE" \
             --no-traffic --tag "$TAG" \
             --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS},ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${OIDC_AUDIENCE}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI}" \
-            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION},ARGOS_ADMIN_EMAILS=argos-admin-emails:${ADMIN_EMAILS_VERSION}${GEMINI_SECRET_FLAG}" \
+            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION},ARGOS_ADMIN_EMAILS=argos-admin-emails:${ADMIN_EMAILS_VERSION}${GEMINI_SECRET_FLAG}${PHONE_SECRET_FLAG}" \
             --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
             --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json > "${RUNNER_TEMP}/service.json"
