@@ -6,7 +6,7 @@
  * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, REQ-HOG11-001, REQ-HOG11-002, REQ-HOG11-005, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016
  *
  * Feature 011 (#64, D11-05 = A): página única con la lista de hogares y el detalle del hogar elegido con pestañas internas Resumen, Miembros, Mascotas, Compartir, Álbum
- * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta ni contrato nuevos, D11-06 = A).
+ * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta nueva, D11-06 = A). 012 (T1702, D12-19): «Compartir» ofrece «Todas» o «Solo algunas» (subconjunto).
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';

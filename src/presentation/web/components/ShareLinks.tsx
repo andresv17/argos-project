@@ -49,7 +49,8 @@ export interface ShareLinksViewProps {
   readonly canCreateLinks?: boolean;
   /**
    * `REQ-HOG11-006` / `REQ-HOG11-005` (011, MIF-011-08): sin elección real de alcance no se pinta «¿Qué quieres compartir?» ni los radios. Con `household` y alcance
-   * `HOUSEHOLD` se comparten todas las mascotas elegibles del hogar (sin subconjunto) y se avisa del alcance dinámico (EDGE-011-014); si no, se muestra el nombre de la mascota.
+   * `HOUSEHOLD` se comparten todas las mascotas elegibles del hogar y se avisa del alcance dinámico (EDGE-011-014); si no, se muestra el nombre de la mascota.
+   * 012 (T1702, `D12-19`): la restricción de 011 «el hogar no admite subconjunto» queda sin efecto (revocación parcial de `D11-06 = A`): con `householdPets` el hogar ofrece «Todas» o «Solo algunas».
    */
   readonly hideScopeChoice?: boolean;
   /** Instante actual del servidor para el texto «Vence el…» (la presentación no lee el reloj). */
@@ -80,7 +81,6 @@ export interface ShareLinksViewProps {
   readonly onConfirmRevoke: (id: string) => void;
   readonly onCancelRevoke: () => void;
   readonly onPreview: () => void;
-}
   /** 012 (T1696): mascotas del hogar que se pueden elegir. SOLO los dos puntos de entrada de hogar la pasan; sin ella (la ficha) no hay selector y el alcance es la mascota. */
   readonly householdPets?: readonly SubsetPet[];
   /** Ids elegidos en el selector (modo «Solo algunas»). */
@@ -93,11 +93,11 @@ export interface ShareLinksViewProps {
   readonly petsList?: PetsShareLinkList | null;
   /** Retira UNA mascota del enlace sin revocarlo para las demás. */
   readonly onWithdrawPet?: (shareLinkId: string, petId: string) => void;
+}
 
 const CARD = 'grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 /** EDGE-011-014 (lock F-05, D11-06 = A): texto aprobado por Neo para el enlace de hogar. */
 export const HOUSEHOLD_SCOPE_DYNAMIC_NOTICE = 'Incluye todas las mascotas asignadas a este hogar mientras esté activo';
-const LEGEND = 'text-sm font-semibold text-slate-900';
 /** ENM-005-E (D12-19, T1702): aviso del enlace de subconjunto, estático. */
 export const PETS_SCOPE_STATIC_NOTICE = 'El enlace incluye solo las mascotas que elijas. Las que añadas después al hogar no aparecerán.';
 /** ENM-005-E §5.1 (D-1 = (a)): la revocación y la salida de una mascota del hogar afectan al enlace ENTERO. */
@@ -105,6 +105,7 @@ export const PETS_REVOCATION_WARNING = 'Revocar el enlace afecta a todas las mas
 export const PETS_LEAVE_HOUSEHOLD_WARNING = 'Si una mascota del enlace deja el hogar, o cambia su propietario principal, el enlace entero se revoca y las demás mascotas también dejan de verse.';
 /** EDGE-012-077: sin canal de notificaciones; los afectados por acciones de terceros lo ven en la lista (30 días). */
 export const PETS_THIRD_PARTY_NOTICE = 'Si otra persona retira una mascota o cambia sus datos de propiedad, el enlace puede quedar revocado sin aviso: míralo en esta lista.';
+const LEGEND = 'text-sm font-semibold text-slate-900';
 const CHOICE = 'flex min-h-11 items-center gap-2 text-sm text-slate-900';
 const INPUT = 'h-5 w-5 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 const BADGE: Readonly<Record<ShareLinkView['status'], string>> = {
@@ -222,7 +223,6 @@ function LinkRow({ link, props }: { readonly link: ShareLinkView; readonly props
   );
 }
 
-export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
 /** «Todas» (hogar dinámico, 011) o «Solo algunas» (`PETS` estático, 012) con el selector único (ENM-005-E, T1696). */
 function SubsetChoice(props: ShareLinksViewProps & { readonly householdPets: readonly SubsetPet[] }): JSX.Element {
   const all = props.allPets === true;
@@ -255,6 +255,7 @@ function SubsetChoice(props: ShareLinksViewProps & { readonly householdPets: rea
   );
 }
 
+export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
   const { petName, household, canCreateLinks = false, hideScopeChoice = false, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice, householdPets, petsList } = props;
   // Subconjunto: solo con el hogar y la lista de sus mascotas (los dos puntos de entrada de hogar); la ficha no la pasa.
   const subset = household !== null && householdPets !== undefined && scope === 'HOUSEHOLD';
@@ -393,12 +394,12 @@ function SubsetChoice(props: ShareLinksViewProps & { readonly householdPets: rea
               Cancelar
             </Button>
           </div>
-          <button type="button" onClick={props.onPreview} className="w-fit min-h-11 text-left text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
           {noneSelected ? (
             <p id="share-pets-required" className="text-sm font-semibold text-red-900">
               Elige al menos una mascota para crear el enlace.
             </p>
           ) : null}
+          <button type="button" onClick={props.onPreview} className="w-fit min-h-11 text-left text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
             Ver vista previa del resumen
           </button>
         </form>
@@ -417,12 +418,12 @@ function SubsetChoice(props: ShareLinksViewProps & { readonly householdPets: rea
             {(list?.items ?? []).map((link) => (
               <LinkRow key={link.id} link={link} props={props} />
             ))}
-          </ul>
             {(petsList?.items ?? []).map((link) => (
               <PetsLinkRow key={link.id} link={link} props={props} />
             ))}
-        </>
+          </ul>
           {petsList === undefined || petsList === null ? null : <p className="text-sm text-text-muted">{PETS_THIRD_PARTY_NOTICE}</p>}
+        </>
       )}
     </section>
   );
@@ -440,12 +441,12 @@ export interface ShareLinksPanelProps {
   readonly canCreateLinks?: boolean;
   /** Ver `ShareLinksViewProps.hideScopeChoice`: con `household` el panel crea siempre el enlace de hogar; sin él, el de la mascota. */
   readonly hideScopeChoice?: boolean;
-  readonly api?: ShareApi;
   /**
    * 012 (T1696): mascotas del hogar para elegir un subconjunto. Solo los dos puntos de entrada de hogar (Mascotas → [HOGAR] y Hogares → [HOGAR]) la pasan; la ficha de «Mis mascotas» no, y sigue creando
    * enlaces `PET` sin selector (REQ-PET11-001, SC-012-055).
    */
   readonly householdPets?: readonly SubsetPet[] | undefined;
+  readonly api?: ShareApi;
 }
 
 /** Contenedor con estado de S4. @implements REQ-VET-001, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051 */
@@ -467,22 +468,22 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
   const [now, setNow] = useState('');
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const idempotencyKey = useRef<string | null>(null);
-
   // 012 (T1696): «Todas» (enlace de hogar dinámico) por defecto; «Solo algunas» abre el selector, con todas las mascotas marcadas de entrada.
   const subsetEnabled = household !== null && householdPets !== undefined;
   const [allPets, setAllPets] = useState(true);
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>(() => (householdPets ?? []).map((pet) => pet.id));
   const [petsList, setPetsList] = useState<PetsShareLinkList | null>(null);
+
   const ref = useCallback((s: ShareScopeName) => (s === 'HOUSEHOLD' && household !== null ? ({ scope: 'HOUSEHOLD', id: household.id } as const) : ({ scope: 'PET', id: petId } as const)), [household, petId]);
-  const refresh = useCallback(
   const householdId = household?.id ?? null;
+  const refresh = useCallback(
     async (s: ShareScopeName): Promise<void> => {
       try {
         const result = await api.list(ref(s));
         setList(result);
         if (result.serverNow !== null) setNow(result.serverNow);
-      } catch (e) {
         if (subsetEnabled && householdId !== null) setPetsList(await api.listPets(householdId));
+      } catch (e) {
         setError(shareProblemMessage(e instanceof ShareApiError ? e.code : 'ERR-INTERNAL-UNEXPECTED'));
       }
     },
@@ -549,7 +550,6 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
     }
   };
 
-  const preview = (): void => {
   const withdrawPet = async (shareLinkId: string, petIdToWithdraw: string): Promise<void> => {
     setBusy(true);
     setError(null);
@@ -565,6 +565,7 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
     }
   };
 
+  const preview = (): void => {
     const query = `includeMicrochip=${String(includeMicrochip)}&includeClinicalFiles=${String(includeClinicalFiles)}${includeDeceasedAt ? '&includeDeceasedAt=true' : ''}`;
     // La vista previa del subconjunto lleva la lista candidata (mismas mascotas y orden que verá el veterinario, SC-012-065).
     const subsetQuery = scope === 'HOUSEHOLD' && subsetEnabled && !allPets ? `${selectedPetIds.map((id) => `petIds=${encodeURIComponent(id)}`).join('&')}&` : '';
@@ -614,7 +615,6 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
       onConfirmRevoke={(id) => void revoke(id)}
       onCancelRevoke={() => setConfirmRevokeId(null)}
       onPreview={preview}
-    />
       {...(subsetEnabled
         ? {
             householdPets,
@@ -632,5 +632,6 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
             onWithdrawPet: (linkId: string, id: string) => void withdrawPet(linkId, id),
           }
         : {})}
+    />
   );
 }
