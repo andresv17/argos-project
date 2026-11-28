@@ -55,7 +55,15 @@ export interface ShareApi {
   close(): Promise<void>;
 }
 
-export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREGIVER' | 'READER'; readonly limiter?: SharedAccessLimiter; readonly staticRoot?: string } = {}): Promise<ShareApi> {
+export async function createShareApi(
+  options: {
+    readonly role?: 'ADMIN' | 'CAREGIVER' | 'READER';
+    readonly limiter?: SharedAccessLimiter;
+    readonly staticRoot?: string;
+    /** T1693 (012, ENM-005-E §8.2.2): valor que `AppConfig.sharePetsCreateEnabled` inyectaría en `deps.sharing.petsCreateEnabled`; ausente = no se inyecta (OFF, fail-closed). */
+    readonly petsCreateEnabled?: boolean;
+  } = {},
+): Promise<ShareApi> {
   const state = canonicalState();
   if (options.role !== undefined) (state.memberships.find((m) => m.userId === 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02') as { role: string }).role = options.role;
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
@@ -68,7 +76,7 @@ export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREG
   const limiter = options.limiter ?? new SharedAccessLimiter();
   const calls: string[] = [];
   const base = createDeps(uow, clock, new SpyPasswordHasher(), TEST_RATE_LIMITS);
-  const deps: ApplicationDeps = { ...base, uow: recording(uow, calls), media: { storage, limits: DEFAULT_LIMITS }, sharing: { tokens, ipHmacSecret: SHARE_IP_SECRET, limiter } };
+  const deps: ApplicationDeps = { ...base, uow: recording(uow, calls), media: { storage, limits: DEFAULT_LIMITS }, sharing: { tokens, ipHmacSecret: SHARE_IP_SECRET, limiter, ...(options.petsCreateEnabled === undefined ? {} : { petsCreateEnabled: options.petsCreateEnabled }) } as NonNullable<ApplicationDeps['sharing']> };
   const logLines: string[] = [];
   const stream = { write: (line: string) => void logLines.push(line) };
   const app = await buildApp({ deps, cookieSecure: false, logger: { ...cloudLoggerOptions(), stream } as never, ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
