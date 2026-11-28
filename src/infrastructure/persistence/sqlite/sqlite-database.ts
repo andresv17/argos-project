@@ -59,6 +59,10 @@ export const MIGRATION_PRECHECKS: Readonly<Record<string, (db: SqliteDatabase) =
     const orphans = db.prepare('SELECT count(*) FROM rate_limit_events WHERE subject_user_id NOT IN (SELECT id FROM users)').pluck().get() as number;
     if (orphans > 0) throw new Error(`Migración 0035 abortada: ${orphans} evento(s) de límite de frecuencia sin usuario en rate_limit_events; Neo debe resolverlos antes de migrar`);
   },
+  '0041_emergency_card.sql': (db) => {
+    const orphans = db.prepare('SELECT count(*) FROM rate_limit_events WHERE subject_user_id NOT IN (SELECT id FROM users)').pluck().get() as number;
+    if (orphans > 0) throw new Error(`Migración 0041 abortada: ${orphans} evento(s) de límite de frecuencia sin usuario en rate_limit_events; Neo debe resolverlos antes de migrar`);
+  },
 };
 
 /**
