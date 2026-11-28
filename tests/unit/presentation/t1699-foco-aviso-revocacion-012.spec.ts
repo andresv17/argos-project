@@ -38,7 +38,7 @@ describe('T1699 foco del aviso de revocación', () => {
     const opener = { focus: vi.fn(), isConnected: false };
     attachDialogFocus({ focus: vi.fn() }, opener)();
     expect(opener.focus).not.toHaveBeenCalled();
-    expect(() => attachDialogFocus(null, null)()).not.toThrow();
+    expect(attachDialogFocus(null, null)()).toBeUndefined();
   });
 
   it('[a11y] Escape cancela y es consumida; otras teclas no cancelan', () => {
