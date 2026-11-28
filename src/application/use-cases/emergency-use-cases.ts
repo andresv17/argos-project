@@ -35,7 +35,6 @@ import { requireOwner } from './co-ownership-support.ts';
 import {
   ALLERGIES_AUDIT_TYPE,
   SYSTEM_EXECUTOR,
-  actorRoleOf,
   buildOwnerView,
   chargeBucket,
   emergencyOf,
@@ -107,7 +106,7 @@ async function issueCard(deps: ApplicationDeps, actorUserId: string, petId: stri
       version: (previous?.version ?? 0) + 1,
     };
     await repositories.emergencyCards.save(row); // invalida el token anterior y emite el nuevo en una sola escritura (INV-QR12-008)
-    await recordEmergencyAudit(deps, repositories, actorUserId, wasOn ? 'EMERGENCY_CARD_REGENERATED' : 'EMERGENCY_CARD_ACTIVATED', petId, wasOn ? null : { noticeVersion: config.noticeVersion });
+    await recordEmergencyAudit(deps, repositories, actorUserId, wasOn ? 'EMERGENCY_CARD_REGENERATED' : 'EMERGENCY_CARD_ACTIVATED', petId);
     await reconcileCard(deps, repositories, petId); // disparador enumerado: activar/regenerar con la ficha ON
     return { petId, status: 'ON', token, url, qrSvg, noticeVersion: config.noticeVersion, activatedAt: row.activatedAt!, shownOnce: true };
   });
@@ -119,7 +118,7 @@ async function upsertMyConsent(deps: ApplicationDeps, repositories: RepositorySe
   const account = await repositories.users.findById(actorUserId);
   if (account?.phone === undefined) throw new DomainError('ERR-QR12-PHONE-INVALID', 'Agrega un teléfono a tu cuenta para mostrarlo en la ficha QR.', 'phone');
   await repositories.emergencyConsents.upsert({ petId, userId: actorUserId, consentedAt: deps.clock.nowIsoTimestamp(), noticeVersion, phoneHmac: phoneHmac(config.phoneHmacKey, account.phone) });
-  await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId, { visible: true, noticeVersion });
+  await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId);
 }
 
 /** @implements REQ-QR12-003, REQ-QR12-005, REQ-QR12-006, INV-QR12-001, INV-QR12-005, SC-012-046, SC-012-052 */
@@ -177,7 +176,7 @@ export class SetEmergencyPhoneConsentUseCase {
         if (body.noticeVersion !== config.noticeVersion) throw new DomainError('ERR-QR12-CONSENT-REQUIRED');
         await upsertMyConsent(deps, repositories, actorUserId, petId, config.noticeVersion);
       } else if (await repositories.emergencyConsents.delete(petId, actorUserId)) {
-        await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId, { visible: false });
+        await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId);
       }
       await reconcileCard(deps, repositories, petId);
       return ownerView(deps, repositories, actorUserId, petId);
@@ -191,14 +190,14 @@ export class UpdateCriticalAllergiesUseCase {
 
   /**
    * Editable por el principal, el co-propietario ACTIVE y el ADMIN de hogar con la mascota en su hogar (rol efectivo, decisión de Neo 2026-11-27 (a)); quien no puede leer la mascota recibe el 404
-   * uniforme. Reemplazo total e idempotente por contenido: solo un CAMBIO EFECTIVO audita `PET_CRITICAL_ALLERGIES_UPDATED`, con el rol del actor y SIN contenido, conteo, IP ni agente.
+   * uniforme. Reemplazo total e idempotente por contenido: solo un CAMBIO EFECTIVO audita `PET_CRITICAL_ALLERGIES_UPDATED`, SIN rol del actor, contenido, conteo, IP ni agente.
    */
   async execute(actorUserId: string, petId: string, input: unknown): Promise<CriticalAllergiesView> {
     const { deps } = this;
     emergencyOf(deps);
     await chargeBucket(deps, 'QR_PRIVATE_WRITE', actorUserId);
     return deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requirePetAction(repositories, actorUserId, petId, 'EDIT_PET_BASICS');
+      await requirePetAction(repositories, actorUserId, petId, 'EDIT_PET_BASICS');
       // La forma (objeto con la lista) se valida aquí y la política de texto la aplica el DOMINIO: el esquema generado acota a 5 elementos de 1 a 60 y daría un error de esquema distinto sin pasar por `TEXT_POLICY`;
       // así un elemento inválido, uno vacío o la lista de 6 dan el mismo `ERR-SCHEMA-VALIDATION-FAILED` sin eco del valor.
       if (typeof input !== 'object' || input === null || Array.isArray(input) || Object.keys(input).some((key) => key !== 'criticalAllergies') || !('criticalAllergies' in input)) {
@@ -209,7 +208,7 @@ export class UpdateCriticalAllergiesUseCase {
       const changed = current.length !== next.length || current.some((item, index) => item !== next[index]);
       if (changed) {
         await repositories.emergencyCards.setAllergies(petId, next);
-        await recordEmergencyAudit(deps, repositories, actorUserId, ALLERGIES_AUDIT_TYPE, petId, { actorRole: await actorRoleOf(repositories, pet, actorUserId) });
+        await recordEmergencyAudit(deps, repositories, actorUserId, ALLERGIES_AUDIT_TYPE, petId);
       }
       const cardAutoDeactivated = await reconcileCard(deps, repositories, petId);
       return { petId, criticalAllergies: next as CriticalAllergiesView['criticalAllergies'], ...(cardAutoDeactivated ? { cardAutoDeactivated: true } : {}) };
@@ -239,7 +238,7 @@ export class UpdateAccountPhoneUseCase {
       const affected = (await repositories.emergencyConsents.listByUser(actorUserId)).map((c) => c.petId);
       for (const petId of affected) {
         await repositories.emergencyConsents.delete(petId, actorUserId);
-        await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId, { visible: false });
+        await recordEmergencyAudit(deps, repositories, actorUserId, 'EMERGENCY_PHONE_CONSENT_CHANGED', petId);
       }
       let droppedCards = 0;
       for (const petId of affected) if (await reconcileCard(deps, repositories, petId)) droppedCards += 1;
@@ -320,7 +319,7 @@ export class RunEmergencyMaintenanceUseCase {
       let cardsReconciled = 0;
       for (const consent of expired) {
         if (await repositories.emergencyConsents.delete(consent.petId, consent.userId)) {
-          await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', consent.petId, { visible: false, origin: 'NOTICE_WAIT_EXPIRED' });
+          await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', consent.petId);
           touched.add(consent.petId);
         }
       }
@@ -353,7 +352,7 @@ export class RotatePhoneHmacKeyUseCase {
         const phone = accounts.get(row.userId)?.phone;
         if (phone === undefined) {
           if (await repositories.emergencyConsents.delete(row.petId, row.userId)) {
-            await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', row.petId, { visible: false, origin: 'PHONE_HMAC_KEY_ROTATION' });
+            await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', row.petId);
             deleted += 1;
             touched.add(row.petId);
           }

@@ -30,7 +30,7 @@ const put = (cookie: string, list: string[]) => api.call('PUT', `/api/pets/${PET
 const auditRows = () => api.db.prepare("SELECT executor_user_id, previous_state_hash, new_state_hash, entity_id FROM audit_log WHERE mutation_type = 'PET_CRITICAL_ALLERGIES_UPDATED' ORDER BY timestamp, id").all() as Array<{ executor_user_id: string; previous_state_hash: string | null; new_state_hash: string | null; entity_id: string }>;
 
 describe('T1662 auditoría de alergias críticas [SC-012-048]', () => {
-  it('el ADMIN de hogar edita y queda auditado con actorRole ADMIN; el principal con OWNER; sin contenido ni hash del contenido y solo por cambio efectivo', async () => {
+  it('el ADMIN de hogar y el principal quedan auditados con new_state_hash NULL (H-D1 b: sin actorRole ni hash de metadatos); sin contenido ni hash del contenido y solo por cambio efectivo', async () => {
     const { andres, maria } = await setup('ADMIN');
     expect((await put(maria, [SECRET_ALLERGY])).status).toBe(200);
     expect((await put(maria, [SECRET_ALLERGY])).status).toBe(200); // idempotente: sin segunda fila
@@ -38,12 +38,12 @@ describe('T1662 auditoría de alergias críticas [SC-012-048]', () => {
     const rows = auditRows();
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => [r.executor_user_id, r.entity_id, r.previous_state_hash, r.new_state_hash])).toEqual([
-      [MARIA, PET, null, stateHash({ actorRole: 'ADMIN' })],
-      [expect.any(String), PET, null, stateHash({ actorRole: 'OWNER' })],
+      [MARIA, PET, null, null],
+      [expect.any(String), PET, null, null],
     ]);
     const dump = JSON.stringify(api.db.prepare('SELECT * FROM audit_log').all()); // solo la auditoría: la lista vive en pets.critical_allergies por diseño
     expect(dump).not.toContain(SECRET_ALLERGY);
-    for (const hash of [stateHash([SECRET_ALLERGY]), stateHash({ criticalAllergies: [SECRET_ALLERGY] }), stateHash(['Polen'])]) expect(dump).not.toContain(hash);
+    for (const hash of [stateHash([SECRET_ALLERGY]), stateHash({ criticalAllergies: [SECRET_ALLERGY] }), stateHash(['Polen']), stateHash({ actorRole: 'ADMIN' }), stateHash({ actorRole: 'OWNER' })]) expect(dump).not.toContain(hash);
   });
 
   it('un lector (READER) ve la mascota pero no la edita: 403; un vaciado inválido no audita', async () => {

@@ -9,7 +9,6 @@
  *
  * @implements REQ-QR12-003, REQ-QR12-006, REQ-QR12-007, REQ-QR12-010, INV-QR12-001, INV-QR12-003, INV-QR12-004, INV-QR12-008, SC-012-106, SC-012-121, SC-012-122, SC-012-123
  */
-import { stateHash } from '../../domain/audit/state-hash.ts';
 import { addMillis } from '../../domain/auth/utc-timestamp.ts';
 import { deriveCriticalAllergiesChange, deriveLastChange, evaluateGuard, isNoticeCompatible, isNoticeWaitExpired, selectContactPhones, type AuditEventRef, type ContactCandidate } from '../../domain/emergency/emergency-card-rules.ts';
 import { phoneHmac, sameHex } from '../../domain/emergency/phone-hmac.ts';
@@ -47,10 +46,10 @@ export function emergencyOf(deps: Pick<ApplicationDeps, 'emergency'>): Emergency
 }
 
 /**
- * Fila de auditoría de la ficha: una por operación sobre la entidad `PET`. `state` es OPCIONAL y solo lleva metadatos sin contenido (versión del aviso, origen, rol del actor): se guarda como su hash,
- * nunca el valor. Nunca se pasa el contenido de las alergias, el teléfono, su HMAC, el token, su hash ni la URL.
+ * Fila de auditoría de la ficha: una por operación sobre la entidad `PET`. H-D1 (b): `newStateHash` queda siempre `null` (sin rol del actor, origen ni hash de metadatos); los eventos de sistema llevan
+ * `actorUserId = NULL` en el contrato. Nunca se pasa el contenido de las alergias, el teléfono, su HMAC, el token, su hash ni la URL.
  */
-export async function recordEmergencyAudit(deps: ApplicationDeps, repositories: RepositorySet, executorUserId: string, type: EmergencyAuditType, petId: string, state: unknown = null): Promise<void> {
+export async function recordEmergencyAudit(deps: ApplicationDeps, repositories: RepositorySet, executorUserId: string, type: EmergencyAuditType, petId: string): Promise<void> {
   await deps.auditLog.append(repositories, {
     id: deps.auditIds.nextId(),
     timestamp: deps.clock.nowIsoTimestamp(),
@@ -59,7 +58,7 @@ export async function recordEmergencyAudit(deps: ApplicationDeps, repositories: 
     entityType: 'PET',
     entityId: petId,
     previousStateHash: null,
-    newStateHash: state === null ? null : stateHash(state),
+    newStateHash: null,
   });
 }
 
@@ -125,10 +124,10 @@ export async function loadCardState(repositories: RepositorySet, config: Emergen
   return { pet, card, allergies, consents: classified, phones, guardSatisfied: evaluateGuard({ visiblePhones: phones.length + stale, allergies: allergies.length }), deceased };
 }
 
-/** Borra la fila de un consentimiento y audita el cambio como evento de sistema (`actorUserId = NULL`, con su origen). */
-async function dropConsentAsSystem(deps: ApplicationDeps, repositories: RepositorySet, consent: EmergencyConsentRecord, origin: 'NOTICE_WAIT_EXPIRED' | 'PHONE_HMAC_KEY_ROTATION'): Promise<void> {
+/** Borra la fila de un consentimiento y audita el cambio como evento de sistema (`actorUserId = NULL`). */
+async function dropConsentAsSystem(deps: ApplicationDeps, repositories: RepositorySet, consent: EmergencyConsentRecord): Promise<void> {
   if (await repositories.emergencyConsents.delete(consent.petId, consent.userId)) {
-    await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', consent.petId, { visible: false, origin });
+    await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_PHONE_CONSENT_CHANGED', consent.petId);
   }
 }
 
@@ -144,14 +143,14 @@ export async function reconcileCard(deps: ApplicationDeps, repositories: Reposit
   if (state === null) return false;
   const waitingBefore = state.consents.some((c) => c.kind === 'WAITING');
   const expired = state.consents.filter((c) => c.kind === 'WAITING' && isNoticeWaitExpired(config.noticeEffectiveAt, now));
-  for (const item of expired) await dropConsentAsSystem(deps, repositories, item.consent, 'NOTICE_WAIT_EXPIRED');
+  for (const item of expired) await dropConsentAsSystem(deps, repositories, item.consent);
   if (expired.length > 0) state = (await loadCardState(repositories, config, petId))!;
   if (state.card === null || state.card.status !== 'ON') return false;
   const reason: EmergencyStatusReason | null = state.deceased ? 'AUTO_PET_DECEASED' : !state.guardSatisfied ? (waitingBefore ? 'AUTO_NOTICE_CHANGED' : 'AUTO_GUARD_LOST') : null;
   if (reason === null) return false;
   if (!(await repositories.emergencyCards.switchOffIfOn(petId, reason, now))) return false; // otro proceso ya reconcilió: sin segundo evento
   await repositories.emergencyConsents.deleteByPet(petId); // toda transición a OFF borra en el acto los consentimientos de teléfono (anexo §1)
-  await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_CARD_AUTO_DEACTIVATED', petId, { reason });
+  await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_CARD_AUTO_DEACTIVATED', petId);
   return true;
 }
 
@@ -162,12 +161,6 @@ export async function reconcileCard(deps: ApplicationDeps, repositories: Reposit
 export async function onOwnerRemoved(deps: ApplicationDeps, repositories: RepositorySet, petId: string, userId: string): Promise<void> {
   await repositories.emergencyConsents.delete(petId, userId);
   if (deps.emergency !== undefined) await reconcileCard(deps, repositories, petId);
-}
-
-/** Rol del actor sobre la mascota para la auditoría de alergias: principal = `OWNER`, co-propietario `ACTIVE` = `CO_OWNER`, el resto (rol efectivo `ADMIN` de hogar) = `ADMIN`. */
-export async function actorRoleOf(repositories: RepositorySet, pet: PetProfile, userId: string): Promise<'OWNER' | 'CO_OWNER' | 'ADMIN'> {
-  if (isPrincipalOfPet(userId, pet)) return 'OWNER';
-  return (await repositories.coOwners.listByPet(pet.id)).some((row) => row.userId === userId && row.status === 'ACTIVE') ? 'CO_OWNER' : 'ADMIN';
 }
 
 /** Vista privada del estado (`EmergencyCardOwnerView`): nunca el token, su hash, la URL ni el SVG. */
