@@ -6,7 +6,7 @@
  * @implements REQ-QR12-003, REQ-QR12-005, REQ-QR12-006, REQ-QR12-009, REQ-QR12-010, INV-QR12-003
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { Button } from './Field.tsx';
 import {
   EmergencyApiError,
@@ -32,10 +32,19 @@ export function EmergencyPrintSheet({ petName, qrSrc }: { readonly petName: stri
   );
 }
 
-/** Hoja A6 montada directamente bajo `document.body` (hermana de la app, sin ancestros que la recorten); sin `document` (render estático) queda en línea. */
-export function EmergencyPrintPortal({ petName, qrSrc }: { readonly petName: string; readonly qrSrc: string }): JSX.Element {
-  const sheet = <EmergencyPrintSheet petName={petName} qrSrc={qrSrc} />;
-  return typeof document === 'undefined' ? sheet : createPortal(sheet, document.body);
+/** Hoja A6 montada en una raíz propia hija directa de `document.body` (hermana de la app, sin ancestros que la recorten: `page: qr-a6` solo parte la hoja si no está anidada). No pinta nada en el árbol del panel. */
+export function EmergencyPrintPortal({ petName, qrSrc }: { readonly petName: string; readonly qrSrc: string }): null {
+  useEffect(() => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    root.render(<EmergencyPrintSheet petName={petName} qrSrc={qrSrc} />);
+    return () => {
+      root.unmount();
+      host.remove();
+    };
+  }, [petName, qrSrc]);
+  return null;
 }
 
 export interface EmergencyCardViewProps {

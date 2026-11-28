@@ -50,9 +50,25 @@ export function isSafeQrSvg(svg: string): boolean {
 
 export const qrFileName = (extension: 'svg' | 'png'): string => `ficha-qr-emergencia.${extension}`;
 
-/** Descarga por `Blob` y atributo `download` (jamás HTML en línea); el enlace temporal se retira y la URL se revoca DIFERIDA (revocar en el mismo turno que `click()` cancela la descarga en algunos navegadores). */
+let pendingUrl: string | null = null;
+let pagehideBound = false;
+const releasePending = (): void => {
+  if (pendingUrl !== null) URL.revokeObjectURL(pendingUrl);
+  pendingUrl = null;
+};
+
+/**
+ * Descarga por `Blob` y atributo `download` (jamás HTML en línea). La URL NO se revoca en el mismo turno que `click()` (algunos navegadores cancelan la descarga):
+ * se revoca al empezar la descarga siguiente o al salir de la página (`pagehide`); sin temporizadores en la UI (REQ-UI-002).
+ */
 export function downloadBlobAs(blob: Blob, fileName: string): void {
+  releasePending();
   const url = URL.createObjectURL(blob);
+  pendingUrl = url;
+  if (!pagehideBound) {
+    pagehideBound = true;
+    window.addEventListener('pagehide', releasePending);
+  }
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
@@ -60,7 +76,6 @@ export function downloadBlobAs(blob: Blob, fileName: string): void {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /** `data:` URI del SVG: la CSP de producción (`img-src 'self' data:`) NO admite `blob:`. Solo tras `isSafeQrSvg`; devuelve `null` si el SVG no es seguro. */

@@ -133,23 +133,25 @@ describe.skipIf(!HAS_CHROMIUM)('ficha QR con Chromium bajo la CSP real de produc
 });
 
 describe('descarga SVG — la URL del Blob se revoca DESPUÉS del click (SC-012-051)', () => {
-  it('[SC-012-051] no revoca de forma síncrona, difiere 10 s y marca rel=noopener', () => {
+  it('[SC-012-051] no revoca en el mismo turno que el click: la revoca la siguiente descarga o pagehide, y marca rel=noopener', () => {
     const calls: string[] = [];
-    const timers: Array<{ ms: number; fn: () => void }> = [];
+    const listeners: Record<string, () => void> = {};
     const anchor = { href: '', download: '', rel: '', click: () => calls.push('click'), remove: () => calls.push('remove') };
     const g = globalThis as unknown as Record<string, unknown>;
-    const saved = { document: g.document, URL: g.URL, setTimeout: g.setTimeout };
-    const FakeUrl = Object.assign(function () {}, { createObjectURL: () => 'blob:fake', revokeObjectURL: (u: string) => calls.push(`revoke:${u}`) });
+    const saved = { document: g.document, URL: g.URL, window: g.window };
+    let n = 0;
+    const FakeUrl = Object.assign(function () {}, { createObjectURL: () => `blob:fake${++n}`, revokeObjectURL: (u: string) => calls.push(`revoke:${u}`) });
     g.document = { createElement: () => anchor, body: { appendChild: () => calls.push('append') } };
+    g.window = { addEventListener: (name: string, fn: () => void) => (listeners[name] = fn) };
     g.URL = FakeUrl;
-    g.setTimeout = (fn: () => void, ms: number) => timers.push({ fn, ms });
     try {
       downloadBlobAs(new Blob([SVG], { type: 'image/svg+xml' }), 'ficha-qr-emergencia.svg');
       expect(calls).toEqual(['append', 'click', 'remove']);
       expect(anchor.rel).toBe('noopener');
-      expect(timers.map((t) => t.ms)).toEqual([10_000]);
-      timers[0]!.fn();
-      expect(calls).toEqual(['append', 'click', 'remove', 'revoke:blob:fake']);
+      downloadBlobAs(new Blob([SVG], { type: 'image/svg+xml' }), 'ficha-qr-emergencia.svg');
+      expect(calls).toEqual(['append', 'click', 'remove', 'revoke:blob:fake1', 'append', 'click', 'remove']);
+      listeners.pagehide!();
+      expect(calls.at(-1)).toBe('revoke:blob:fake2');
     } finally {
       Object.assign(g, saved);
     }
