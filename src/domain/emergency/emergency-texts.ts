@@ -6,6 +6,6 @@
  */
 export const EMERGENCY_TEXTS = {
   version: '0.1.0',
-  allergiesEditorHelp: 'Anota solo alergias confirmadas o con riesgo. ARGOS no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.',
+  allergiesEditorHelp: 'Anota solo alergias confirmadas o con riesgo. Tipi no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.',
   phoneOptInLabel: 'Mostrar mi teléfono en la ficha QR de {mascota}',
 } as const;

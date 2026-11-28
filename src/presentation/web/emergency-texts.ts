@@ -8,7 +8,7 @@ export const EMERGENCY_NOTICE_VERSION = '0.1.0';
 
 export const EMERGENCY_TEXTS = {
   version: '0.1.0',
-  allergiesEditorHelp: 'Anota solo alergias confirmadas o con riesgo. ARGOS no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.',
+  allergiesEditorHelp: 'Anota solo alergias confirmadas o con riesgo. Tipi no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.',
   activationNotice:
     'Cualquier persona que escanee este código verá el nombre de la mascota, sus alergias críticas que tú registraste y, si lo marcaste, tu teléfono. Las alergias se muestran tal cual las escribiste: no incluyas nombres ni datos de otras personas. Verifica que la información sea correcta antes de activarla. Si dejas de cumplir las condiciones, el código se apagará solo.',
   phoneOptInLabel: 'Mostrar mi teléfono en la ficha QR de {mascota}',

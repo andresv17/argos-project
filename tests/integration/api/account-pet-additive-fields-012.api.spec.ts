@@ -15,9 +15,9 @@ const NC = { contract: false } as const;
 const PET = ARGOS.id;
 const PHONE = '+573001112233';
 
-async function setup(): Promise<{ andres: string; maria: string }> {
+async function setup(role: 'ADMIN' | 'CAREGIVER' | 'READER' = 'ADMIN'): Promise<{ andres: string; maria: string }> {
   const state = canonicalState();
-  state.memberships = state.memberships.map((m) => (m.userId === MARIA ? { ...m, role: 'ADMIN' as const, status: 'ACTIVE' as const } : m));
+  state.memberships = state.memberships.map((m) => (m.userId === MARIA ? { ...m, role, status: 'ACTIVE' as const } : m));
   api = await createApi(state, { emergency: { phoneHmacKey: 'phone-hmac-key-A-0123456789abcdef0123456789', publicBaseUrl: 'https://argos.example', noticeVersion: '0.1.0', noticeEffectiveAt: '2026-11-01T00:00:00.000Z', entropy: new SequentialEntropy() } });
   api.clock.setClock('2026-11-26', '2026-11-26T15:00:00.000Z');
   return { andres: await api.login('andres'), maria: await api.login('maria.v') };
@@ -46,5 +46,17 @@ describe('campos aditivos de la 012 en las vistas de cuenta y mascota (hueco 1 d
     const res = await api.call('GET', `/api/pets/${PET}/dashboard`, { cookie: outsider, ...NC });
     expect([res.status, problemOf(res).code]).toEqual([404, 'ERR-PET-NOT-FOUND']);
     expect(res.text).not.toContain('Penicilina');
+  });
+
+  it.each(['CAREGIVER', 'READER'] as const)('criticalAllergies: el %s del hogar las recibe en la lectura de la mascota, sin phone ni otros datos personales añadidos (D-2)', async (role) => {
+    const { andres, maria } = await setup(role);
+    expect((await api.call('PUT', `/api/pets/${PET}/critical-allergies`, { cookie: andres, body: { criticalAllergies: ['Penicilina', 'Polen'] }, ...NC })).status).toBe(200);
+    expect((await api.call('PUT', '/api/account/phone', { cookie: andres, body: { phone: PHONE }, ...NC })).status).toBe(200);
+    const res = await api.call('GET', `/api/pets/${PET}/dashboard`, { cookie: maria, ...NC });
+    expect(res.status).toBe(200);
+    const profile = (res.json as { profile: Record<string, unknown> }).profile;
+    expect(profile['criticalAllergies']).toEqual(['Penicilina', 'Polen']);
+    expect(profile).not.toHaveProperty('phone');
+    expect(res.text).not.toContain(PHONE);
   });
 });

@@ -111,6 +111,10 @@ const E164 = /^\+[1-9][0-9]{7,14}$/;
  * Anexo aditivo de la 012 (`emergency-additive-annex.md` §1, APPROVED): `phone` (E.164 o `null`) en el perfil propio de cuenta (002) y `criticalAllergies` (0 a 5 textos de 1 a 60) en el perfil de la
  * mascota (004) son opcionales y NO editan los contratos cerrados de 001..011. Se validan aquí con su forma propia y se retiran del cuerpo antes de validar contra el esquema base; cualquier otra
  * propiedad adicional sigue fallando.
+ *
+ * ALCANCE HEURÍSTICO (D-3): no se acota por `operationId`; identifica el objeto por su forma (perfil propio = `preferredLanguage`+`timezone`+`username`; perfil de mascota = `avatarVersion`+`species`+`ownerUserId`)
+ * y lo hace en cualquier profundidad de cualquier respuesta. Por eso un `phone` o `criticalAllergies` extra en otra operación con esa misma forma de objeto también se tolera (tras validar su forma). Acotarlo
+ * por operación exigiría listar a mano las rutas de 002/004 que devuelven esos perfiles y es deuda aceptada.
  */
 function withoutAnnexFields(node: unknown, errors: string[]): unknown {
   if (Array.isArray(node)) return node.map((item) => withoutAnnexFields(item, errors));
