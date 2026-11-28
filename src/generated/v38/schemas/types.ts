@@ -4,17 +4,18 @@
  * Source: contracts/schemas/audit-entry.schema.json (v3.2.0, DRAFT)
  * Source: contracts/schemas/backup-envelope.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/care-log-entry.schema.json (v0.1.2, APPROVED)
- * Source: contracts/schemas/care-routine.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/care-routine.schema.json (v0.1.3, APPROVED)
  * Source: contracts/schemas/caregiver-access.schema.json (v0.1.2, APPROVED)
  * Source: contracts/schemas/chip-claim.schema.json (v0.2.1, APPROVED)
  * Source: contracts/schemas/common.schema.json (v2.3.0, REVIEW)
+ * Source: contracts/schemas/emergency-card.schema.json (v0.3.0, APPROVED)
  * Source: contracts/schemas/identity.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/media.schema.json (v1.0.0, DRAFT)
  * Source: contracts/schemas/medical-records.schema.json (v3.1.0, DRAFT)
  * Source: contracts/schemas/owner-request.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet-co-owner.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, DRAFT)
- * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-111, SC-012-115, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
+ * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-018, EDGE-012-023, EDGE-012-024, EDGE-012-025, EDGE-012-026, EDGE-012-027, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-063, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-QR12-001, INV-QR12-002, INV-QR12-003, INV-QR12-004, INV-QR12-005, INV-QR12-006, INV-QR12-008, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-QR12-001, REQ-QR12-002, REQ-QR12-003, REQ-QR12-004, REQ-QR12-005, REQ-QR12-006, REQ-QR12-007, REQ-QR12-008, REQ-QR12-009, REQ-QR12-010, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-041, SC-012-042, SC-012-043, SC-012-044, SC-012-045, SC-012-046, SC-012-047, SC-012-048, SC-012-052, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-083, SC-012-085, SC-012-086, SC-012-087, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-106, SC-012-107, SC-012-109, SC-012-110, SC-012-111, SC-012-115, SC-012-116, SC-012-121, SC-012-122, SC-012-123, SC-012-124, SC-012-125, SC-012-126, SC-012-127, SC-012-128, SC-012-129, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
  */
 
 /**
@@ -471,12 +472,12 @@ export type Biography = string | null;
  */
 export type CareKind = "MEDICATION" | "MEAL" | "WALK" | "OTHER";
 /**
- * Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales) se incorpora para insulina (A-01, maggie 2026-11-27). IU: decimal > 0 con 3 decimales como maximo; paso y umbral de confirmacion PENDIENTES de veterinario humano (DEUDA-012-VALIDACION-VET-UMBRALES).
+ * Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales, insulina) queda retirada del catalogo por decision de Neo (0.1.3). Valores exactos: MG, MCG, ML, TABLET, DROP.
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "DoseUnit".
  */
-export type DoseUnit = "MG" | "MCG" | "ML" | "IU" | "TABLET" | "DROP";
+export type DoseUnit = "MG" | "MCG" | "ML" | "TABLET" | "DROP";
 /**
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "OccurrenceState".
@@ -638,6 +639,67 @@ export type OwnerColorToken =
   | "OWNER_COLOR_6"
   | "OWNER_COLOR_7"
   | "OWNER_COLOR_8";
+/**
+ * E.164 normalizado (REQ-QR12-001). La validacion y normalizacion son de DOMINIO e identicas en SQLite, PostgreSQL y Memoria; no hay CHECK regex en BD. Entrada con espacios, guiones o parentesis se normaliza antes de validar; el patron describe la forma almacenada y emitida.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PhoneE164".
+ */
+export type PhoneE164 = string;
+/**
+ * 0 a MAX_CRITICAL_ALLERGIES = 5 elementos. En la entrada se aplican NFC, trim y deduplicacion sin distinguir mayusculas DESPUES de NFC con plegado independiente de locale (se conserva la primera aparicion y su grafia); si tras normalizar un elemento queda vacio o sin caracter visible, supera 60 o incumple TEXT_POLICY, o la lista supera 5 elementos, 422 ERR-SCHEMA-VALIDATION-FAILED sin eco del valor.
+ *
+ * @maxItems 5
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CriticalAllergyList".
+ */
+export type CriticalAllergyList =
+  | []
+  | [CriticalAllergyText]
+  | [CriticalAllergyText, CriticalAllergyText]
+  | [CriticalAllergyText, CriticalAllergyText, CriticalAllergyText]
+  | [CriticalAllergyText, CriticalAllergyText, CriticalAllergyText, CriticalAllergyText]
+  | [CriticalAllergyText, CriticalAllergyText, CriticalAllergyText, CriticalAllergyText, CriticalAllergyText];
+/**
+ * Texto plano de 1-60 puntos de codigo tras NFC y trim (REQ-QR12-002, TEXT_POLICY). Se rechazan las categorias Cc, Cf, Zl, Zp, Co, Cn y Cs, los controles bidi, los caracteres invisibles que sobreviven al trim (U+3164, U+115F, U+1160, U+FFA0, U+2800 y afines), mas de 3 marcas combinantes consecutivas y los elementos sin ningun caracter visible (L, N, P o S): 422 ERR-SCHEMA-VALIDATION-FAILED SIN eco del valor (trinity T-07, N-04). Sin HTML ni enlazado automatico al mostrarse (REQ-QR12-009). Las tildes no se normalizan (NFC compone, no elimina diacriticos). Las secuencias emoji con ZWJ (Cf) se rechazan: limitacion aceptada.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CriticalAllergyText".
+ */
+export type CriticalAllergyText = string;
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetIdUuid".
+ */
+export type PetIdUuid = string;
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "IsoInstant".
+ */
+export type IsoInstant = string;
+/**
+ * Lista blanca de 4 tipos derivados SOLO de estos eventos de auditoria: EMERGENCY_CARD_ACTIVATED (ACTIVATED), EMERGENCY_CARD_REGENERATED (REGENERATED), EMERGENCY_CARD_DEACTIVATED (DEACTIVATED) y EMERGENCY_CARD_AUTO_DEACTIVATED (AUTO_DEACTIVATED). EMERGENCY_PHONE_CONSENT_CHANGED y PET_CRITICAL_ALLERGIES_UPDATED NUNCA producen lastChange (rama N-04): el cambio de consentimiento de otro titular no se expone; las alergias tienen su propio aviso criticalAllergiesChange.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardLastChangeKind".
+ */
+export type EmergencyCardLastChangeKind = "ACTIVATED" | "REGENERATED" | "DEACTIVATED" | "AUTO_DEACTIVATED";
+/**
+ * Defecto OFF (REQ-QR12-003). OFF prevalece sobre ON ante escrituras simultaneas (EDGE-012-018).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardStatus".
+ */
+export type EmergencyCardStatus = "OFF" | "ON";
+/**
+ * Motivo del ultimo paso a OFF (columna status_reason; el CHECK de data-model.md usa exactamente estos cuatro valores). USER_DEACTIVATED: lo desactivo un propietario o co-propietario. AUTO_GUARD_LOST: dejo de cumplirse la guarda de D12-14 (opt-in retirado, telefono borrado o invalidado, alergias vaciadas, salida LEFT/ENDED o cuenta eliminada del titular del telefono). AUTO_PET_DECEASED: fallecimiento de la mascota (007). AUTO_NOTICE_CHANGED: un cambio MINOR/MAJOR del aviso dejo en espera los telefonos, o su espera de EMERGENCY_NOTICE_WAIT_DAYS = 90 dias vencio, y la ficha quedo sin requisitos minimos (decision de Neo 2026-11-27 (b) y (1)). No se agrega granularidad por causa interna ni por persona: la vista no revela QUIEN causo la caida (trinity decision 1, rama decision 1). statusReason vuelve a null al pasar a ON; un cambio posterior estando OFF no pisa el motivo original (EDGE-012-018); tras EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias en OFF vuelve a null. Cualquier paso a OFF borra ademas los consentimientos de telefono.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardStatusReason".
+ */
+export type EmergencyCardStatusReason =
+  "USER_DEACTIVATED" | "AUTO_GUARD_LOST" | "AUTO_PET_DECEASED" | "AUTO_NOTICE_CHANGED";
 /**
  * Estado de aprobacion de la cuenta (users.account_status, STATE-ACCT9-001). Solo ACTIVE obtiene sesion [REQ-APR9-001]
  *
@@ -2528,7 +2590,7 @@ export interface CareRoutineList {
   items: CareRoutine[];
 }
 /**
- * Crea una rutina. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU solo para dosis de insulina u otras unidades internacionales, paso y umbral pendientes de veterinario; timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT).
+ * Crea una rutina. Orden de comprobaciones (D-A): 403 potestad -> 404 existencia de la mascota -> 422 esquema/dominio -> 409 ERR-CAR12-ROUTINE-LIMIT. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU NO existe en el catalogo (retirada, 0.1.3); timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT).
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "CreateCareRoutineRequest".
@@ -2573,7 +2635,7 @@ export interface RoutineWriteResult {
   supersededRoutineId: string | null;
 }
 /**
- * Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo titulares (propietario principal o co-propietario ACTIVE; H-C3, M-01); el ADMIN del hogar, un CAREGIVER, MEMBER y READER reciben 403 ERR-ACC-FORBIDDEN (SC-012-026).
+ * Orden de comprobaciones en crear y editar (D-A): 403 potestad -> 404 existencia -> 422 esquema/dominio -> 409 STALE/LIMIT. Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo titulares (propietario principal o co-propietario ACTIVE; H-C3, M-01); el ADMIN del hogar, un CAREGIVER, MEMBER y READER reciben 403 ERR-ACC-FORBIDDEN (SC-012-026).
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "UpdateCareRoutineRequest".
@@ -2751,6 +2813,221 @@ export interface ProblemDetails {
    * Presente cuando el error se devuelve durante una importación de respaldo (STATE-BACKUP-001). ROLLED_BACK: el rollback terminó y el estado previo está restaurado. UNKNOWN: el rollback del almacenamiento falló (ROLLBACK_FAILED); la postcondición no está garantizada. Ausente en el resto de errores.
    */
   finalState?: "ROLLED_BACK" | "UNKNOWN";
+}
+/**
+ * Solo la cuenta propia ve su telefono; no aparece en ninguna otra respuesta salvo la ficha publica con opt-in vigente por mascota (REQ-QR12-001, REQ-QR12-006). Cambiar o borrar el telefono invalida (borra) los consentimientos ligados a phone_hmac hasta reconfirmar y audita EMERGENCY_PHONE_CONSENT_CHANGED por cada mascota afectada. El cuerpo de la peticion y los errores NO se registran (LOG_REDACTION).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AccountPhoneView".
+ */
+export interface AccountPhoneView {
+  phone: PhoneE164 | null;
+  /**
+   * Cuantas fichas ON pasaron a OFF por este cambio (guarda perdida). Omitido si 0.
+   */
+  emergencyCardsAutoDeactivated?: number;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "ActivateEmergencyCardRequest".
+ */
+export interface ActivateEmergencyCardRequest {
+  /**
+   * true = el usuario confirmo el aviso de activacion. false: 422 ERR-QR12-CONSENT-REQUIRED (no es un error de esquema).
+   */
+  consentAccepted: boolean;
+  /**
+   * Version del aviso mostrado; si no coincide con la vigente en el servidor, 422 ERR-QR12-CONSENT-REQUIRED (se reconfirma con el texto actual).
+   */
+  noticeVersion: string;
+  /**
+   * Opcional. true registra tambien MI opt-in de telefono para esta mascota en la misma transaccion (equivale a setEmergencyPhoneConsent con visible = true) y audita EMERGENCY_PHONE_CONSENT_CHANGED. Omitido o false: no cambia el opt-in existente. Activar desde OFF parte SIN consentimientos de telefono (se borraron al pasar a OFF): sin showMyPhone = true no hay telefono visible.
+   */
+  showMyPhone?: boolean;
+}
+/**
+ * ANEXO ADITIVO OPCIONAL (emergency-additive-annex.md): campos que se AGREGAN, como opcionales, a la vista de cuenta propia (phone) y a la vista de mascota (criticalAllergies). No son requeridos, no cambian respuestas existentes y no editan ningun contrato de 001..011. Solo documental: la forma operativa de lectura/escritura son AccountPhoneView, CriticalAllergiesView y sus rutas de emergency.openapi.yaml.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AdditiveOptionalFields".
+ */
+export interface AdditiveOptionalFields {
+  /**
+   * OPCIONAL en la vista de cuenta propia (anexo de 002/004). Ausente = el cliente existente no cambia.
+   */
+  phone?: PhoneE164 | null;
+  criticalAllergies?: CriticalAllergyList;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CriticalAllergiesView".
+ */
+export interface CriticalAllergiesView {
+  petId: PetIdUuid;
+  criticalAllergies: CriticalAllergyList;
+  /**
+   * true si este cambio hizo caer la ficha a OFF (aviso en la UI). Omitido si no.
+   */
+  cardAutoDeactivated?: boolean;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardActivationResult".
+ */
+export interface EmergencyCardActivationResult {
+  petId: PetIdUuid;
+  status: "ON";
+  /**
+   * Se devuelve UNA sola vez (Neo-N). La respuesta lleva Cache-Control: no-store y no pasa por almacen de repeticion ni de idempotencia, ni por registros, ni por el almacen de medios (SC-012-109). Si se pierde, solo queda regenerar.
+   */
+  token: string;
+  /**
+   * ARGOS_PUBLIC_BASE_URL + /e/ + token; ASCII; <= QR_URL_MAX_BYTES = 106 (INV-QR12-005). Nunca se forma con Host ni X-Forwarded-*.
+   */
+  url: string;
+  /**
+   * SVG generado en servidor desde la matriz 6-M (41x41), sin texto de usuario. Solo elementos svg, rect y path; prohibidos text, script, foreignObject, image, style, atributos on* y href externos (SVG_DELIVERY). El cliente lo usa unicamente como Blob o <img src=blob:> con atributo download, jamas innerHTML. El PNG lo genera el cliente desde este SVG (REQ-QR12-005).
+   */
+  qrSvg: string;
+  noticeVersion: string;
+  activatedAt: IsoInstant;
+  /**
+   * Recordatorio de contrato: la lectura posterior (getEmergencyCardStatus) no devuelve token, url ni qrSvg (SC-012-085).
+   */
+  shownOnce: true;
+}
+/**
+ * Aviso derivado sin columna propia: ultima fila de la lista blanca de EmergencyCardLastChangeKind dentro de EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias (la auditoria EMERGENCY_* se purga a 90 dias); null si no hay. at es occurredAt del evento (con AUTO_NOTICE_CHANGED, el instante de la reconciliacion, no el del cambio del aviso).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardLastChange".
+ */
+export interface EmergencyCardLastChange {
+  kind: EmergencyCardLastChangeKind;
+  at: IsoInstant;
+  /**
+   * true si lo hizo quien consulta. No se expone la identidad de otro propietario (aviso derivado a los demas co-propietarios sin cruce de identidad, INV-QR12-008).
+   */
+  byMe: boolean;
+}
+/**
+ * Vista privada del estado de la ficha (propietario principal y co-propietario ACTIVE; un ADMIN de hogar no titular recibe 404 uniforme). NUNCA contiene el token ni su hash (INV-QR12-001). Reconcilia perezosamente (LAZY_RECONCILIATION: despues de autorizar, UPDATE condicional WHERE status = 'ON', un solo evento) la caida a OFF por AUTO_NOTICE_CHANGED en la misma transaccion antes de responder.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardOwnerView".
+ */
+export interface EmergencyCardOwnerView {
+  petId: PetIdUuid;
+  status: EmergencyCardStatus;
+  /**
+   * null si nunca estuvo OFF por una caida o desactivacion, mientras esta ON, o pasados EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias en OFF.
+   */
+  statusReason: EmergencyCardStatusReason | null;
+  /**
+   * Hay al menos un telefono visible (opt-in vigente y NO en espera) o una alergia critica (D12-14). La guarda se reevalua ademas al leer la ruta publica (falla cerrada, INV-QR12-004).
+   */
+  guardSatisfied: boolean;
+  /**
+   * true si MI telefono tiene opt-in vigente (compatible con el aviso actual) para esta mascota (consentimiento ligado a phone_hmac y a la pertenencia ACTIVE). false si esta en espera (ver myPhoneReconfirmRequired).
+   */
+  myPhoneVisible: boolean;
+  /**
+   * true si MI consentimiento de telefono existe pero esta EN ESPERA por un cambio MINOR/MAJOR del aviso (NOTICE_COMPATIBILITY): el telefono no se publica hasta reconfirmar con setEmergencyPhoneConsent. false en cualquier otro caso (incluido sin consentimiento).
+   */
+  myPhoneReconfirmRequired: boolean;
+  /**
+   * Cuantos telefonos mostraria la ficha ahora (sin contar los consentimientos en espera). Solo el conteo: nunca el numero ni la identidad de otros propietarios.
+   */
+  visiblePhonesCount: number;
+  criticalAllergiesCount: number;
+  /**
+   * Marca con granularidad de 60 minutos; null si nunca o si esta OFF (INV-QR12-006). Sin IP ni agente.
+   */
+  lastScannedAt: IsoInstant | null;
+  lastChange: EmergencyCardLastChange | null;
+  /**
+   * Ultima edicion efectiva de las alergias criticas dentro de 90 dias (null si no hay). Independiente de lastChange.
+   */
+  criticalAllergiesChange: EmergencyCriticalAllergiesChange | null;
+  /**
+   * Version del aviso aceptado al activar; null si la ficha nunca se activo.
+   */
+  noticeVersion: string | null;
+}
+/**
+ * Aviso derivado de la ultima edicion efectiva de las alergias criticas (trinity N-03): se deriva del evento PET_CRITICAL_ALLERGIES_UPDATED mas reciente de la mascota, solo si ocurrio dentro de EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias; sin contenido, sin conteo, sin identidad. Permite a los titulares enterarse de que cambio lo que ve el publico, tambien cuando edita un ADMIN de hogar no titular.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCriticalAllergiesChange".
+ */
+export interface EmergencyCriticalAllergiesChange {
+  at: IsoInstant;
+  /**
+   * true si la edicion la hizo quien consulta; no se expone la identidad ni el rol de otra persona (tampoco si fue un ADMIN de hogar).
+   */
+  byMe: boolean;
+}
+/**
+ * UNICA vista publica (GET /api/emergency/{token}); contiene unicamente estos tres campos. Sin ID, especie, raza, foto, microchip, hogar, correo, fecha de nacimiento ni estado de la ficha (REQ-QR12-004, SC-012-043). Los textos de cabecera, 'sin alergias' y pie los pone la SPA desde x-sdd-constants.TEXTS.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyCardPublicView".
+ */
+export interface EmergencyCardPublicView {
+  /**
+   * Texto plano; escape al mostrar, sin enlazado automatico (REQ-QR12-009). maxLength 50 como pet.schema.json de 004. Se emite tras NFC y SIN caracteres Cc/Cf/bidi (TEXT_POLICY, trinity T-07); si queda vacio, 404 uniforme.
+   */
+  petName: string;
+  criticalAllergies: CriticalAllergyList;
+  /**
+   * 0-2 telefonos de propietarios DISTINTOS con opt-in vigente para ESTA mascota, deduplicados por valor E.164; principal primero, luego co-propietarios ACTIVE por joined_at ASC y user_id ASC (Neo-I, INV-QR12-003). Un consentimiento EN ESPERA por cambio MINOR/MAJOR del aviso (NOTICE_COMPATIBILITY) NO se publica. Calculada en cada lectura.
+   *
+   * @minItems 0
+   * @maxItems 2
+   */
+  contactPhones: [] | [EmergencyContactPhone] | [EmergencyContactPhone, EmergencyContactPhone];
+}
+/**
+ * Solo el numero. Sin nombre, sin rol, sin identificador del propietario (REQ-QR12-004).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "EmergencyContactPhone".
+ */
+export interface EmergencyContactPhone {
+  phone: PhoneE164;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "SetEmergencyPhoneConsentRequest".
+ */
+export interface SetEmergencyPhoneConsentRequest {
+  /**
+   * true: opt-in o RECONFIRMACION de MI telefono para ESTA mascota (texto 'Mostrar mi telefono en la ficha QR de {mascota}'); requiere telefono en la cuenta (si no, 422 ERR-QR12-PHONE-INVALID con detail generico) y noticeVersion vigente. false: retira el opt-in (borra la fila); si la ficha ON pierde la guarda, cae a OFF en la misma transaccion (REQ-QR12-010).
+   */
+  visible: boolean;
+  /**
+   * Obligatorio cuando visible = true (se registra con fecha y quien consintio); si falta o no coincide con la vigente, 422 ERR-QR12-CONSENT-REQUIRED.
+   */
+  noticeVersion?: string;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "UpdateAccountPhoneRequest".
+ */
+export interface UpdateAccountPhoneRequest {
+  /**
+   * Entrada libre (espacios, guiones, parentesis) hasta 32 caracteres; el dominio normaliza a E.164 o responde 422 ERR-QR12-PHONE-INVALID. null borra el telefono.
+   */
+  phone: string | null;
+}
+/**
+ * Reemplazo total de la lista (idempotente por contenido). Lista vacia = vaciar. Si la ficha esta ON y deja de cumplir la guarda, cae a OFF en la misma transaccion (AUTO_GUARD_LOST). Editable por propietario principal, co-propietario ACTIVE y ADMIN de hogar (ADMIN_SCOPE).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "UpdateCriticalAllergiesRequest".
+ */
+export interface UpdateCriticalAllergiesRequest {
+  criticalAllergies: CriticalAllergyList;
 }
 /**
  * Respuesta de registro, de login (credenciales validas) y de primer acceso con Google de una cuenta PENDING o REJECTED: lleva solo el estado, sin sesion ni cookie y sin datos del perfil; la SPA muestra su pantalla de estado y al recargar vuelve a la pantalla de acceso (REQ-APR9-002, EDGE-009-038)
