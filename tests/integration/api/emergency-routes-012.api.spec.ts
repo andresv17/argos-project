@@ -1,3 +1,5 @@
+import { request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { EmergencyServices } from '../../../src/application/use-cases/use-case-support.ts';
@@ -131,12 +133,37 @@ describe('superficie pública /api/emergency y /e', () => {
     expect(ok.headers['cache-control']).toBe('no-store');
     const reference = await api.call('GET', '/api/emergency/nada', { cookie: null, csrf: false, ...NC });
     expect(reference.status).toBe(404);
-    for (const [method, url] of [['HEAD', `/api/emergency/${token}`], ['OPTIONS', `/api/emergency/${token}`], ['POST', `/api/emergency/${token}`], ['DELETE', `/api/emergency/${token}`], ['GET', '/api/emergency/%zz'], ['GET', `/api/emergency/${token}/`], ['POST', '/e/abc']] as const) {
+    for (const [method, url] of [['HEAD', `/api/emergency/${token}`], ['OPTIONS', `/api/emergency/${token}`], ['POST', `/api/emergency/${token}`], ['DELETE', `/api/emergency/${token}`], ['GET', '/api/emergency/%zz'], ['GET', '/api/emergency/%'], ['GET', `/api/emergency/${token}/`], ['POST', '/e/abc']] as const) {
       const res = await api.call(method, url, { cookie: null, csrf: false, ...NC });
       expect([res.status, method === 'HEAD' ? 'HEAD' : res.text], `${method} ${url}`).toEqual([404, method === 'HEAD' ? 'HEAD' : reference.text]);
       expect(Object.keys(res.headers).filter((h) => h.startsWith('access-control-'))).toEqual([]);
+      // H-T1678-01/02: el 404 del prefijo (también el de URL mal codificada o `%2e%2e`) lleva no-store y la CSP pública.
+      if (method === 'GET') {
+        expect(res.headers['cache-control'], `${url} cache-control`).toBe('no-store');
+        expect(String(res.headers['content-security-policy']), `${url} csp`).toContain("frame-ancestors 'none'");
+      }
     }
     expect(JSON.parse(reference.text)).toMatchObject({ code: 'ERR-PET-NOT-FOUND', instance: '/emergency' });
+  });
+
+  it('[SC-012-126][H-T1678-01] `%2e%2e` y `%2E%2E` por un socket real (inject normaliza los puntos antes del enrutador) quedan dentro del prefijo: el 404 público con no-store y CSP', async () => {
+    await activated();
+    await api.app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = api.app.server.address() as AddressInfo;
+    const get = (path: string) =>
+      new Promise<{ status: number; headers: Record<string, unknown>; body: string }>((resolve, reject) => {
+        httpRequest({ port, host: '127.0.0.1', path }, (res) => {
+          let body = '';
+          res.on('data', (chunk: Buffer) => (body += chunk.toString('utf8')));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
+        }).on('error', reject).end();
+      });
+    for (const path of ['/api/emergency/%2e%2e', '/api/emergency/%2E%2E', '/api/emergency/%2e']) {
+      const res = await get(path);
+      expect([res.status, JSON.parse(res.body)], path).toMatchObject([404, { code: 'ERR-PET-NOT-FOUND', instance: '/emergency' }]);
+      expect(res.headers['cache-control'], path).toBe('no-store');
+      expect(String(res.headers['content-security-policy']), path).toContain("frame-ancestors 'none'");
+    }
   });
 
   it('[SC-012-050] el shell /e/{token} responde 200 con las cabeceras del anexo §5 sin cambiar con el valor del token', async () => {

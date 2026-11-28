@@ -31,6 +31,7 @@ import { DomainError, type EmergencyCardPublicView } from '../../../generated/v3
 import { EmergencyScanLimiter } from '../emergency-scan-limiter.ts';
 import { PROBLEM_CONTENT_TYPE } from '../plugins/problem-details.ts';
 import { requireSession } from '../plugins/session-auth.ts';
+import { CONTENT_SECURITY_POLICY } from '../plugins/security-headers.ts';
 import { jsonBody } from '../request-input.ts';
 import { SHARED_PAGE_CSP } from './shared.routes.ts';
 import type { RouteContext } from './use-cases.ts';
@@ -89,7 +90,11 @@ export async function registerEmergencyPublicRoutes(app: FastifyInstance, option
     return true;
   };
   /** Fallo del enrutador (URL mal codificada, parámetro largo…): cuenta y responde el mismo 404 (o 429). */
-  failures.set(app, (request, reply) => (count(request, reply) ? reply : notFound(reply)));
+  // `frameworkErrors` corre antes de los hooks `onRequest`: la CSP global no se ha puesto aún (H-T1678-02).
+  failures.set(app, (request, reply) => {
+    reply.header('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+    return count(request, reply) ? reply : notFound(reply);
+  });
 
   const scope = (prefix: string, handler: (request: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => Promise<FastifyReply>) =>
     app.register(
