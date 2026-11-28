@@ -20,6 +20,9 @@ import { autoOffNotice, downloadBlobAs, isSafeQrSvg, otherOwnerNotice, qrFileNam
 
 const CARD = 'grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
+/** `@page` sin nombre que se inyecta solo mientras dura la impresión de la hoja A6 (`page: nombre` no aplica a una hoja anidada, MEDIA-1 de /sati). El tamaño va en milímetros: la palabra clave `A6` no existe en Chromium y la hoja saldría en Letter. */
+export const QR_PRINT_PAGE_CSS = '@page { size: 105mm 148mm; margin: 0 }';
+
 /** Hoja imprimible A6 (REQ-QR12-005): nombre, leyenda del contrato y QR de 60 mm de lado (el mínimo del contrato es 30 mm). Solo existe en papel (`.qr-a6`, `@media print`). */
 export function EmergencyPrintSheet({ petName, qrSrc }: { readonly petName: string; readonly qrSrc: string }): JSX.Element {
   return (
@@ -261,8 +264,13 @@ export function EmergencyCardPanel({ petId, petName, hasPhone, onChanged, api }:
   };
   const print = (): void => {
     document.body.classList.add('printing-qr');
+    // `@page` no se condiciona por clase: se inyecta (sin nombre) solo mientras dura la impresión de la hoja A6.
+    const pageStyle = document.createElement('style');
+    pageStyle.textContent = QR_PRINT_PAGE_CSS;
+    document.head.appendChild(pageStyle);
     const done = (): void => {
       document.body.classList.remove('printing-qr');
+      pageStyle.remove();
       window.removeEventListener('afterprint', done);
     };
     window.addEventListener('afterprint', done);
