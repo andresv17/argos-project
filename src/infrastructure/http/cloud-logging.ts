@@ -7,7 +7,7 @@
  * El registro de petición de Cloud Run (`run.googleapis.com/requests`: IP, URL, user-agent) lo escribe la plataforma
  * fuera del control de la app; la app no lo duplica ni pretende suprimirlo.
  *
- * @implements REQ-CLD-008, SC-CLD-004, INV-AUTH-003, INV-AUD-001, REQ-ESC6-038
+ * @implements REQ-CLD-008, SC-CLD-004, INV-AUTH-003, INV-AUD-001, REQ-ESC6-038, REQ-QR12-008, SC-012-086
  */
 
 import type { FastifyError } from 'fastify';
@@ -62,6 +62,12 @@ const GEMINI_API_KEY_HEADER_PATTERN = /x-goog-api-key["']?\s*[=:]\s*["']?[^\s&"'
 /** Token de acceso OAuth2 de Google (`ya29.` + cuerpo) y credenciales de cabecera `Bearer <valor>` (H-F14-T3; token del metadata server de Vertex), vengan donde vengan. */
 const GOOGLE_ACCESS_TOKEN_PATTERN = /ya29\.[0-9A-Za-z_.~+/=-]+/g;
 const BEARER_PATTERN = /\bBearer\s+[^\s"'<>,;}]+/gi;
+/**
+ * Ficha QR de emergencia (012, Bloque D, T1680, `LOG_REDACTION`, REQ-QR12-008, SC-012-086; trinity N-01): el token viaja en la URL de `/e/<token>` y de `/api/emergency/<token>`. Patrón por FORMA y SIN ANCLAR:
+ * se oculta TODO el segmento que sigue al prefijo hasta `/`, `?`, `#`, espacio, comilla o fin de cadena, de CUALQUIER longitud (un token truncado, con sufijo, con barra final o con un typo es lo que más se registra
+ * en los 404). Prefijo en cualquier posición, sin distinguir mayúsculas y también con separador codificado (`%2f`); alcanza `req.url` y `Route GET:/… not found`. Se conserva el prefijo para el diagnóstico.
+ */
+const EMERGENCY_PATH_PATTERN = /((?:\/|%2f)(?:api(?:\/|%2f)emergency|e)(?:\/|%2f))[^/?#\s"'<>]*/gi;
 const UNIQUE_DETAIL_PATTERN = /Key \([^)]*\)=\([^)]*\)(?: already exists\.?)?/g;
 const MICROCHIP_PATTERN = /(?<![0-9])[0-9]{15}(?![0-9])/g;
 
@@ -79,6 +85,7 @@ export function redactSecrets(text: string, databaseUrl: string | undefined): st
     .replace(GOOG_PARAMETER_PATTERN, REDACTED)
     .replace(OBJECT_KEY_PATTERN, REDACTED)
     .replace(SHARED_PATH_PATTERN, '/shared/[REDACTED]')
+    .replace(EMERGENCY_PATH_PATTERN, `$1${REDACTED}`)
     .replace(UNIQUE_DETAIL_PATTERN, REDACTED)
     .replace(MICROCHIP_PATTERN, REDACTED)
     .replace(DATABASE_URL_PATTERN, REDACTED);
