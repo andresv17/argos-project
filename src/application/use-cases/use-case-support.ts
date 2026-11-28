@@ -183,6 +183,14 @@ export interface EmergencyServices {
   readonly entropy: { next32(): Uint8Array };
 }
 
+/**
+ * Puerto mínimo del ciclo de vida de la ficha QR para el fallecimiento (feature 012, annex §10, `RAMA-T1683-02`). `onPetDeceased` corre DENTRO de la transacción que persiste `life_status = DECEASED`
+ * (`tx`); si lanza, el fallecimiento revierte. `actorUserId` es quien marcó el fallecimiento (actor del evento `EMERGENCY_CARD_AUTO_DEACTIVATED`).
+ */
+export interface EmergencyCardLifecycle {
+  onPetDeceased(petId: string, tx: RepositorySet, actorUserId: string): Promise<void>;
+}
+
 export interface ApplicationDeps {
   /**
    * Tope de hogares ACTIVOS por persona (feature 011, REQ-HOG11-004, INV-HOG11-001): lo inyecta la composición desde `MAX_HOUSEHOLDS_PER_USER` (`app-config.ts`, única fuente).
@@ -236,6 +244,8 @@ export interface ApplicationDeps {
   readonly malwareScanner?: MalwareScannerPort;
   /** Ficha QR de emergencia (feature 012, Bloque D, T1675). Ausente: los casos de uso de la ficha fallan cerrados. */
   readonly emergency?: EmergencyServices;
+  /** Hook de fallecimiento de la ficha QR (feature 012, annex §10). Ausente: solo opera la reconciliación perezosa. */
+  readonly emergencyLifecycle?: EmergencyCardLifecycle;
 }
 
 /** Puerto mínimo del log estructurado de servidor para eventos operativos. */

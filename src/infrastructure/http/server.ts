@@ -15,6 +15,7 @@ import type { PlatformParameterRepositoryPort } from '../../application/ports/pl
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
 import { RunSceneGenerationUseCase } from '../../application/use-cases/scene-run-use-case.ts';
 import { SceneLifecycleHooks } from '../../application/use-cases/scene-lifecycle-hooks.ts';
+import { EmergencyCardLifecycleHook } from '../../application/use-cases/emergency-support.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
 import { DeterministicMalwareScannerAdapter } from '../adapters/deterministic-malware-scanner.adapter.ts';
@@ -220,7 +221,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     // 012 (T1636, REQ-CHP12-008): antimalware de la evidencia de disputa. En desarrollo y CI (driver de medios en memoria) el adaptador determinista; en producción el puerto queda SIN adaptador
     // hasta aprovisionar ClamAV (condición bloqueante de release) y la apertura de disputas falla cerrado con 503 (ERR-OWN12-RETRYABLE).
     ...(config.mediaDriver === 'memory' ? { malwareScanner: new DeterministicMalwareScannerAdapter() } : {}),
-    ...(emergency === null ? {} : { emergency }),
+    ...(emergency === null ? {} : { emergency, emergencyLifecycle: new EmergencyCardLifecycleHook(() => deps) }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
     ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider, selectionSource: { repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) } }) }),

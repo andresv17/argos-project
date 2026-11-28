@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
+import { UpdatePetUseCase } from '../../../src/application/use-cases/pet-use-cases.ts';
 import type { ApplicationDeps } from '../../../src/application/use-cases/use-case-support.ts';
 import { unshare } from '../../fixtures/co-ownership-012.ts';
 import { ANDRES, BASE_URL, ENGINE_FACTORIES, KEY_B, LUCIA, MARIA, NOTICE, PET, PHONE_A, PHONE_L, PHONE_M, T0, accountPhone, cardRow, codeOf, consentRows, daysAfter, emergencyCases, emergencyDeps, hoursAfter, makeCoOwners, setPhoneOutOfBand, sha256, type Engine012 } from '../../fixtures/emergency-012.ts';
@@ -248,6 +249,57 @@ for (const factory of ENGINE_FACTORIES) {
       const status = await use.status(ANDRES, PET);
       expect([status['status'], status['statusReason']]).toEqual(['OFF', 'AUTO_PET_DECEASED']);
       expect(await consentRows(e)).toEqual([]);
+    });
+
+    /** `updatePet` (007) con `lifeStatus` como único cambio; devuelve la mascota resultante. */
+    const markLife = async (e: Engine012, deps: ApplicationDeps, lifeStatus: 'DECEASED' | 'ALIVE') => {
+      const pet = (await e.run((r) => r.pets.findById(PET)))!;
+      const input = lifeStatus === 'DECEASED' ? { lifeStatus, deceasedAt: '2026-11-20' } : { lifeStatus, deceasedAt: null };
+      return new UpdatePetUseCase(deps).execute(ANDRES, PET, input, pet.version ?? 1);
+    };
+    const lifeOf = async (e: Engine012) => (await e.run((r) => r.pets.findById(PET)))!.lifeStatus;
+
+    it('[SC-012-123] hook de fallecimiento (annex §10): marcar DECEASED con la ficha ON la deja OFF/AUTO_PET_DECEASED en la misma operación, sin token_hash ni titular, sin consentimientos y con UN solo evento; la ruta pública da 404', async () => {
+      const { e, use, deps } = await boot();
+      await use.updatePhone(ANDRES, PHONE_A);
+      await use.setConsent(ANDRES, PET, { visible: true, noticeVersion: NOTICE });
+      await use.updateAllergies(ANDRES, PET, ['Polen']);
+      const { token } = (await use.activate(ANDRES, PET)) as { token: string };
+      expect((await consentRows(e)).length).toBeGreaterThan(0);
+      await markLife(e, deps, 'DECEASED');
+      const row = (await cardRow(e))!;
+      expect([row['status'], row['statusReason'], row['tokenHash'] ?? null, row['consentedByUserId'] ?? null]).toEqual(['OFF', 'AUTO_PET_DECEASED', null, null]);
+      expect(await consentRows(e)).toEqual([]);
+      expect(await auditCount(e, 'EMERGENCY_CARD_AUTO_DEACTIVATED')).toBe(1);
+      expect(await codeOf(use.publicView(token))).toBe(NOT_FOUND);
+      // Volver a ALIVE NO reactiva la ficha ni restaura consentimientos, ni emite otro evento.
+      await markLife(e, deps, 'ALIVE');
+      const after = (await cardRow(e))!;
+      expect([after['status'], after['statusReason'], after['tokenHash'] ?? null]).toEqual(['OFF', 'AUTO_PET_DECEASED', null]);
+      expect(await consentRows(e)).toEqual([]);
+      expect(await auditCount(e, 'EMERGENCY_CARD_AUTO_DEACTIVATED')).toBe(1);
+    });
+
+    it('[SC-012-123] hook de fallecimiento: con la ficha OFF y un consentimiento en espera, el consentimiento se borra sin evento; sin ficha no se crea fila', async () => {
+      const { e, use, deps } = await boot();
+      await use.updatePhone(ANDRES, PHONE_A);
+      await use.setConsent(ANDRES, PET, { visible: true, noticeVersion: NOTICE });
+      expect((await consentRows(e)).length).toBe(1);
+      expect(await cardRow(e)).toBeNull();
+      await markLife(e, deps, 'DECEASED');
+      expect(await consentRows(e)).toEqual([]);
+      expect(await cardRow(e)).toBeNull();
+      expect(await auditCount(e, 'EMERGENCY_CARD_AUTO_DEACTIVATED')).toBe(0);
+    });
+
+    it('[SC-012-123] hook de fallecimiento: si el hook falla, el fallecimiento revierte (life_status intacto y la ficha sigue ON)', async () => {
+      const { e, use, deps } = await boot();
+      await use.updateAllergies(ANDRES, PET, ['Polen']);
+      await use.activate(ANDRES, PET);
+      const failing: ApplicationDeps = { ...deps, emergencyLifecycle: { onPetDeceased: async () => Promise.reject(new Error('hook boom')) } };
+      await expect(markLife(e, failing, 'DECEASED')).rejects.toThrow('hook boom');
+      expect(await lifeOf(e)).toBe('ALIVE');
+      expect((await cardRow(e))!['status']).toBe('ON');
     });
 
     it('[SC-012-046] regenerar desde OFF exige guarda y un opt-in NUEVO (los consentimientos se borraron en el acto al pasar a OFF); showMyPhone lo registra en la misma operación', async () => {

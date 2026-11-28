@@ -154,6 +154,8 @@ export class UpdatePetUseCase {
         await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && chipChanged);
         if (updated.microchipId !== null && chipChanged) await assertMicrochipAvailable(this.deps, repositories, userId, updated.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(updated));
+        // 012 annex §10 (RAMA-T1683-02): solo la transición a DECEASED apaga la ficha QR, en esta misma transacción (si el hook lanza, el fallecimiento revierte). Volver a ALIVE no reactiva nada.
+        if (updated.lifeStatus === 'DECEASED' && pet.lifeStatus !== 'DECEASED') await this.deps.emergencyLifecycle?.onPetDeceased(petId, repositories, userId);
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(updated) });
         // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
         return { ...updated, biography: updated.biography ?? null, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };

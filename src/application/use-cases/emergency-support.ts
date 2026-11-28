@@ -19,7 +19,7 @@ import type { AuditMutationType } from '../../generated/v31/index.ts';
 import { DomainError, type EmergencyCardOwnerView } from '../../generated/v38/index.ts';
 import type { EmergencyCardRecord, EmergencyConsentRecord, EmergencyStatusReason } from '../ports/emergency.port.ts';
 import type { RateLimitScope, RepositorySet } from '../ports/repositories.port.ts';
-import type { ApplicationDeps, EmergencyServices } from './use-case-support.ts';
+import type { ApplicationDeps, EmergencyCardLifecycle, EmergencyServices } from './use-case-support.ts';
 
 const DAY_MS = 86_400_000;
 
@@ -152,6 +152,22 @@ export async function reconcileCard(deps: ApplicationDeps, repositories: Reposit
   await repositories.emergencyConsents.deleteByPet(petId); // toda transición a OFF borra en el acto los consentimientos de teléfono (anexo §1)
   await recordEmergencyAudit(deps, repositories, SYSTEM_EXECUTOR, 'EMERGENCY_CARD_AUTO_DEACTIVATED', petId);
   return true;
+}
+
+/**
+ * Hook de fallecimiento (annex §10, `RAMA-T1683-02`): en la transacción que marca `DECEASED`, (a) `UPDATE … SET OFF/AUTO_PET_DECEASED, token_hash = NULL, consented_by_user_id = NULL WHERE status = 'ON'`; (b) solo si
+ * afectó una fila, UN `EMERGENCY_CARD_AUTO_DEACTIVATED` con el actor que marcó el fallecimiento; (c) siempre borra los consentimientos de la mascota. Mismas rutinas que `reconcileCard`.
+ * @implements REQ-QR12-010, INV-QR12-004, SC-012-123
+ */
+export class EmergencyCardLifecycleHook implements EmergencyCardLifecycle {
+  constructor(private readonly depsOf: () => ApplicationDeps) {}
+
+  async onPetDeceased(petId: string, tx: RepositorySet, actorUserId: string): Promise<void> {
+    const deps = this.depsOf();
+    const affected = await tx.emergencyCards.switchOffIfOn(petId, 'AUTO_PET_DECEASED', deps.clock.nowIsoTimestamp());
+    if (affected) await recordEmergencyAudit(deps, tx, actorUserId, 'EMERGENCY_CARD_AUTO_DEACTIVATED', petId);
+    await tx.emergencyConsents.deleteByPet(petId);
+  }
 }
 
 /**

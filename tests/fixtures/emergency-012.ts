@@ -7,6 +7,7 @@
  * los repositorios `repositories.emergencyCards` y `repositories.emergencyConsents` exponen `findByPet(petId)` y `listByPet(petId)` con filas en camelCase.
  */
 import { createHash } from 'node:crypto';
+import { EmergencyCardLifecycleHook } from '../../src/application/use-cases/emergency-support.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { loadEmergencyModule, type UseCaseClass, type UseCasesModule } from './emergency-modules.ts';
 import { ANDRES, ARGOS, CARLOS, ENGINE_FACTORIES, HAS_POSTGRES, LUCIA, MARIA, PET, cases as coOwnerCases, codeOf, makeCoOwners, type Engine012, type Row } from './co-ownership-012.ts';
@@ -45,7 +46,7 @@ export class SequentialEntropy {
 }
 
 export function emergencyDeps(engine: Pick<Engine012, 'deps'>, overrides: EmergencyConfigOverrides = {}, entropy: SequentialEntropy = new SequentialEntropy()): ApplicationDeps {
-  return {
+  const built: ApplicationDeps = {
     ...engine.deps,
     emergency: {
       phoneHmacKey: overrides.phoneHmacKey ?? KEY_A,
@@ -55,6 +56,7 @@ export function emergencyDeps(engine: Pick<Engine012, 'deps'>, overrides: Emerge
       entropy,
     },
   } as ApplicationDeps;
+  return { ...built, emergencyLifecycle: new EmergencyCardLifecycleHook(() => built) };
 }
 
 const useCases = await loadEmergencyModule<UseCasesModule>('application/use-cases/emergency-use-cases');
