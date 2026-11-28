@@ -34,6 +34,7 @@ import type { RepositorySet } from '../ports/repositories.port.ts';
 import { requireOwner } from './co-ownership-support.ts';
 import {
   ALLERGIES_AUDIT_TYPE,
+  EMERGENCY_AUDIT_TYPES,
   SYSTEM_EXECUTOR,
   buildOwnerView,
   chargeBucket,
@@ -299,11 +300,13 @@ export interface EmergencyMaintenanceResult {
   readonly cardsReconciled: number;
   readonly historyCleared: number;
   readonly rateEventsPurged: number;
+  /** Filas de `audit_log` de tipo `EMERGENCY_*` o `PET_CRITICAL_ALLERGIES_UPDATED` con más de 90 días (H-BD-F1). */
+  readonly auditPurged: number;
 }
 
 /**
  * Barrido de mantenimiento de la 012 (`LAZY_RECONCILIATION`, trigger enumerado): borra los consentimientos en espera vencidos, reconcilia las fichas `ON` sin requisitos (para que no queden filas persistidas de cuentas
- * inactivas), devuelve a `OFF` sin historial las fichas con más de 90 días apagadas y purga los eventos de tope `QR_*` de más de 2 h. No escribe auditoría de usuario ni registra identificadores.
+ * inactivas), devuelve a `OFF` sin historial las fichas con más de 90 días apagadas purga los eventos de tope `QR_*` de más de 2 h y borra de `audit_log` los eventos `EMERGENCY_*` y `PET_CRITICAL_ALLERGIES_UPDATED` de más de 90 días (solo por `mutation_type` y `timestamp`, nunca por contenido). No escribe auditoría de usuario ni registra identificadores.
  * @implements REQ-QR12-006, REQ-QR12-010, SC-012-121, SC-012-122, SC-012-123, SC-012-124
  */
 export class RunEmergencyMaintenanceUseCase {
@@ -326,14 +329,15 @@ export class RunEmergencyMaintenanceUseCase {
       for (const petId of [...touched].sort()) if (await reconcileCard(deps, repositories, petId)) cardsReconciled += 1;
       const historyCleared = await repositories.emergencyCards.clearHistoryBefore(addMillis(now, -EMERGENCY_HISTORY_RETENTION_DAYS * DAY_MS));
       const rateEventsPurged = await repositories.rateLimits.purgeScopesBefore(['QR_CARD_MUTATION', 'QR_PRIVATE_WRITE'], addMillis(now, -QR_RATE_EVENTS_RETENTION_HOURS * HOUR_MS));
-      return { waitExpired: expired.length, cardsReconciled, historyCleared, rateEventsPurged };
+      const auditPurged = await repositories.auditLog.purgeMutationTypesBefore([...EMERGENCY_AUDIT_TYPES, ALLERGIES_AUDIT_TYPE], addMillis(now, -EMERGENCY_HISTORY_RETENTION_DAYS * DAY_MS));
+      return { waitExpired: expired.length, cardsReconciled, historyCleared, rateEventsPurged, auditPurged };
     });
   }
 }
 
 /**
  * Barrido de rotación de `PHONE_HMAC_KEY` (anexo §9, decisión de Neo (2)): RECALCULA `phone_hmac` de cada fila desde `users.phone` con la clave vigente (el consentimiento se mantiene); si el usuario no tiene teléfono la
- * fila se BORRA (nunca queda en espera) con un `EMERGENCY_PHONE_CONSENT_CHANGED` de SISTEMA (`origin = PHONE_HMAC_KEY_ROTATION`) y se reconcilia la ficha. Idempotente.
+ * fila se BORRA (nunca queda en espera) con un `EMERGENCY_PHONE_CONSENT_CHANGED` de SISTEMA (sin `origin`: ya no se audita) y se reconcilia la ficha. Idempotente.
  * @implements REQ-QR12-006, SC-012-122
  */
 export class RotatePhoneHmacKeyUseCase {

@@ -362,6 +362,12 @@ export async function purgeCareData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
  */
+/** Registra solo el nombre del error (nunca identificadores ni mensajes) y sigue: el barrido se reintenta en la próxima pasada. */
+const logEmergencyMaintenanceFailure = (error: unknown): null => {
+  console.error(`[maintenance] barrido de la ficha QR falló (${error instanceof Error ? error.name : 'Unknown'}); se reintenta en la próxima pasada`);
+  return null;
+};
+
 export async function runMaintenance(
   deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media' | 'adminDelegateRetention'>,
   onMediaQueue?: (result: MediaQueueResult) => void,
@@ -382,8 +388,8 @@ export async function runMaintenance(
   await purgeCareData(deps);
   // Feature 012 (Bloque D, #32): barrido de la ficha QR (consentimientos en espera vencidos, reconciliación, historial de 90 días, topes QR_*) y recálculo idempotente de `phone_hmac` tras una rotación de clave. Solo con la ficha configurada; nunca lanzan.
   if ((deps as Partial<ApplicationDeps>).emergency !== undefined && (deps as Partial<ApplicationDeps>).ids !== undefined) {
-    await new RunEmergencyMaintenanceUseCase(deps as unknown as ApplicationDeps).execute().catch(() => null);
-    await new RotatePhoneHmacKeyUseCase(deps as unknown as ApplicationDeps).execute().catch(() => null);
+    await new RunEmergencyMaintenanceUseCase(deps as unknown as ApplicationDeps).execute().catch(logEmergencyMaintenanceFailure);
+    await new RotatePhoneHmacKeyUseCase(deps as unknown as ApplicationDeps).execute().catch(logEmergencyMaintenanceFailure);
   }
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));

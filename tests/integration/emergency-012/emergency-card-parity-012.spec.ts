@@ -310,7 +310,7 @@ for (const factory of ENGINE_FACTORIES) {
       await next.maintenance();
       expect(await consentRows(e)).toEqual([]);
       expect((await cardRow(e))!['status']).toBe('ON'); // sigue por las alergias
-      expect(await auditCount(e, 'EMERGENCY_PHONE_CONSENT_CHANGED')).toBeGreaterThanOrEqual(2);
+      expect(await auditCount(e, 'EMERGENCY_PHONE_CONSENT_CHANGED')).toBe(1); // solo el evento de sistema de hoy: el consentimiento original (91 días) lo purga H-BD-F1 (retención de 90 días)
     });
 
     it('[SC-012-122] rotación de PHONE_HMAC_KEY: mientras el barrido no corre la fila con el HMAC viejo NO se publica; el barrido recalcula (el consentimiento se mantiene) o borra si falta el teléfono; nunca queda en espera', async () => {
