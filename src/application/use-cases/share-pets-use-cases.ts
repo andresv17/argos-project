@@ -94,6 +94,9 @@ export class CreatePetsShareLinkUseCase {
     const tokenHash = hashToken(token);
     const requested = lenientIds((body as { petIds?: unknown } | null | undefined)?.petIds);
     return runOwnershipTransaction(deps, async (r): Promise<CreatePetsShareLinkOutcome> => {
+      // BAJA-1 (§6): precheck de membresía SIN bloquear; quien no es miembro ACTIVE del hogar da el mismo 404 y no adquiere bloqueos de mascotas ni de hogar ajenos. Se revalida dentro del candado.
+      const preMemberships = await r.households.listMembershipsOfUsers([userId]);
+      if (!preMemberships.some((m) => m.householdId === householdId && m.status === 'ACTIVE')) throw houseNotFound();
       for (const petId of requested) await r.pets.findOwnershipForUpdate(petId); // §6 (1): bloqueo por mascota, pet_id ASC (solo filas existentes)
       await r.shareLinks.lockScope('PETS', householdId); // §6 (2): candado del HOGAR
       const eligibility = await requirePetsCreator(r, userId, householdId, requested); // 404 hogar -> 403 creador, revalidados dentro del candado
