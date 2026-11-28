@@ -4,11 +4,11 @@
   "title": "ShareLinkSchema",
   "description": "Enlace de solo lectura para el veterinario y su envoltorio de vista (feature 005) [REQ-VET-001..013, REQ-SUM-004]. El token NUNCA aparece fuera de CreateShareLinkResult.url (INV-005-005); las listas solo llevan metadatos. Sin nombre del hogar (D5-23).",
   "x-sdd-metadata": {
-    "version": "1.2.0",
+    "version": "1.3.0",
     "status": "APPROVED",
-    "supersedes": "1.1.0",
+    "supersedes": "1.2.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 1.2.0 (feature 011, T1534, ENM-005-3.5.0, opción C de Neo, Logos iter 232): SharedSummaryView +petIds (array de uuid, opcional, fuera de required, maxItems 100, orden de summary.pets); additionalProperties false se conserva; un lector 1.1.0 que ignore el campo nuevo sigue funcionando y clinical-summary no cambia. Historial: MINOR 1.1.0 (feature 007, T1026, C1, SC-007-016): CreateShareLinkInput +includeDeceasedAt (boolean, default false, opcional, fuera de required) y ShareLinkView +includeDeceasedAt (boolean, opcional, fuera de required); additionalProperties false se conserva; inmutable tras crear, como includeMicrochip. Un cliente que no lo envia obtiene false (comportamiento 1.0.0); un consumidor de 1.0.0 ignora el campo nuevo de la vista. Historial: Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
+    "change_note": "MINOR 1.3.0 (feature 012, T1692/ENM-005-E 0.2.2, firmada por Neo 2026-11-28, MEDIA-6 = (a)): ShareLinkScope +PETS (aditivo) y rama defensiva en ShareLinkView scope = PETS -> petId null, householdId uuid (las rutas de 005 nunca emiten un PETS, annex §5.5; enum y rama se aplican atomicamente). CAMBIO DE SEMANTICA DECLARADO: activeCount de listHouseholdShareLinks pasa a contar tambien los enlaces PETS activos del hogar de todos los creadores (scope IN (HOUSEHOLD, PETS)); es el mismo numero que decide el 409 ERR-SHARE-LINK-LIMIT; items no incluye PETS. El MINOR es aditivo en forma, no en la semantica de ese campo. Historial: MINOR 1.2.0 (feature 011, T1534, ENM-005-3.5.0, opción C de Neo, Logos iter 232): SharedSummaryView +petIds (array de uuid, opcional, fuera de required, maxItems 100, orden de summary.pets); additionalProperties false se conserva; un lector 1.1.0 que ignore el campo nuevo sigue funcionando y clinical-summary no cambia. Historial: MINOR 1.1.0 (feature 007, T1026, C1, SC-007-016): CreateShareLinkInput +includeDeceasedAt (boolean, default false, opcional, fuera de required) y ShareLinkView +includeDeceasedAt (boolean, opcional, fuera de required); additionalProperties false se conserva; inmutable tras crear, como includeMicrochip. Un cliente que no lo envia obtiene false (comportamiento 1.0.0); un consumidor de 1.0.0 ignora el campo nuevo de la vista. Historial: Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
     "traceability": [
       "REQ-VET-001",
       "REQ-VET-002",
@@ -39,7 +39,8 @@
       "type": "string",
       "enum": [
         "PET",
-        "HOUSEHOLD"
+        "HOUSEHOLD",
+        "PETS"
       ]
     },
     "ShareLinkStatus": {
@@ -134,7 +135,7 @@
               "type": "null"
             }
           ],
-          "description": "No nulo si scope = HOUSEHOLD; la etiqueta de pantalla NO usa el nombre del hogar (D5-23)"
+          "description": "No nulo si scope = HOUSEHOLD o PETS; la etiqueta de pantalla NO usa el nombre del hogar (D5-23)"
         },
         "status": {
           "$ref": "#/$defs/ShareLinkStatus"
@@ -193,6 +194,25 @@
             "properties": {
               "scope": {
                 "const": "HOUSEHOLD"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "householdId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+              },
+              "petId": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "PETS"
               }
             }
           },
