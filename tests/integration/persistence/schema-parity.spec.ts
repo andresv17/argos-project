@@ -74,6 +74,8 @@ const ADMIN_AUDIT_METADATA_PATH = new URL('../../../src/infrastructure/persisten
 const CARE_MODE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0035_care_mode.sql', import.meta.url);
 /** T1673 (012, Bloque D, #32): la 0037 de Postgres equivale a la 0041 de SQLite (`users.phone`, `pets.critical_allergies`, `pet_emergency_cards`, `pet_emergency_phone_consents`, auditoría `EMERGENCY_*` y ámbitos `QR_*`, REQ-QR12-001..003, REQ-QR12-006, REQ-QR12-007). */
 const EMERGENCY_CARD_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0037_emergency_card.sql', import.meta.url);
+/** T1692 (012, Bloque E, #81): la 0038 de Postgres equivale a la 0042 de SQLite (`share_links.scope` admite PETS con su CHECK combinado y la tabla `share_link_pets` sin `position`, ENM-005-E annex §2). */
+const SHARE_PETS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0038_share_link_pets.sql', import.meta.url);
 const USER_AVATAR_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0028_user_avatar.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
@@ -81,7 +83,7 @@ const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/pos
 const CANONICAL_TABLES = [
   'about_content', 'admin_audit_entries', 'admin_delegates', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'care_log_entries', 'care_routines', 'custom_parameters', 'dewormings', 'dispute_evidence', 'home_scenes', 'household_invitations',
   'household_members', 'household_photos', 'households', 'ip_rate_events', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'owner_requests', 'pet_assignments', 'pet_caregiver_access', 'pet_co_owners', 'pet_emergency_cards', 'pet_emergency_phone_consents', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
-  'scene_actor_limit_marks', 'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
+  'scene_actor_limit_marks', 'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_link_pets', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
@@ -91,7 +93,7 @@ const CANONICAL_INDEXES = [
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'ip_rate_events_window', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'owner_requests_absence_anchor', 'owner_requests_chip_reserve', 'owner_requests_claim_pending', 'owner_requests_cooldown', 'owner_requests_dispute_chip_open', 'owner_requests_one_live_action', 'owner_requests_pet_status', 'pet_assignments_household_id', 'pet_caregiver_access_user', 'pet_co_owners_live', 'pet_co_owners_pet_status', 'pet_co_owners_user_status',
   'pet_emergency_phone_consents_user', 'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
   'scene_attempts_scene_started', 'scene_consents_active', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
-  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'share_link_audit_occurred', 'share_link_pets_pet', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -224,10 +226,12 @@ function parseSchema(statements: string[]): Schema {
       table.checks = table.checks.filter((c) => !c.startsWith(`${column} IN `));
       continue;
     }
-    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ (CHECK[\s\S]+)$/i.exec(stmt.trim());
+    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT (\w+) (CHECK[\s\S]+)$/i.exec(stmt.trim());
     if (addCheck) {
       const table = schema.tables.get(addCheck[1]!)!;
-      table.checks.push(...extractChecks(addCheck[2]!).checks);
+      // T1692: el CHECK combinado de 0008 es de tabla y sin nombre; el DO de la 0038 lo retira por su definicion (el parser no ve los DO) y `*_shape_check` lo reemplaza.
+      if (addCheck[2]!.endsWith('_shape_check')) table.checks = table.checks.filter((c) => !c.includes('pet_owner_user_id_at_creation'));
+      table.checks.push(...extractChecks(addCheck[3]!).checks);
       table.checks.sort();
       continue;
     }
@@ -272,7 +276,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...postgresStatements(ADMIN_AUDIT_METADATA_PATH), ...postgresStatements(CARE_MODE_PATH), ...postgresStatements(EMERGENCY_CARD_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...postgresStatements(ADMIN_AUDIT_METADATA_PATH), ...postgresStatements(CARE_MODE_PATH), ...postgresStatements(EMERGENCY_CARD_PATH), ...postgresStatements(SHARE_PETS_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : column === 'dose_amount' ? 'NUMERIC' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -559,6 +563,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(ADMIN_AUDIT_METADATA_PATH, 'utf8'));
         await client.query(readFileSync(CARE_MODE_PATH, 'utf8'));
         await client.query(readFileSync(EMERGENCY_CARD_PATH, 'utf8'));
+        await client.query(readFileSync(SHARE_PETS_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
