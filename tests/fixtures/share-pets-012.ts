@@ -62,4 +62,5 @@ export const coOwn = (api: ShareApi, userId: string, petId: string = ARGOS.id): 
 export const linkRow = (api: ShareApi, id: string): { scope: string; revoked_at: string | null; household_id: string | null; pet_id: string | null } | undefined =>
   api.db.prepare('SELECT scope, revoked_at, household_id, pet_id FROM share_links WHERE id = ?').get(id) as never;
 export const petRows = (api: ShareApi, id: string): string[] => api.db.prepare('SELECT pet_id FROM share_link_pets WHERE share_link_id = ? ORDER BY pet_id').pluck().all(id) as string[];
-export const auditTypes = (api: ShareApi, id: string): string[] => api.db.prepare('SELECT event_type FROM share_link_audit WHERE share_link_id = ? ORDER BY occurred_at, id').pluck().all(id) as string[];
+/** Eventos del ciclo de vida del enlace (annex §2: `CREATED` y `REVOKED`); los `ACCESS_*` de las lecturas públicas no cuentan. */
+export const auditTypes = (api: ShareApi, id: string): string[] => api.db.prepare("SELECT event_type FROM share_link_audit WHERE share_link_id = ? AND event_type IN ('CREATED', 'REVOKED') ORDER BY occurred_at, id").pluck().all(id) as string[];

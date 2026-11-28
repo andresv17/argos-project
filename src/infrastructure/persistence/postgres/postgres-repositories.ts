@@ -55,7 +55,7 @@ import type {
 } from '../../../application/ports/repositories.port.ts';
 import { accountStatusOf, corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
-import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
+import { shareAuditRepository, shareLinkPetRepository, shareLinkRepository } from './postgres-share-repositories.ts';
 import { postgresDisputeEvidenceRepository, postgresIpRateEventRepository } from './postgres-chip-repositories.ts';
 import { postgresCareLogRepository, postgresCareRoutineRepository, postgresCaregiverAccessRepository } from './postgres-care-repositories.ts';
 import { postgresEmergencyCardRepository, postgresEmergencyConsentRepository } from './postgres-emergency-repositories.ts';
@@ -880,12 +880,14 @@ export function createPostgresRepositoriesPart3(client: PoolClientLike): Postgre
  * @implements REQ-PG-002, INV-ARCH-005
  */
 export function createPostgresRepositories(client: PoolClientLike): RepositorySet {
+  const part2 = createPostgresRepositoriesPart2(client);
   return {
     ...createPostgresRepositoriesPart1(client),
-    ...createPostgresRepositoriesPart2(client),
+    ...part2,
     ...createPostgresRepositoriesPart3(client),
     shareLinks: shareLinkRepository(client),
     shareAudit: shareAuditRepository(client),
+    shareLinkPets: shareLinkPetRepository(client, part2.pets),
     scenes: postgresSceneRepository(client),
     sceneConsents: postgresSceneConsentRepository(client),
     authIdentities: authIdentityRepository(client),

@@ -35,6 +35,7 @@ import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type P
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
 import { assertPetNotFrozen } from './co-ownership-support.ts';
 import { countChipAttempt, type ChipRequestContext } from './chip-ip-rate-limit.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { assertMicrochipAvailable } from './chip-uniqueness.ts';
 import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
@@ -173,6 +174,8 @@ export class UpdatePetUseCase {
 export async function deletePetInTransaction(deps: ApplicationDeps, repositories: RepositorySet, executorUserId: string, pet: PetProfile): Promise<string[]> {
   // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
   await deps.sceneHooks?.onPetRemoved(repositories, { petId: pet.id, cause: 'PET_DELETED', now: deps.clock.nowIsoTimestamp() });
+  // ENM-005-E §5.1 (EDGE-012-072): los `PETS` activos que contienen la mascota se revocan ENTEROS ANTES de la cascada: nunca queda un `PETS` activo con cero filas.
+  await PetsLinkRevocation.revokeForPetDeleted(deps, repositories, { petId: pet.id, actorUserId: executorUserId, now: deps.clock.nowIsoTimestamp() });
   // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
   const keys = await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, deps.clock.nowIsoTimestamp());
   await repositories.records.deleteForPet(pet.id);

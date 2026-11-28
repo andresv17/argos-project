@@ -65,6 +65,7 @@ export async function createShareApi(
   } = {},
 ): Promise<ShareApi> {
   const state = canonicalState();
+  state.memberships = structuredClone(state.memberships); // la canónica comparte referencias con el JSON de la 001: sin clonar, el rol de una prueba se filtra a las siguientes
   if (options.role !== undefined) (state.memberships.find((m) => m.userId === 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02') as { role: string }).role = options.role;
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);

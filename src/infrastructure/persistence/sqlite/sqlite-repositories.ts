@@ -28,6 +28,7 @@ import {
 } from '../../../generated/index.ts';
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
+import { orderPetsForSummary } from '../../../domain/summary/clinical-summary.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
 import { aboutContentRepository, adminAuditRepository, adminDelegateRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
@@ -52,7 +53,7 @@ import type {
   PetMediaRecord,
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAuditEventType, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAuditEventType, type ShareLinkAuditRepositoryPort, type ShareLinkPetRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import type { ShareLinkRecord, ShareScope } from '../../../domain/sharing/share-link.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
@@ -669,7 +670,14 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
     `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
   );
   const activePet = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'PET' AND pet_id = ? AND revoked_at IS NULL AND expires_at > ?`);
-  const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  // ENM-005-E §5.5 (D12-21): el tope del hogar cuenta HOUSEHOLD y PETS de todos los creadores.
+  const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope IN ('HOUSEHOLD', 'PETS') AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  const petsOfHousehold = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
+  );
+  const activePetsOfCreator = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = ? AND created_by_user_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY id`,
+  );
   const revoke = db.prepare('UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM share_links WHERE expires_at < ? OR revoked_at < ?');
   const pseudonymizeSnapshot = db.prepare('UPDATE share_links SET pet_owner_user_id_at_creation = ? WHERE pet_owner_user_id_at_creation = ?');
@@ -677,6 +685,15 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
   return {
     async lockScope() {
       // BEGIN IMMEDIATE de la unidad de trabajo: un solo escritor a la vez
+    },
+    async lockLink() {
+      // BEGIN IMMEDIATE de la unidad de trabajo
+    },
+    async listPetsByHousehold(householdId, retainedSince) {
+      return petsOfHousehold.all(householdId, retainedSince, retainedSince).map(toShareLink);
+    },
+    async listActivePetsByCreator(householdId, createdByUserId, now) {
+      return activePetsOfCreator.all(householdId, createdByUserId, now).map(toShareLink);
     },
     async insert(link) {
       try {
@@ -715,6 +732,7 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
       return row === undefined ? null : toShareLink(row);
     },
     async listByScope(scope, scopeId, retainedSince) {
+      if (scope === 'PETS') return []; // los `PETS` viven en `listPetsByHousehold` (annex §5.5)
       return (scope === 'PET' ? ofPet : ofHousehold).all(scopeId, retainedSince, retainedSince).map(toShareLink);
     },
     async countActive(scope, scopeId, now) {
@@ -731,6 +749,66 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
     },
     async listAll() {
       return all.all().map(toShareLink);
+    },
+  };
+}
+
+/**
+ * `share_link_pets` (ENM-005-E, feature 012): filas del subconjunto estático. La elegibilidad (creación) y la revalidación (cada acceso) son UNA sentencia acotada a 20 ids; la carga de los perfiles
+ * es interna a la operación (un solo puerto), y el orden `(name ASC, id ASC)` es el de `REQ-PET-005`.
+ * @implements REQ-VET12-001, REQ-VET12-003, INV-VET12-001, INV-VET12-002
+ */
+function shareLinkPetRepository(db: SqliteDatabase, pets: PetRepositoryPort): ShareLinkPetRepositoryPort {
+  const insertRow = db.prepare('INSERT INTO share_link_pets (share_link_id, pet_id) VALUES (?, ?)');
+  const ofLink = db.prepare<[string], { pet_id: string }>('SELECT pet_id FROM share_link_pets WHERE share_link_id = ? ORDER BY pet_id');
+  const ofLinks = db.prepare<[string], { share_link_id: string; pet_id: string }>('SELECT share_link_id, pet_id FROM share_link_pets WHERE share_link_id IN (SELECT value FROM json_each(?)) ORDER BY share_link_id, pet_id');
+  const ofPet = db.prepare<[string], { share_link_id: string }>('SELECT share_link_id FROM share_link_pets WHERE pet_id = ? ORDER BY share_link_id');
+  const removeRow = db.prepare('DELETE FROM share_link_pets WHERE share_link_id = ? AND pet_id = ?');
+  const OWNED = `(p.owner_user_id = @user OR EXISTS (SELECT 1 FROM pet_co_owners c WHERE c.pet_id = p.id AND c.user_id = @user AND c.status = 'ACTIVE'))`;
+  const eligible = db.prepare<{ user: string; household: string; ids: string }, { id: string; requested: number }>(
+    `SELECT p.id AS id, (p.id IN (SELECT value FROM json_each(@ids))) AS requested
+       FROM pets p JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = @household
+      WHERE ${OWNED}`,
+  );
+  const survivors = db.prepare<{ link: string; household: string; user: string }, { id: string }>(
+    `SELECT p.id AS id
+       FROM share_link_pets sp
+       JOIN pets p ON p.id = sp.pet_id
+       JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = @household
+      WHERE sp.share_link_id = @link AND ${OWNED}`,
+  );
+  const load = async (ids: readonly string[]): Promise<PetProfile[]> => {
+    const found: PetProfile[] = [];
+    for (const id of ids) {
+      const pet = await pets.findById(id);
+      if (pet !== null) found.push(pet);
+    }
+    return orderPetsForSummary(found);
+  };
+  return {
+    async insertMany(shareLinkId, petIds) {
+      for (const petId of petIds) insertRow.run(shareLinkId, petId);
+    },
+    async listPetIds(shareLinkId) {
+      return ofLink.all(shareLinkId).map((r) => r.pet_id);
+    },
+    async listPetIdsOfLinks(shareLinkIds) {
+      const out = new Map<string, string[]>();
+      for (const row of ofLinks.all(JSON.stringify(shareLinkIds))) out.set(row.share_link_id, [...(out.get(row.share_link_id) ?? []), row.pet_id]);
+      return out;
+    },
+    async listLinkIdsByPet(petId) {
+      return ofPet.all(petId).map((r) => r.share_link_id);
+    },
+    async deleteRow(shareLinkId, petId) {
+      return removeRow.run(shareLinkId, petId).changes === 1;
+    },
+    async resolveEligible({ userId, householdId, petIds }) {
+      const rows = eligible.all({ user: userId, household: householdId, ids: JSON.stringify(petIds) });
+      return { eligible: await load(rows.filter((r) => r.requested === 1).map((r) => r.id)), hasAnyEligibleInHousehold: rows.length > 0 };
+    },
+    async revalidateEligible({ shareLinkId, householdId, creatorUserId }) {
+      return load(survivors.all({ link: shareLinkId, household: householdId, user: creatorUserId }).map((r) => r.id));
     },
   };
 }
@@ -1246,11 +1324,12 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
  * @implements INV-ARCH-005
  */
 export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
+  const pets = petRepository(db);
   return {
     users: userRepository(db),
     sessions: sessionRepository(db),
     loginAttempts: loginAttemptRepository(db),
-    pets: petRepository(db),
+    pets,
     records: recordRepository(db),
     households: householdRepository(db),
     confirmationTokens: confirmationTokenRepository(db),
@@ -1262,6 +1341,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     auditLog: auditLogRepository(db),
     shareLinks: shareLinkRepository(db),
     shareAudit: shareAuditRepository(db),
+    shareLinkPets: shareLinkPetRepository(db, pets),
     scenes: sqliteSceneRepository(db),
     sceneConsents: sqliteSceneConsentRepository(db),
     authIdentities: authIdentityRepository(db),

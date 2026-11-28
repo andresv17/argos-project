@@ -28,7 +28,7 @@ afterEach(async () => {
 });
 
 const sharingDeps = (e: Engine012): ApplicationDeps =>
-  e.sharing ? e.deps : ({ ...e.deps, sharing: { tokens: new SequentialShareTokenGenerator('par'), ipHmacSecret: SHARE_IP_SECRET, limiter: new SharedAccessLimiter(), petsCreateEnabled: true } } as ApplicationDeps);
+  e.sharing ? ({ ...e.deps, sharing: { ...e.deps.sharing!, petsCreateEnabled: true } } as ApplicationDeps) : ({ ...e.deps, sharing: { tokens: new SequentialShareTokenGenerator('par'), ipHmacSecret: SHARE_IP_SECRET, limiter: new SharedAccessLimiter(), petsCreateEnabled: true } } as ApplicationDeps);
 
 /** Secuencia observable normalizada (sin ids ni tokens): lo que debe ser idéntico en todos los motores. */
 async function scenario(e: Engine012): Promise<unknown[]> {

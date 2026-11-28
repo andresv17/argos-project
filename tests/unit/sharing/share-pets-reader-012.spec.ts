@@ -167,6 +167,6 @@ describe('T1693 resolveEligiblePets (REQ-VET12-003, INV-VET12-001/002, EDGE-012-
     const ids = Array.from({ length: 20 }, (_, i) => `11111111-1111-4111-8111-1111111117${String(i).padStart(2, '0')}`);
     api.calls.length = 0;
     await api.deps.uow.runInTransaction((r) => resolveEligiblePets(r, { userId: ANDRES, householdId: H, petIds: ids }));
-    expect(api.calls.length).toBeLessThanOrEqual(1);
+    expect(api.calls.filter((c) => !c.startsWith('uow.')).length).toBeLessThanOrEqual(1); // la propia apertura de la transacción (`uow.write`) no es una consulta de puerto
   });
 });

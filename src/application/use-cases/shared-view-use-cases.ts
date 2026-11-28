@@ -24,7 +24,7 @@ import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import { stripImageMetadata } from '../../domain/images/image-metadata-stripper.ts';
 import { normalizeClientIp } from '../../domain/sharing/client-ip.ts';
 import { fileLabel } from '../../domain/sharing/file-label.ts';
-import { deriveStatus, failureWindowStart, signedUrlTtlSeconds, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
+import { assertNever, deriveStatus, failureWindowStart, signedUrlTtlSeconds, type ShareLinkRecord, type ShareScope } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';
 import { buildClinicalSummary, orderPetsForSummary, type SummaryClinicalFileInput, type SummaryPetInput } from '../../domain/summary/clinical-summary.ts';
 import { DomainError } from '../../generated/index.ts';
@@ -64,19 +64,36 @@ export async function resolveShare(r: RepositorySet, token: string, now: string)
   const householdAssignments = await r.assignments.listByHousehold(link?.householdId ?? NIL);
   const owned = await r.pets.listByOwners([creator]);
   const coOwners = await r.coOwners.listByPet(link?.petId ?? NIL);
+  // ENM-005-E §4.1/§4.2: la revalidación por lote de `PETS` se ejecuta SIEMPRE (NIL cuando el token no existe o no es `PETS`): secuencia de puertos constante y UNA consulta acotada a 20 filas.
+  const survivors = await r.shareLinkPets.revalidateEligible({ shareLinkId: link?.scope === 'PETS' ? link.id : NIL, householdId: link?.householdId ?? NIL, creatorUserId: creator });
   if (link === null || deriveStatus(link, now) !== 'ACTIVE') return null;
-  if (link.scope === 'PET') {
-    // ENM-005-A (REQ-VET-002/011, INV-OWN12-005): la autoridad del creador se evalúa EN EL MOMENTO DEL ACCESO (principal o co-propietario ACTIVE); si salió, 404 uniforme al instante.
-    if (pet === null) return null;
-    if (isOwnerOfPet(creator, { ownerUserId: pet.ownerUserId, coOwners })) return { link, pets: [pet] };
-    // Creado como ADMIN de hogar (nunca propietario): vale mientras el principal siga siendo el del momento de la creación (PN-08; §2.2 de ENM-005-A lo revoca además de forma explícita).
-    const role = effectiveRole({ id: creator }, pet, memberships.map(toRoleMembership), petAssignments);
-    return role === 'ADMIN' && link.petOwnerUserIdAtCreation !== null && isPrincipalOfPet(link.petOwnerUserIdAtCreation, pet) ? { link, pets: [pet] } : null;
+  const scope: ShareScope = link.scope;
+  switch (scope) {
+    case 'PET':
+      return resolvePet(link, creator, pet, memberships, petAssignments, coOwners);
+    case 'HOUSEHOLD': {
+      const manager = memberships.some((m) => m.householdId === link.householdId && m.status === 'ACTIVE' && (isOwnerRow(m) || m.role === 'ADMIN'));
+      const assigned = new Set(householdAssignments.map((a) => a.petId));
+      const pets = owned.filter((p) => assigned.has(p.id));
+      return manager && pets.length > 0 ? { link, pets } : null;
+    }
+    case 'PETS': {
+      // Se exige UNA vez que el creador siga siendo propietario o ADMIN ACTIVE del hogar; las mascotas que ya no cumplen se omiten sin rastro (§4.3); sin supervivientes: 404 uniforme (§4.4).
+      const manager = memberships.some((m) => m.householdId === link.householdId && m.status === 'ACTIVE' && (isOwnerRow(m) || m.role === 'ADMIN'));
+      return manager && survivors.length > 0 ? { link, pets: survivors } : null;
+    }
+    default:
+      return assertNever(scope);
   }
-  const manager = memberships.some((m) => m.householdId === link.householdId && m.status === 'ACTIVE' && (isOwnerRow(m) || m.role === 'ADMIN'));
-  const assigned = new Set(householdAssignments.map((a) => a.petId));
-  const pets = owned.filter((p) => assigned.has(p.id));
-  return manager && pets.length > 0 ? { link, pets } : null;
+}
+
+function resolvePet(link: ShareLinkRecord, creator: string, pet: PetProfile | null, memberships: Awaited<ReturnType<RepositorySet['households']['listMembershipsOfUsers']>>, petAssignments: Awaited<ReturnType<RepositorySet['assignments']['listByPet']>>, coOwners: Awaited<ReturnType<RepositorySet['coOwners']['listByPet']>>): ResolvedShare | null {
+  // ENM-005-A (REQ-VET-002/011, INV-OWN12-005): la autoridad del creador se evalúa EN EL MOMENTO DEL ACCESO (principal o co-propietario ACTIVE); si salió, 404 uniforme al instante.
+  if (pet === null) return null;
+  if (isOwnerOfPet(creator, { ownerUserId: pet.ownerUserId, coOwners })) return { link, pets: [pet] };
+  // Creado como ADMIN de hogar (nunca propietario): vale mientras el principal siga siendo el del momento de la creación (PN-08; §2.2 de ENM-005-A lo revoca además de forma explícita).
+  const role = effectiveRole({ id: creator }, pet, memberships.map(toRoleMembership), petAssignments);
+  return role === 'ADMIN' && link.petOwnerUserIdAtCreation !== null && isPrincipalOfPet(link.petOwnerUserIdAtCreation, pet) ? { link, pets: [pet] } : null;
 }
 
 async function clinicalFilesOf(r: RepositorySet, petId: string): Promise<PetMediaRecord[]> {
@@ -101,7 +118,12 @@ export interface ViewOptions {
  * delega la construcción por allow-list en el dominio y arma `fileLabels` desde `pet_media.original_name` SOLO de los archivos que el resumen incluyó.
  * @implements REQ-SUM-004, REQ-VET-009, INV-005-009, MIF-005-04, SC-005-035
  */
-export async function buildSharedView(r: RepositorySet, pets: readonly PetProfile[], scope: 'PET' | 'HOUSEHOLD', now: string, options: ViewOptions, validUntil: string | null): Promise<SharedSummaryView> {
+export async function buildSharedView(r: RepositorySet, pets: readonly PetProfile[], scope: ShareScope, now: string, options: ViewOptions, validUntil: string | null): Promise<SharedSummaryView> {
+  // Default-deny (ENM-005-E §8.2.1): solo los tres alcances conocidos arman una vista; cualquier otro valor da el 404 uniforme.
+  if (scope !== 'PET' && scope !== 'HOUSEHOLD' && scope !== 'PETS') {
+    assertNever(scope);
+    throw notFound();
+  }
   const names = new Map<string, string>();
   const inputs: SummaryPetInput[] = [];
   for (const pet of pets) {
@@ -268,7 +290,7 @@ export class GetSharedPetAvatarUseCase {
   }
 }
 
-function parseFlag(value: unknown, field: string): boolean {
+export function parseFlag(value: unknown, field: string): boolean {
   if (value === undefined) return false;
   if (value === 'true') return true;
   if (value === 'false') return false;

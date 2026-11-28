@@ -59,6 +59,7 @@ import { RECORD_MODULES, validateRecord, type RecordModule } from '../../domain/
 import { validateBirthDateNotFuture } from '../../domain/shared/date-utils.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { lockPet, type ApplicationDeps } from './use-case-support.ts';
@@ -596,6 +597,7 @@ export class ImportBackupUseCase {
         const priorRevisions = await revisionsOf(repositories, current);
         for (const pet of current) {
           await repositories.records.deleteForPet(pet.id);
+          await PetsLinkRevocation.revokeForPetDeleted(this.deps, repositories, { petId: pet.id, actorUserId: userId, now: this.deps.clock.nowIsoTimestamp() }); // ENM-005-E §5.1: la importación reemplaza la mascota; los `PETS` que la contienen se revocan
           await repositories.assignments.deleteForPet(pet.id);
           await repositories.pets.delete(pet.id);
         }

@@ -33,6 +33,7 @@ import {
   settledRequest,
   withEffectiveStatus,
 } from './co-ownership-support.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { onOwnerRemoved } from './emergency-support.ts';
 import { assertMatchesSchema, type ApplicationDeps } from './use-case-support.ts';
 
@@ -46,6 +47,7 @@ async function withdrawDepartingOwner(deps: ApplicationDeps, repositories: Repos
   for (const assignment of (await repositories.assignments.listByPet(petId)).filter((a) => a.assignedByUserId === leavingUserId)) {
     await deps.sceneHooks?.onPetUnassigned(repositories, { petId, householdId: assignment.householdId, now });
     await repositories.assignments.remove(petId, assignment.householdId);
+    await PetsLinkRevocation.revokeForPetLeftHousehold(deps, repositories, { petId, householdId: assignment.householdId, actorUserId: leavingUserId, now }); // ENM-005-E §5.1 fila 1
     await recordAssignmentRemoved(deps, repositories, leavingUserId, assignment);
   }
   for (const request of await materializeExpiredRequests(repositories, await repositories.ownerRequests.listByPet(petId), now)) {

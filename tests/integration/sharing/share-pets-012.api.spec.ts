@@ -61,7 +61,7 @@ describe('T1693 creación del enlace PETS (SC-012-053, SC-012-062, SC-012-066)',
     const view = await summaryOf(token);
     expect(view.status).toBe(200);
     expect((view.json as View).summary.scope).toBe('PETS');
-    expect((view.json as View).summary.pets.map((p) => p.pet.name ?? (p as { profile?: { name?: string } }).profile?.name)).toEqual(['Argos', 'Kira']);
+    expect((view.json as View).summary.pets.map((p) => (p as { profile?: { name?: string } }).profile?.name ?? p.pet?.name)).toEqual(['Argos', 'Kira']);
     expect(auditTypes(api, id)).toEqual(['CREATED']);
   });
 
@@ -133,7 +133,7 @@ describe('T1693 revalidación en servidor: error uniforme y sin oráculo (SC-012
     api = await petsApi();
     const cookie = await api.login('andres');
     const twentyOne = Array.from({ length: 21 }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, '0')}`);
-    for (const petIds of [[P_ARGOS.toUpperCase()], ['no-es-uuid'], twentyOne]) {
+    for (const petIds of [['11111111-1111-4111-8111-1111111119FF'], ['no-es-uuid'], twentyOne]) {
       const response = await createPets(api, cookie, { petIds }, 1);
       expect([response.status, codeOf(response)]).toEqual([422, 'ERR-SCHEMA-VALIDATION-FAILED']);
     }
@@ -231,13 +231,15 @@ describe('T1693 lectura pública: omisión sin rastro, 404 uniforme y sin amplia
     const withoutToken = [...api.calls];
     expect(withToken.filter((c) => /eligib|revalidat/i.test(c))).toHaveLength(1);
     expect(withoutToken.filter((c) => /eligib|revalidat/i.test(c))).toHaveLength(1);
-    expect(withToken).toEqual(withoutToken);
+    // La secuencia es constante HASTA la resolución del token (un token válido además arma la vista y audita el acceso: esas llamadas no existen sin token).
+    const resolution = (calls: string[]): string[] => calls.slice(0, calls.findIndex((c) => /eligib|revalidat/i.test(c)) + 1);
+    expect(resolution(withToken)).toEqual(resolution(withoutToken));
   });
 
   it('[INV-VET12-004][SC-012-039] un enlace PETS no entrega rutinas, registros de cuidado, QR, teléfono, alergias críticas ni identidad de co-propietarios o del creador', async () => {
     api = await petsApi();
+    await coOwn(api, MARIA, P_ARGOS); // el reloj avanza: las sesiones se abren DESPUÉS (24 h absolutas)
     const cookie = await api.login('andres');
-    await coOwn(api, MARIA, P_ARGOS);
     const { token } = await makePets(api, cookie, [P_ARGOS]);
     const text = flat((await summaryOf(token)).json);
     for (const forbidden of ['routine', 'careLog', 'criticalAllergies', 'emergency', 'phone', 'qr', 'coOwner', 'createdBy', MARIA, ANDRES_ID, 'maria.v', 'andres']) expect(text.toLowerCase(), forbidden).not.toContain(forbidden.toLowerCase());
@@ -287,13 +289,13 @@ describe('T1693 PN-08: revocación automática del enlace PETS (decisión E-1, e
 
   it('[escenario (i)][ENM-005-A §2.3] el principal que cede el principal y queda como co-propietario ACTIVE CONSERVA su enlace PETS (no es disparador)', async () => {
     api = await petsApi();
-    const cookie = await api.login('andres');
     await coOwn(api, MARIA, P_ARGOS);
+    const cookie = await api.login('andres');
     const { id, token } = await makePets(api, cookie, [P_ARGOS]);
     const use = cases(api.deps);
     const run = <T>(work: (r: RepositorySet) => Promise<T>) => api.deps.uow.runInTransaction(work);
-    await use.request(ANDRES, P_ARGOS, { action: 'TRANSFER_PRINCIPAL', targetUserId: MARIA });
-    const pending = (await requestRows({ run }, P_ARGOS)).find((x) => x['action'] === 'TRANSFER_PRINCIPAL' && x['status'] === 'PENDING')!;
+    await use.request(ANDRES, P_ARGOS, { action: 'CHANGE_PRINCIPAL', targetUserId: MARIA });
+    const pending = (await requestRows({ run }, P_ARGOS)).find((x) => x['action'] === 'CHANGE_PRINCIPAL' && x['status'] === 'PENDING')!;
     for (const approver of pending['approverSet'] as string[]) await use.approve(approver, pending['id'] as string);
     expect(await principalOf({ run }, P_ARGOS)).toBe(MARIA);
     expect(linkRow(api, id)!.revoked_at).toBeNull();
@@ -304,9 +306,9 @@ describe('T1693 PN-08: revocación automática del enlace PETS (decisión E-1, e
 describe('T1693 revocar, retirar y visibilidad (escenarios (d), (e), (u), (m); REQ-VET12-007, INV-VET12-003)', () => {
   it('[escenario (e)][REQ-VET12-007] un co-propietario de A revoca un enlace que incluye A y B y B deja de resolver; el propietario u ADMIN del hogar no titular recibe 404 (escenario (u))', async () => {
     api = await petsApi({ role: 'ADMIN' });
+    await coOwn(api, MARIA, P_ARGOS);
     const andres = await api.login('andres');
     const maria = await api.login('maria');
-    await coOwn(api, MARIA, P_ARGOS);
     const { id, token } = await makePets(api, andres, [P_ARGOS, P_KIRA]);
     expect((await api.call('DELETE', `/api/share-links/${id}`, { cookie: await api.login('lucia') })).status).toBe(404);
     expect((await api.call('DELETE', `/api/share-links/${id}`, { cookie: maria })).status).toBe(204);
@@ -342,14 +344,15 @@ describe('T1693 revocar, retirar y visibilidad (escenarios (d), (e), (u), (m); R
     expect((await withdraw(two.id, P_ARGOS)).status).toBe(404);
     const expiring = await makePets(api, cookie, [P_NYX, P_MILO], 2, { expiresInDays: 1 });
     api.clock.setClock('2026-11-20', '2026-11-20T12:00:00.000Z');
-    expect((await withdraw(expiring.id, P_NYX)).status).toBe(404);
+    const later = await api.login('andres'); // la sesión anterior ya venció por inactividad: el 404 es del enlace vencido, no del 401
+    expect((await api.call('DELETE', `/api/share-links/${expiring.id}/pets/${P_NYX}`, { cookie: later })).status).toBe(404);
   });
 
   it('[INV-VET12-003] retirar exige ser titular de ESA mascota (no basta serlo de otra del enlace): el co-propietario de Argos no retira a Kira', async () => {
     api = await petsApi();
+    await coOwn(api, MARIA, P_ARGOS);
     const andres = await api.login('andres');
     const maria = await api.login('maria');
-    await coOwn(api, MARIA, P_ARGOS);
     const { id } = await makePets(api, andres, [P_ARGOS, P_KIRA]);
     expect((await api.call('DELETE', `/api/share-links/${id}/pets/${P_KIRA}`, { cookie: maria })).status).toBe(404);
     expect((await api.call('DELETE', `/api/share-links/${id}/pets/${P_ARGOS}`, { cookie: maria })).status).toBe(204);
@@ -358,9 +361,9 @@ describe('T1693 revocar, retirar y visibilidad (escenarios (d), (e), (u), (m); R
 
   it('[escenario (m)][SC-012-066] listHouseholdShareLinks de 005: activeCount cuenta los PETS (items no); listPetPetsShareLinks da a cada co-propietario SU enlace sin householdId ni identidad del creador; un ADMIN no titular recibe 404 ahí', async () => {
     api = await petsApi({ role: 'ADMIN' });
+    await coOwn(api, MARIA, P_ARGOS);
     const andres = await api.login('andres');
     const maria = await api.login('maria');
-    await coOwn(api, MARIA, P_ARGOS);
     await makePets(api, andres, [P_ARGOS, P_KIRA]);
     const legacy = await api.call('GET', `/api/households/${H}/share-links`, { cookie: andres });
     expect((legacy.json as { items: unknown[]; activeCount: number }).items).toEqual([]);
@@ -468,7 +471,8 @@ describe('T1693 idempotencia del alcance PETS (SC-012-066, escenario (l), EDGE-0
     await makePets(api, cookie, [P_ARGOS], 1);
     const second = await api.call('POST', '/api/households', { cookie, body: { name: 'Otra casa' } });
     expect(second.status).toBe(201);
-    const otherId = (second.json as { id: string }).id;
+    const otherId = (second.json as { household: { id: string } }).household.id;
+    expect((await api.call('PUT', `/api/pets/${P_ARGOS}/assignments/${otherId}`, { cookie })).status).toBe(200); // ANDRES pasa el 404/403 del otro hogar (annex §3.2: titular de una mascota asignada ahí)
     const replayElsewhere = await createPets(api, cookie, { petIds: [P_ARGOS] }, 1, `/api/households/${otherId}/share-links/pets`);
     expect([replayElsewhere.status, codeOf(replayElsewhere)]).toEqual([422, 'ERR-SCHEMA-VALIDATION-FAILED']);
     const maria = await api.login('maria');

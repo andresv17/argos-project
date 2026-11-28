@@ -14,6 +14,7 @@
 import { validateTransferPetOwnershipInput, type TransferPetOwnershipInput, type TransferPetOwnershipResult } from '../../generated/index.ts';
 import { DomainError as DomainErrorV38 } from '../../generated/v38/index.ts';
 import { deriveStatus, retentionCutoffs } from '../../domain/sharing/share-link.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
 import { auditPetView, recordAssignmentRemoved, recordAudit } from './audit-support.ts';
 import { assertMatchesSchema, requirePetAction, type ApplicationDeps } from './use-case-support.ts';
@@ -41,7 +42,10 @@ export class TransferPetOwnershipUseCase {
       await this.deps.sceneHooks?.onPetOwnershipTransferred(repositories, { petId, previousOwnerUserId: pet.ownerUserId, newOwnerUserId: targetUserId, now: this.deps.clock.nowIsoTimestamp() });
       const kept = new Set(out.assignments.map((a) => a.householdId));
       const pruned = before.filter((a) => !kept.has(a.householdId)).map((a) => a.householdId);
-      for (const householdId of pruned) await repositories.assignments.remove(petId, householdId);
+      for (const householdId of pruned) {
+        await repositories.assignments.remove(petId, householdId);
+        await PetsLinkRevocation.revokeForPetLeftHousehold(this.deps, repositories, { petId, householdId, actorUserId, now: this.deps.clock.nowIsoTimestamp() }); // ENM-005-E §5.1 fila 1
+      }
       for (const assignment of before.filter((a) => kept.has(a.householdId))) {
         await repositories.assignments.save({ ...assignment, assignedByUserId: out.pet.ownerUserId });
       }
@@ -54,6 +58,8 @@ export class TransferPetOwnershipUseCase {
           await repositories.shareAudit.insert({ id: this.deps.auditIds.nextId(), shareLinkId: link.id, eventType: 'REVOKED', occurredAt: now, actorUserId, ipHmac: null, failCount: 1 });
         }
       }
+      // ENM-005-E §5.1 fila 2: el creador que ya no es titular de la mascota pierde sus `PETS` (no se borra ninguna fila).
+      await PetsLinkRevocation.revokeForCreatorLostPetAuthority(this.deps, repositories, { petId, actorUserId, now });
       // REQ-AUD-001: 1 fila OWNERSHIP_TRANSFER sobre la mascota y 1 fila UNASSIGN por cada asignación podada.
       await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(transferred) });
       for (const assignment of before.filter((a) => !kept.has(a.householdId))) await recordAssignmentRemoved(this.deps, repositories, actorUserId, assignment);

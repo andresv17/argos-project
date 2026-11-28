@@ -37,6 +37,7 @@ import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix, reinforceUserPrefix } from './media-use-cases.ts';
 import { chooseSuccessor } from '../../domain/pet/co-ownership.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { runOwnershipTransaction, settledRequest, withEffectiveStatus } from './co-ownership-support.ts';
 import { applyLeave } from './co-ownership-use-cases.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
@@ -239,6 +240,7 @@ export async function eraseAccountInTransaction(
     }
     objectKeys.push(...(await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, now)));
     await repositories.records.deleteForPet(pet.id);
+    await PetsLinkRevocation.revokeForPetDeleted(deps, repositories, { petId: pet.id, actorUserId: null, now }); // ENM-005-E §5.1: la supresión de la mascota revoca los `PETS` ajenos que la contienen ANTES de la cascada
     await repositories.assignments.deleteForPet(pet.id);
     await repositories.pets.delete(pet.id);
   }

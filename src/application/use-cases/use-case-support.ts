@@ -83,6 +83,8 @@ export interface SharingServices {
   readonly tokens: ShareTokenGeneratorPort;
   readonly ipHmacSecret: string;
   readonly limiter: SharedAccessLimiter;
+  /** Bandera de creación de `PETS` ya parseada por `app-config` (ENM-005-E §8.2.2): solo `true` exacto es ON; ausente = OFF (fail-closed). Con OFF la creación y la vista previa de `PETS` dan el 404 del hogar. */
+  readonly petsCreateEnabled?: boolean;
 }
 
 /**

@@ -40,7 +40,8 @@ import type {
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
-import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkPetRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { isOwnerOfPet } from '../../../domain/access/pet-ownership.ts';
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
@@ -104,6 +105,8 @@ export interface MemoryState extends SceneMemoryState, CareMemoryState, Emergenc
   shareLinks: ShareLinkRecord[];
   /** `share_link_audit` (feature 005, REQ-VET-008). */
   shareAudit: ShareAuditRecord[];
+  /** `share_link_pets` (feature 012, ENM-005-E); opcional: ausente = vacía. Las filas cuyo enlace o mascota ya no existen se descartan al leer (como ON DELETE CASCADE). */
+  shareLinkPets?: Array<{ shareLinkId: string; petId: string }>;
   /** `auth_identities` (feature 008, REQ-SSO8-001); opcional: ausente = vacía. */
   authIdentities?: AuthIdentityRecord[];
   /** `oauth_flow_states` (feature 008, REQ-SSO8-004); opcional: ausente = vacía. */
@@ -717,15 +720,27 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
   const links = (): ShareLinkRecord[] => (state.shareLinks ??= []);
   const byId = (a: ShareLinkRecord, b: ShareLinkRecord) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const inScope = (scope: ShareScope, scopeId: string) => (l: ShareLinkRecord) => l.scope === scope && (scope === 'PET' ? l.petId === scopeId : l.householdId === scopeId);
+  // ENM-005-E §5.5: el tope del hogar cuenta HOUSEHOLD y PETS de todos los creadores.
+  const inCountScope = (scope: ShareScope, scopeId: string) => (l: ShareLinkRecord) => (scope === 'PET' ? l.scope === 'PET' && l.petId === scopeId : (l.scope === 'HOUSEHOLD' || l.scope === 'PETS') && l.householdId === scopeId);
   return {
     async lockScope() {
       // las transacciones de memoria van en serie: ya son el candado
+    },
+    async lockLink() {
+      // las transacciones de memoria van en serie
+    },
+    async listPetsByHousehold(householdId, retainedSince) {
+      const rows = links().filter((l) => l.scope === 'PETS' && l.householdId === householdId && !(l.expiresAt < retainedSince || (l.revokedAt !== null && l.revokedAt < retainedSince)));
+      return copy(rows.sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1)));
+    },
+    async listActivePetsByCreator(householdId, createdByUserId, now) {
+      return copy(links().filter((l) => l.scope === 'PETS' && l.householdId === householdId && l.createdByUserId === createdByUserId && l.revokedAt === null && l.expiresAt > now).sort(byId));
     },
     async insert(link) {
       const rows = links();
       const coherent =
         (link.scope === 'PET' && link.petId !== null && link.householdId === null && link.petOwnerUserIdAtCreation !== null) ||
-        (link.scope === 'HOUSEHOLD' && link.householdId !== null && link.petId === null && link.petOwnerUserIdAtCreation === null);
+        ((link.scope === 'HOUSEHOLD' || link.scope === 'PETS') && link.householdId !== null && link.petId === null && link.petOwnerUserIdAtCreation === null);
       if (!coherent) throw constraint('CHECK constraint failed: share_links scope');
       if (!(EXPIRY_DAYS as readonly number[]).includes(link.expiresInDays)) throw constraint('CHECK constraint failed: share_links expires_in_days');
       if (!(link.expiresAt > link.createdAt)) throw constraint('CHECK constraint failed: share_links expires_at');
@@ -747,11 +762,12 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
       return copy(links().find((l) => l.createdByUserId === userId && l.idempotencyKey === idempotencyKey) ?? null);
     },
     async listByScope(scope, scopeId, retainedSince) {
+      if (scope === 'PETS') return []; // los `PETS` viven en `listPetsByHousehold` (annex §5.5)
       const rows = links().filter(inScope(scope, scopeId)).filter((l) => !(l.expiresAt < retainedSince || (l.revokedAt !== null && l.revokedAt < retainedSince)));
       return copy(rows.sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1)));
     },
     async countActive(scope, scopeId, now) {
-      return links().filter(inScope(scope, scopeId)).filter((l) => l.revokedAt === null && l.expiresAt > now).length;
+      return links().filter(inCountScope(scope, scopeId)).filter((l) => l.revokedAt === null && l.expiresAt > now).length;
     },
     async revoke(id, now) {
       const link = links().find((l) => l.id === id);
@@ -775,6 +791,55 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
     },
     async listAll() {
       return copy([...links()].sort(byId));
+    },
+  };
+}
+
+const orderedByName = <T extends { readonly name: string; readonly id: string }>(pets: readonly T[]): T[] => [...pets].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+/** `share_link_pets` en memoria (ENM-005-E): descarta al leer las filas cuyo enlace o mascota ya no existen (como `ON DELETE CASCADE`). */
+function shareLinkPetRepository(state: MemoryState): ShareLinkPetRepositoryPort {
+  // Solo lectura (no crea la clave del estado): las filas cuyo enlace o mascota ya no existen no se ven.
+  const rows = (): Array<{ shareLinkId: string; petId: string }> => (state.shareLinkPets ?? []).filter((row) => (state.shareLinks ?? []).some((l) => l.id === row.shareLinkId) && state.pets.some((p) => p.id === row.petId));
+  const ownedBy = (userId: string) => (petId: string): boolean => {
+    const pet = state.pets.find((p) => p.id === petId);
+    return pet !== undefined && isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: (state.coOwners ?? []).filter((c) => c.petId === petId) });
+  };
+  const assignedTo = (householdId: string) => (petId: string): boolean => state.assignments.some((a) => a.petId === petId && a.householdId === householdId);
+  const profiles = (ids: readonly string[]) => orderedByName(copy(state.pets.filter((p) => ids.includes(p.id)).map(withLifeFields)));
+  return {
+    async insertMany(shareLinkId, petIds) {
+      for (const petId of petIds) {
+        if (rows().some((r) => r.shareLinkId === shareLinkId && r.petId === petId)) throw constraint('UNIQUE constraint failed: share_link_pets');
+        if (!(state.shareLinks ?? []).some((l) => l.id === shareLinkId) || !state.pets.some((p) => p.id === petId)) throw constraint('FOREIGN KEY constraint failed');
+        state.shareLinkPets = [...rows(), { shareLinkId, petId }];
+      }
+    },
+    async listPetIds(shareLinkId) {
+      return rows().filter((r) => r.shareLinkId === shareLinkId).map((r) => r.petId).sort();
+    },
+    async listPetIdsOfLinks(shareLinkIds) {
+      const out = new Map<string, string[]>();
+      for (const row of rows().filter((r) => shareLinkIds.includes(r.shareLinkId)).sort((a, b) => (a.petId < b.petId ? -1 : 1))) out.set(row.shareLinkId, [...(out.get(row.shareLinkId) ?? []), row.petId]);
+      return out;
+    },
+    async listLinkIdsByPet(petId) {
+      return rows().filter((r) => r.petId === petId).map((r) => r.shareLinkId).sort();
+    },
+    async deleteRow(shareLinkId, petId) {
+      const before = rows();
+      const after = before.filter((r) => !(r.shareLinkId === shareLinkId && r.petId === petId));
+      if (after.length === before.length) return false;
+      state.shareLinkPets = after;
+      return true;
+    },
+    async resolveEligible({ userId, householdId, petIds }) {
+      const mine = state.pets.map((p) => p.id).filter((id) => assignedTo(householdId)(id) && ownedBy(userId)(id));
+      return { eligible: profiles(mine.filter((id) => petIds.includes(id))), hasAnyEligibleInHousehold: mine.length > 0 };
+    },
+    async revalidateEligible({ shareLinkId, householdId, creatorUserId }) {
+      const ids = rows().filter((r) => r.shareLinkId === shareLinkId).map((r) => r.petId).filter((id) => assignedTo(householdId)(id) && ownedBy(creatorUserId)(id));
+      return profiles(ids);
     },
   };
 }
@@ -1202,6 +1267,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     auditLog: auditLogRepository(state),
     shareLinks: shareLinkRepository(state),
     shareAudit: shareAuditRepository(state),
+    shareLinkPets: shareLinkPetRepository(state),
     scenes: memorySceneRepository(state),
     sceneConsents: memorySceneConsentRepository(state),
     authIdentities: authIdentityRepository(state),

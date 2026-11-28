@@ -46,6 +46,7 @@ import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseC
 import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhotoUseCase } from '../../../application/use-cases/scene-photo-use-cases.ts';
 import { GetSceneImageUseCase, GetSceneUseCase, RequestSceneGenerationUseCase } from '../../../application/use-cases/scene-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
+import { CreatePetsShareLinkUseCase, ListHouseholdPetsShareLinksUseCase, ListPetPetsShareLinksUseCase, PreviewPetsClinicalSummaryUseCase, WithdrawPetFromShareLinkUseCase } from '../../../application/use-cases/share-pets-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedPetAvatarUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
 import {
   AcceptCoOwnerInvitationUseCase,
@@ -269,6 +270,11 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     createShareLink: new CreateShareLinkUseCase(deps),
     listShareLinks: new ListShareLinksUseCase(deps),
     revokeShareLink: new RevokeShareLinkUseCase(deps),
+    createPetsShareLink: new CreatePetsShareLinkUseCase(deps),
+    listHouseholdPetsShareLinks: new ListHouseholdPetsShareLinksUseCase(deps),
+    listPetPetsShareLinks: new ListPetPetsShareLinksUseCase(deps),
+    withdrawPetFromShareLink: new WithdrawPetFromShareLinkUseCase(deps),
+    previewPetsClinicalSummary: new PreviewPetsClinicalSummaryUseCase(deps),
     previewSummary: new PreviewClinicalSummaryUseCase(deps),
     sharedSummary: new GetSharedSummaryUseCase(deps),
     sharedFile: new GetSharedFileUseCase(deps),

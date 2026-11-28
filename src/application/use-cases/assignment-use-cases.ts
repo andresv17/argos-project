@@ -10,7 +10,9 @@
 
 import { DomainError, type PetAssignment } from '../../generated/index.ts';
 import type { PetAssignmentRecord, RepositorySet } from '../ports/repositories.port.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { assignmentAuditId, recordAudit } from './audit-support.ts';
+import { runOwnershipTransaction } from './co-ownership-support.ts';
 import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /**
@@ -75,8 +77,9 @@ export class UnassignPetFromHouseholdUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string, householdId: string): Promise<204> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(this.deps, async (repositories) => {
       const { pet } = await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
+      await repositories.pets.findOwnershipForUpdate(petId); // ENM-005-E §6 (1): el disparador de la fila 1 toma el bloqueo de la mascota (la autorización precede al FOR UPDATE)
       const existing = (await repositories.assignments.listByPet(petId)).find((a) => a.householdId === householdId);
       // REQ-OWN12-007: cada propietario solo desasigna las asignaciones que hizo; las huérfanas (asignador suprimido) son del principal.
       if (existing !== undefined && (existing.assignedByUserId ?? pet.ownerUserId) !== userId) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
@@ -86,6 +89,8 @@ export class UnassignPetFromHouseholdUseCase {
       }
       await repositories.assignments.remove(petId, householdId);
       if (existing !== undefined) {
+        // ENM-005-E §5.1 fila 1 (PN-08, E-1): la mascota deja de estar asignada al hogar: se revocan los `PETS` activos del hogar que la contienen y se borra su fila, en esta misma transacción.
+        await PetsLinkRevocation.revokeForPetLeftHousehold(this.deps, repositories, { petId, householdId, actorUserId: userId, now: this.deps.clock.nowIsoTimestamp() });
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UNASSIGN', entityType: 'PET_ASSIGNMENT', entityId: assignmentAuditId(this.deps, petId, householdId), previous: existing, next: null });
       }
       return 204 as const;

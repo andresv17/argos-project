@@ -9,7 +9,7 @@
 
 import type { AccountStatus } from '../../domain/account/account-status.ts';
 import type { MediaKind } from '../../domain/media/index.ts';
-import type { ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
+import type { ShareLinkAuditRepositoryPort, ShareLinkPetRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import type { Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
 import type { AuditEntry } from '../../generated/v31/index.ts';
@@ -422,6 +422,8 @@ export interface RepositorySet {
   readonly shareLinks: ShareLinkRepositoryPort;
   /** Auditoría del enlace: creación, revocación y accesos (REQ-VET-008). */
   readonly shareAudit: ShareLinkAuditRepositoryPort;
+  /** Filas `share_link_pets` del alcance `PETS` (feature 012, Bloque E, ENM-005-E). */
+  readonly shareLinkPets: ShareLinkPetRepositoryPort;
   /** Escena del hogar (feature 006, ADR-006-07). Orden de candados: propietario -> mascota -> hogar -> escena (`SCENE_LOCK_ORDER`). */
   readonly scenes: SceneRepository;
   /** Consentimientos de la escena (feature 006, ADR-006-07). */

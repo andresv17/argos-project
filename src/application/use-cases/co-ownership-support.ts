@@ -17,6 +17,7 @@ import type { OwnerRequestRecord, PetCoOwnerRecord } from '../ports/co-ownership
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { stateHash } from '../../domain/audit/state-hash.ts';
 import { deriveStatus, retentionCutoffs } from '../../domain/sharing/share-link.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
 /** Tipos de mutación de auditoría de la 012 (Bloque A). El CHECK de `audit_log.mutation_type` los admite desde la migración 0034 (SQLite) / 0030 (PostgreSQL). */
@@ -152,6 +153,8 @@ export async function revokeLinksOfNonOwners(deps: ApplicationDeps, repositories
       await repositories.shareAudit.insert({ id: deps.auditIds.nextId(), shareLinkId: link.id, eventType: 'REVOKED', occurredAt: now, actorUserId, ipHmac: null, failCount: 1 });
     }
   }
+  // ENM-005-E §5.1 fila 2 (PN-08, E-1): los `PETS` activos que contienen la mascota y cuyo creador ya no es titular se revocan ENTEROS en la misma transacción (no se borra ninguna fila).
+  await PetsLinkRevocation.revokeForCreatorLostPetAuthority(deps, repositories, { petId, actorUserId, now });
 }
 
 const ABSENCE_REASONS: ReadonlySet<string> = new Set(['CO_OWNER_ABSENT_OR_BLOCKING', 'PRINCIPAL_ABSENT']);

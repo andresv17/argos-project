@@ -225,7 +225,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
     ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider, selectionSource: { repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) } }) }),
-    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
+    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter(), petsCreateEnabled: config.sharePetsCreateEnabled } }),
     ...(mediaStorage === null
       ? {}
       : {
