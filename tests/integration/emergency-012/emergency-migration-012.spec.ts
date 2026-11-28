@@ -135,7 +135,7 @@ describe('T1674/T1673 migración 0041 de SQLite', () => {
   });
 });
 
-describe.skipIf(process.env['TEST_DATABASE_URL'] === undefined)('T1674/T1673 migración 0037 de PostgreSQL real (TEST_DATABASE_URL)', () => {
+describe.skipIf(process.env['TEST_DATABASE_URL'] === undefined)('T1674/T1673 migración 0037 de PostgreSQL real (TEST_DATABASE_URL)', { timeout: 30_000 }, () => {
   it('[SC-012-127] el MISMO escenario produce los mismos rechazos y filas que SQLite', async () => {
     const { Client } = await import('pg');
     const client = new Client({ connectionString: process.env['TEST_DATABASE_URL']! });
