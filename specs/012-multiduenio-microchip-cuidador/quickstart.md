@@ -91,7 +91,7 @@ La cola de disputas exige que cada administrador que resuelva o confirme tenga `
 
 El código del QR (Bloque D) puede probarse en local, pero **no se activa en producción** hasta que Neo marque todas las casillas de `claude/release-qr-012-checklist.md`. Las deudas que lo bloquean:
 
-- `DEUDA-012-TERRAFORM-LOGS-QR` (`claude/deuda-012-terraform-logs-qr.md`): exclusión de `/e/` y `/api/emergency/` en `terraform/logging.tf`, por una rama de infraestructura, con `terraform plan` y autorización de Neo. Esta feature no toca `terraform/`.
+- `DEUDA-012-TERRAFORM-LOGS-QR` (`claude/deuda-012-terraform-logs-qr.md`): exclusión de `/e/` y `/api/emergency/` (y de la vista previa PETS) en `terraform/logging.tf`, ya commiteada (`7ca6228`, `d834c11`, `9a4da69`). La 012 sí toca `terraform/` (`logging.tf`, `secret_manager.tf`, `iam.tf`, `variables.tf`); falta solo `terraform plan` revisado y `terraform apply` por Neo (Nivel 2).
 - `DEUDA-012-LEGAL-DISPUTAS-QR` (`claude/deuda-012-legal-disputas-qr.md`): revisión legal externa de los textos de `legal-texts.md` (Q1..Q8).
 - Otras condiciones: `PHONE_HMAC_KEY` aprovisionada en Secret Manager, `ARGOS_PUBLIC_BASE_URL` (HTTPS) definida, `SC-012-086` y `SC-012-107` con evidencia, y el runbook de rotación siguiente.
 

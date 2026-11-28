@@ -394,7 +394,7 @@ export const ERROR_CATALOG = {
     "invariantRef": "REQ-CAR12-001",
     "detailTemplate": "Esta rutina cambió mientras la editabas. Revisa la dosis y el horario antes de guardar de nuevo.",
     "requirementRef": "REQ-CAR12-001, REQ-CAR12-004, SC-012-088, EDGE-012-014",
-    "note": "[DRAFT, ENMIENDA MINOR 0.3.0, PENDIENTE DE APROBACION DE NEO; decision H-C2 de Neo 2026-11-27] Conflicto de version de una RUTINA (expectedVersion distinta de la fila vigente, fila ya sustituida por un cambio de dosis u horario, o rutina inactiva) en updateCareRoutine y deactivateCareRoutine, y de un NIVEL de cuidador (expectedVersion de setCaregiverAccess) en care.openapi.yaml. Sustituye en estas rutas a ERR-PET-VERSION-CONFLICT (que no se toca). El cuerpo es RFC 9457 comun SIN datos de la fila sustituida ni de la vigente (ni dosis, ni horarios, ni autor): la interfaz recarga con getCareRoutine o listCareRoutines y avisa de revisar dosis y horario. Solo se devuelve a quien ya supero la potestad de titular (403 antes) y la lectura de la mascota (404 antes)."
+    "note": "[APPROVED, ENMIENDA MINOR 0.3.0, aprobada por Neo 2026-11-27 (7a269b9); decision H-C2 de Neo 2026-11-27] Conflicto de version de una RUTINA (expectedVersion distinta de la fila vigente, fila ya sustituida por un cambio de dosis u horario, o rutina inactiva) en updateCareRoutine y deactivateCareRoutine, y de un NIVEL de cuidador (expectedVersion de setCaregiverAccess) en care.openapi.yaml. Sustituye en estas rutas a ERR-PET-VERSION-CONFLICT (que no se toca). El cuerpo es RFC 9457 comun SIN datos de la fila sustituida ni de la vigente (ni dosis, ni horarios, ni autor): la interfaz recarga con getCareRoutine o listCareRoutines y avisa de revisar dosis y horario. Solo se devuelve a quien ya supero la potestad de titular (403 antes) y la lectura de la mascota (404 antes)."
   },
   "ERR-CHP12-ABSENCE-NOT-ELIGIBLE": {
     "type": "urn:argos:error:ERR-CHP12-ABSENCE-NOT-ELIGIBLE",
@@ -711,7 +711,7 @@ export const ERROR_CATALOG = {
     "invariantRef": "INV-QR12-008",
     "detailTemplate": "La ficha QR de esta mascota ya está activa. Si necesitas otro código, regenéralo; el anterior dejará de funcionar.",
     "requirementRef": "REQ-QR12-003, SC-012-085",
-    "note": "[DRAFT, ENMIENDA MINOR 0.4.0, PENDIENTE DE APROBACION DE NEO; codigo DERIVADO por T1670] activateEmergencyCard con la ficha ya ON. No devuelve ni revela el token (que solo se muestra una vez, Neo-N); la salida es regenerateEmergencyCard. Se evalua DESPUES de la autorizacion (404 antes que 409) y del esquema. Sin datos de la ficha ni de otros propietarios."
+    "note": "[APPROVED, ENMIENDA MINOR 0.4.0, aprobada por Neo 2026-11-27 (80bbf1d); codigo DERIVADO por T1670] activateEmergencyCard con la ficha ya ON. No devuelve ni revela el token (que solo se muestra una vez, Neo-N); la salida es regenerateEmergencyCard. Se evalua DESPUES de la autorizacion (404 antes que 409) y del esquema. Sin datos de la ficha ni de otros propietarios."
   },
   "ERR-QR12-CONSENT-REQUIRED": {
     "type": "urn:argos:error:ERR-QR12-CONSENT-REQUIRED",
