@@ -128,6 +128,7 @@ describe('T1674/T1673 migración 0041 de SQLite', () => {
     try {
       await scenario(db);
       const applied = sqlite.prepare('SELECT version FROM schema_migrations ORDER BY version').pluck().all() as string[];
+      expect(applied.at(-1)).toBe('0042_share_link_pets.sql'); // BAJA-3 (oracle): la última migración vigente (0042 en SQLite; 0038 en PostgreSQL); la 0041 de la ficha QR queda aplicada antes
       expect(applied).toContain('0041_emergency_card.sql');
     } finally {
       sqlite.close();

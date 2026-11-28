@@ -488,7 +488,7 @@ describe('P-3 · la migración SQLite 0030 sanea las filas históricas y recalcu
   });
 
   it('[SC-011-015][P-3] es la migración 0030, la última de SQLite, no cambia el esquema y la base ya saneada no cambia al repetir el paso', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-12)).toBe(MIGRATION); // 012: las 0033..0041 (0041 emergency_card T1673, 0040 retiro de IU T1658; co_ownership T1613, auditoría T1616, ámbitos rate limit B-4, dispute_evidence T1633, actores admin T1648, metadata H-01, care_mode T1652) son posteriores; 011 T1527: la 0031 (admin_delegates) y la 0032 (user_avatar, T1556) son posteriores
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-13)).toBe(MIGRATION); // 012: las 0033..0042 (0042 share_link_pets T1692, 0041 emergency_card T1673, 0040 retiro de IU T1658; co_ownership T1613, auditoría T1616, ámbitos rate limit B-4, dispute_evidence T1633, actores admin T1648, metadata H-01, care_mode T1652) son posteriores; 011 T1527: la 0031 (admin_delegates) y la 0032 (user_avatar, T1556) son posteriores
     const { db, migrationsDir } = previous();
     const tables = () => db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY name").all();
     const schemaBefore = tables().filter((t) => (t as { name: string }).name !== 'schema_migrations');

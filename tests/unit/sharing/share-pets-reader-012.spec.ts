@@ -56,14 +56,14 @@ describe('T1693 Fase 1: el lector es exhaustivo con default-deny (annex §8.1-§
     expect(resolved).toBeNull();
   });
 
-  it('[§8.2.1] buildSharedView y requireShareAuthority rechazan un alcance desconocido (null o error) y nunca producen una vista del hogar', async () => {
+  it('[§8.2.1] buildSharedView y requireShareAuthority rechazan un alcance desconocido (null o ERR-SHARE-NOT-FOUND exacto) y nunca producen una vista del hogar', async () => {
     api = await petsApi();
+    // BAJA-2 (oracle): solo cuenta como «denegado» un `null` o el error uniforme EXACTO `ERR-SHARE-NOT-FOUND`; cualquier otra excepción (p. ej. un TypeError del lector) no prueba el default-deny.
     const denied = async (work: () => Promise<unknown>): Promise<boolean> => {
       try {
-        const out = await work();
-        return out === null || out === undefined;
-      } catch {
-        return true;
+        return (await work()) === null;
+      } catch (error) {
+        return (error as { code?: unknown }).code === 'ERR-SHARE-NOT-FOUND';
       }
     };
     await api.deps.uow.runInTransaction(async (r) => {

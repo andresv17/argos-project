@@ -230,7 +230,8 @@ function parseSchema(statements: string[]): Schema {
     if (addCheck) {
       const table = schema.tables.get(addCheck[1]!)!;
       // T1692: el CHECK combinado de 0008 es de tabla y sin nombre; el DO de la 0038 lo retira por su definicion (el parser no ve los DO) y `*_shape_check` lo reemplaza.
-      if (addCheck[2]!.endsWith('_shape_check')) table.checks = table.checks.filter((c) => !c.includes('pet_owner_user_id_at_creation'));
+      // BAJA-3 (oracle): el filtro se acota a `share_links` y solo retira el CHECK combinado de 0008 (el que une las ramas PET y HOUSEHOLD por `pet_owner_user_id_at_creation`); no toca ningún otro CHECK ni tabla.
+      if (addCheck[1] === 'share_links' && addCheck[2] === 'share_links_scope_shape_check') table.checks = table.checks.filter((c) => !(c.includes("scope = 'PET'") && c.includes('pet_owner_user_id_at_creation')));
       table.checks.push(...extractChecks(addCheck[3]!).checks);
       table.checks.sort();
       continue;

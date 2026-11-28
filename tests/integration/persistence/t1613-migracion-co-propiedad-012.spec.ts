@@ -56,7 +56,7 @@ const coOwner = (db: SqliteDatabase, id: string, fields: Record<string, string |
 
 describe('T1613 [REQ-OWN12-001] la migración SQLite 0033 (co-propiedad)', () => {
   it('se aplica sola sobre la base previa, es la última y deja las mascotas existentes con ownership_version = 1 y sin co-propietarios', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-9)).toBe(MIGRATION); // posteriores: 0041 (T1673, ficha QR), 0040 (T1658), 0039 (T1652, modo cuidador), 0038 (H-01), 0037 (T1648), 0036 (T1633), 0035 (ámbitos), 0034 (auditoría)
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-10)).toBe(MIGRATION); // posteriores: 0042 (T1692, share_link_pets), 0041 (T1673, ficha QR), 0040 (T1658), 0039 (T1652, modo cuidador), 0038 (H-01), 0037 (T1648), 0036 (T1633), 0035 (ámbitos), 0034 (auditoría)
     const { db, migrationsDir } = previousDatabase();
     seedUsers(db);
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
