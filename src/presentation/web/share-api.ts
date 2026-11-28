@@ -9,7 +9,7 @@
 import { notifyActivity } from './activity.ts';
 import { parseHttpDate } from './share-view.ts';
 
-export type ShareScopeName = 'PET' | 'HOUSEHOLD';
+export type ShareScopeName = 'PET' | 'HOUSEHOLD' | 'PETS';
 export type ShareStatusName = 'ACTIVE' | 'EXPIRED' | 'REVOKED';
 export interface ShareLinkView {
   readonly id: string;
