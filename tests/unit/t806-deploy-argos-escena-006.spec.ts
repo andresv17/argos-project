@@ -52,9 +52,9 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     }
     const secrets = /--set-secrets\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '';
     expect(secrets).toContain('ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION}');
-    // Feature 012, Bloque E: la única ARGOS_SHARE_* del entorno es la bandera de la Fase 1 (creación PETS), fijada a false; nunca true.
+    // Feature 012, Bloque E: la única ARGOS_SHARE_* del entorno es la bandera de la Fase 1 (creación PETS), fijada a true (cutover único autorizado por Neo).
     expect(keys.filter((k) => k.startsWith('ARGOS_SHARE_'))).toEqual(['ARGOS_SHARE_PETS_CREATE_ENABLED']);
-    expect(/--set-env-vars\s+"[^"]*,ARGOS_SHARE_PETS_CREATE_ENABLED=false[,"]/.test(deployCmd)).toBe(true);
+    expect(/--set-env-vars\s+"[^"]*,ARGOS_SHARE_PETS_CREATE_ENABLED=true[,"]/.test(deployCmd)).toBe(true);
   });
 
   it('no añade secretos de la escena: --set-secrets conserva los 3 existentes más GOOGLE_OAUTH_CLIENT_SECRET (008) y ARGOS_ADMIN_EMAILS (009, GH:#19)', () => {

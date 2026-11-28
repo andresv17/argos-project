@@ -388,17 +388,17 @@ describe('deploy-argos.yml: PHONE_HMAC_KEY de la ficha QR por --set-secrets (Fea
   });
 });
 
-// Feature 012, Bloque E (ENM-005-E, annex share-link-subset §8.2): esta entrega es la Fase 1. La creación PETS queda APAGADA en producción.
-describe('deploy-argos.yml: ARGOS_SHARE_PETS_CREATE_ENABLED en Fase 1 (Feature 012, Bloque E)', () => {
+// Feature 012, Bloque E (ENM-005-E, annex share-link-subset §8.2): cutover único autorizado por Neo (pre-lanzamiento). La creación PETS se enciende en este despliegue.
+describe('deploy-argos.yml: ARGOS_SHARE_PETS_CREATE_ENABLED en cutover único (Feature 012, Bloque E)', () => {
   const deployCmd = (): string => job('deploy').slice(job('deploy').indexOf('gcloud run deploy argos'));
   const envPairs = (): string[] => (/--set-env-vars\s+"([^"]*)"/.exec(deployCmd())?.[1] ?? '').split(',').map((x) => x.trim());
 
-  it('fija ARGOS_SHARE_PETS_CREATE_ENABLED=false en --set-env-vars (Fase 1, bandera OFF)', () => {
-    expect(envPairs()).toContain('ARGOS_SHARE_PETS_CREATE_ENABLED=false');
+  it('fija ARGOS_SHARE_PETS_CREATE_ENABLED=true en --set-env-vars (cutover único, Neo)', () => {
+    expect(envPairs()).toContain('ARGOS_SHARE_PETS_CREATE_ENABLED=true');
   });
 
-  it('nunca enciende la bandera en el workflow (la Fase 2 es un paso separado, precondición de Neo)', () => {
-    expect(body()).not.toMatch(/ARGOS_SHARE_PETS_CREATE_ENABLED\s*=\s*true/);
+  it('declara la bandera una sola vez, con literal true y sin interpolación de secretos ni variables', () => {
+    expect(body()).not.toMatch(/ARGOS_SHARE_PETS_CREATE_ENABLED=false/);
     expect(body()).not.toMatch(/ARGOS_SHARE_PETS_CREATE_ENABLED=\$\{\{/);
     expect(envPairs().filter((x) => x.startsWith('ARGOS_SHARE_PETS_CREATE_ENABLED='))).toHaveLength(1);
   });
