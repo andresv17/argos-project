@@ -81,5 +81,22 @@ La cola de disputas exige que cada administrador que resuelva o confirme tenga `
 3. **Comprobar:** `SELECT email, person_id FROM admin_identities WHERE person_id IS NOT NULL;` debe listar a ambos. La prueba de `T1637` abre la cola `/admin` con cada uno (la reautenticación del step-up en local es nominal; la real es `DEUDA-012-ADMIN-STEPUP-PROD`, `claude/deuda-012-admin-stepup-prod.md`).
 4. **Producción:** el mismo `UPDATE` sobre PostgreSQL lo ejecuta Neo con acceso a la base; no es una operación de agentes ni de la aplicación. Una ruta o interfaz de asignación para `SUPER_ADMIN` queda **fuera de la 012** y solo se abre si Neo lo decide.
 
+### Criterio de release bloqueante del QR en producción (`T1681`, `T1682`, `T1685`; `SC-012-107`)
+
+El código del QR (Bloque D) puede probarse en local, pero **no se activa en producción** hasta que Neo marque todas las casillas de `claude/release-qr-012-checklist.md`. Las deudas que lo bloquean:
+
+- `DEUDA-012-TERRAFORM-LOGS-QR` (`claude/deuda-012-terraform-logs-qr.md`): exclusión de `/e/` y `/api/emergency/` en `terraform/logging.tf`, por una rama de infraestructura, con `terraform plan` y autorización de Neo. Esta feature no toca `terraform/`.
+- `DEUDA-012-LEGAL-DISPUTAS-QR` (`claude/deuda-012-legal-disputas-qr.md`): revisión legal externa de los textos de `legal-texts.md` (Q1..Q8).
+- Otras condiciones: `PHONE_HMAC_KEY` aprovisionada en Secret Manager, `ARGOS_PUBLIC_BASE_URL` (HTTPS) definida, `SC-012-086` y `SC-012-107` con evidencia, y el runbook de rotación siguiente.
+
+**Runbook de rotación de `PHONE_HMAC_KEY`** (`emergency-additive-annex.md` §9; `SC-012-122`):
+1. Aprovisionar la clave nueva en Secret Manager (dedicada, distinta de la de sesión y de IP).
+2. Desplegar con la clave nueva y ejecutar el barrido de rotación (idempotente; puede repetirse) antes de reabrir tráfico a la ficha o inmediatamente tras el despliegue.
+3. Verificar que no queda ninguna fila con `phone_hmac` distinto del recálculo y que no hay filas en espera atribuibles a la rotación.
+4. Retirar la clave anterior solo tras el barrido.
+5. Registrar en `claude/` la fecha, cuántos consentimientos se borraron y cuántas fichas cayeron a `OFF`.
+
+Coste: las fichas `ON` cuyo único requisito era un teléfono no recalculable caen a `OFF`.
+
 ## 3. Bitácora de la prueba local
 Cada bloque deja en `claude/` una nota con fecha, cuentas usadas, resultado por paso y capturas opcionales (sin datos personales reales); el hallazgo se registra como `H-*` si falla. **Ninguna** tarea de compuerta de un bloque comienza sin esa nota.

@@ -1,0 +1,12 @@
+# DEUDA-012-TERRAFORM-LOGS-QR
+
+- **Registrada**: 2026-11-27, `/keymaker` (T1681, Feature 012, Bloque D, `[GH:#32]`). Estado: **ABIERTA**. Decide el cierre: Neo (Nivel 2). Ningún agente la da por cerrada.
+- **Qué es**: el token de la ficha QR viaja en la URL (`/e/{token}` y `/api/emergency/{token}`). `redactSecrets` (`cloud-logging.ts`, T1680, `REQ-QR12-008`) lo oculta en los registros de la aplicación, pero el registro de solicitudes de Cloud Run (`httpRequest.requestUrl`) lo guardaría en claro en el sumidero `_Default`. La exclusión de esas dos rutas en `terraform/logging.tf` es el complemento de plataforma.
+- **Qué falta (rama de infraestructura, no de la 012)**: dos recursos `google_logging_project_exclusion` en `terraform/logging.tf`, con el mismo patrón que `shared_token_requests`:
+  - filtro `resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/e/"`;
+  - filtro `resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/api/emergency/"`.
+  Cuidar que `"/e/"` no excluya otras rutas legítimas (revisar con `terraform plan` y una consulta de prueba en Logs Explorer antes de aplicar).
+- **Pasos**: (1) rama de infraestructura con los dos recursos; (2) `terraform plan` ejecutado por Neo y revisado; (3) autorización de Neo (Nivel 2) y `terraform apply` por Neo; (4) Neo registra en `claude/` la fecha y el resultado y marca la deuda como cerrada.
+- **Límite de la 012**: esta feature **no** toca `terraform/` (decisión `Neo-M`); `terraform/` tiene hoy cambios de `H-01` ajenos a este registro.
+- **Condición bloqueante de producción** (`SC-012-107`, `T1685`): el QR **no se activa en producción** mientras la deuda siga abierta. Casilla en `claude/release-qr-012-checklist.md` y en `quickstart.md` («Criterio de release bloqueante del QR»).
+- **Trazas**: `REQ-QR12-008`, `INV-QR12-001`, `SC-012-086`, `SC-012-107`, `Neo-M`, `rama R-01`, `trinity R-08a`, anexo `emergency-additive-annex.md` §6.3.

@@ -264,4 +264,44 @@ Reglas de redacción (`INV-CHP12-007`): ningún aviso incluye cuenta, hogar, nom
 2. Evidencia de disputa como dato personal en su contenido (`rama R-A2`): documentos de terceros, datos de salud animal y datos que identifiquen a personas.
 3. Retención de 365 días desde `closed_at` y purga previa a la eliminación de la fila (orden de purga ya implementado).
 4. Aviso al propietario (D1) y al reclamante (D2): suficiencia del aviso derivado sin correo ni tabla de notificaciones.
-5. Pasos del QR y del teléfono público (`REQ-QR12-004/006`) se anexan en `T1682`.
+5. Textos del QR y del teléfono público (`REQ-QR12-004/006`): ver la sección «Avisos de la ficha QR de emergencia — Feature 012» (Q1..Q8, `T1682`).
+
+## Avisos de la ficha QR de emergencia — Feature 012 (`T1682`, `[GH:#32]`)
+
+**Estado**: `DRAFT` (borrador de `/keymaker` por `T1682`, 2026-11-27; versión del texto **`0.1.0`**, la de `x-sdd-constants.TEXTS` y `EMERGENCY_NOTICE_VERSION`). Ningún agente lo pasa a `APPROVED` ni `LOCKED` (potestad de Neo, Nivel 2). **No se activa el QR en producción antes de la validación legal externa** (`DEUDA-012-LEGAL-DISPUTAS-QR`, `claude/deuda-012-legal-disputas-qr.md`; criterio de release `T1685`). Los textos son literales: cualquier cambio de redacción cambia la versión (`PATCH` editorial; `MINOR`/`MAJOR` dejan el teléfono en espera hasta reconfirmar). Fuente en la SPA: `src/presentation/web/emergency-texts.ts`.
+
+### Q1. Aviso de activación (`REQ-QR12-006`, `maggie A-2`, `lock H-02`, `rama R-A5`)
+
+> Cualquier persona que escanee este código verá el nombre de la mascota, sus alergias críticas que tú registraste y, si lo marcaste, tu teléfono. Las alergias se muestran tal cual las escribiste: no incluyas nombres ni datos de otras personas. Verifica que la información sea correcta antes de activarla. Si dejas de cumplir las condiciones, el código se apagará solo.
+
+### Q2. Opt-in del teléfono por mascota (`REQ-QR12-006`, `Neo-I`)
+
+> Mostrar mi teléfono en la ficha QR de {mascota}
+
+### Q3. Ayuda del editor de alergias críticas (`REQ-QR12-002`, `maggie m-6`)
+
+> Anota solo alergias confirmadas o con riesgo. ARGOS no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.
+
+### Q4. Encabezado de la ficha pública (`REQ-QR12-004`, `maggie A-1`)
+
+> Ficha de emergencia de {petName}
+
+### Q5. Ficha pública sin alergias (`REQ-QR12-004`, `maggie A-1`)
+
+> El dueño no registró alergias críticas en esta ficha. Esto no significa que la mascota no tenga alergias.
+
+### Q6. Pie de la ficha pública (`REQ-QR12-004`, `maggie A-2`)
+
+> Esta información la registró el dueño de la mascota y puede no estar actualizada. No es un diagnóstico ni una indicación médica. Si la mascota necesita atención, comunícate con su veterinario o con una clínica veterinaria de urgencias.
+
+### Q7. Leyenda de la hoja A6 imprimible (`REQ-QR12-005`)
+
+> Escanea para ver datos de emergencia
+
+### Q8. Pendientes para la validación legal externa (`DEUDA-012-LEGAL-DISPUTAS-QR`)
+
+1. Teléfono de un propietario visible para cualquier persona que escanee, con consentimiento por mascota y aviso versionado (Q1, Q2).
+2. El teléfono no se verifica por OTP: un titular podría publicar el número de un tercero (riesgo aceptado, `trinity N-06`); suficiencia de Q1.
+3. Alergias como texto libre sin verificación veterinaria (`rama R-08b`): suficiencia de Q1, Q3 y del descargo de Q6.
+4. Retención: consentimientos de teléfono borrados al apagar la ficha, historial de la ficha y auditoría `EMERGENCY_*` 90 días, teléfono en espera hasta 90 días tras un cambio material del aviso.
+5. La frase de alergias de `rama R-A5` consta en Q1 (verificada por `SC-012-116`).
