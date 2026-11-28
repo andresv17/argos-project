@@ -209,8 +209,9 @@ describe('workflow de despliegue (deploy-argos.yml, REQ-ESC6-031, NFR-ESC6-001)'
     expect(wf).toMatch(/GEMINI_SECRET_FLAG=""/);
     expect(wf).toMatch(/GEMINI_SECRET_FLAG=",GEMINI_API_KEY=argos-gemini-api-key:\$\{GEMINI_API_KEY_VERSION\}"/);
     const secrets = /--set-secrets\s+"([^"]+)"/.exec(wf)?.[1] ?? '';
-    expect(secrets.endsWith('${GEMINI_SECRET_FLAG}')).toBe(true);
-    expect(secrets.replace('${GEMINI_SECRET_FLAG}', '').split(',').map((s) => s.split('=')[0])).toEqual(['DATABASE_URL', 'ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'GOOGLE_OAUTH_CLIENT_SECRET', 'ARGOS_ADMIN_EMAILS']);
+    // Feature 012, Bloque D: la clave de la ficha QR (PHONE_HMAC_KEY) también es opcional por versión; va después de la de Gemini.
+    expect(secrets.endsWith('${GEMINI_SECRET_FLAG}${PHONE_SECRET_FLAG}')).toBe(true);
+    expect(secrets.replace('${GEMINI_SECRET_FLAG}${PHONE_SECRET_FLAG}', '').split(',').map((s) => s.split('=')[0])).toEqual(['DATABASE_URL', 'ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'GOOGLE_OAUTH_CLIENT_SECRET', 'ARGOS_ADMIN_EMAILS']);
   });
 
   it('[REQ-ESC6-031] sigue sin variables de otros drivers: ni gemini-api ni fake en el despliegue', () => {
