@@ -119,7 +119,8 @@ for (const factory of ENGINE_FACTORIES) {
 
     it('[SC-012-083] quien no es titular (ajeno, ADMIN sin mascota) recibe 404 uniforme en TODAS las operaciones y no escribe nada', async () => {
       const { e, use } = await boot();
-      for (const call of [use.status(LUCIA, PET), use.activate(LUCIA, PET), use.regenerate(LUCIA, PET), use.deactivate(LUCIA, PET), use.setConsent(LUCIA, PET, { visible: false }), use.updateAllergies(LUCIA, PET, ['x'])]) expect(await codeOf(call)).toBe(NOT_FOUND);
+      // Cada llamada se crea al evaluarla (no todas de golpe): con PostgreSQL las primeras rechazadas quedaban sin manejador mientras se esperaba la anterior (rechazos no manejados).
+      for (const call of [() => use.status(LUCIA, PET), () => use.activate(LUCIA, PET), () => use.regenerate(LUCIA, PET), () => use.deactivate(LUCIA, PET), () => use.setConsent(LUCIA, PET, { visible: false }), () => use.updateAllergies(LUCIA, PET, ['x'])]) expect(await codeOf(call())).toBe(NOT_FOUND);
       expect(await codeOf(use.status(ANDRES, '00000000-0000-4000-8000-0000000fffff'))).toBe(NOT_FOUND);
       expect(await cardRow(e)).toBeNull();
       expect(await consentRows(e)).toEqual([]);
