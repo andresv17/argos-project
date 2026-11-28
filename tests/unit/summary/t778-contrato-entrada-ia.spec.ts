@@ -69,7 +69,7 @@ describe('T778 contrato del resumen versionado y cerrado (REQ-SUM-006, SC-005-03
     expect(contractVersion.split('.')[0]).toBe(CLINICAL_SUMMARY_VERSION.split('.')[0]);
     // Detector de deriva MINOR (restaura la igualdad exacta de 6e7f0a3): cada version del documento tiene UNA version de contrato esperada. Una enmienda MINOR nueva del
     // contrato de 005 sin actualizar esta tabla (junto con su cableado) rompe la prueba; subir `summaryVersion` sin entrada tambien.
-    const CONTRACT_VERSION_OF_DOCUMENT: Readonly<Record<string, string>> = { '1.0.0': '1.1.0' };
+    const CONTRACT_VERSION_OF_DOCUMENT: Readonly<Record<string, string>> = { '1.0.0': '1.2.0' }; // 012/T1692 (ENM-005-E): MINOR 1.2.0 aditiva (SummaryScope +PETS); el documento sigue en summaryVersion 1.0.0
     expect(CONTRACT_VERSION_OF_DOCUMENT[CLINICAL_SUMMARY_VERSION], 'deriva MINOR: el contrato de 005 cambio de version sin actualizar la tabla documento-contrato').toBe(contractVersion);
     expect(((schema['$defs'] as Record<string, { properties: { summaryVersion: { const: string } } }>)['ClinicalSummary'] ?? { properties: { summaryVersion: { const: '' } } }).properties.summaryVersion.const).toBe(CLINICAL_SUMMARY_VERSION);
     expect(summary.summaryVersion).toBe(CLINICAL_SUMMARY_VERSION);

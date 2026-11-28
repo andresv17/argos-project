@@ -163,7 +163,7 @@ describe('T1233 [REQ-ADM9-006] Postgres: SQL parametrizado con el mismo contrato
     expect(await r.adminIdentities.findByEmail('admin@example.test')).toEqual(identity());
     expect(await r.adminIdentities.findById(ID_A)).toEqual(identity());
     expect(await r.adminIdentities.findById(ID_B)).toBeNull();
-    expect(client.calls[0]!.sql).toBe(`INSERT INTO admin_identities (${COLS_IDENTITY}) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`);
+    expect(client.calls[0]!.sql).toBe(`INSERT INTO admin_identities (${COLS_IDENTITY}, person_id) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`);
     expectParametrized(client.calls);
   });
 

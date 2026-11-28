@@ -21,7 +21,10 @@ const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 const OPENAPI = parseYaml(readFileSync('specs/011-pulido-portal-hogares-admin/contracts/openapi/admin.openapi.yaml', 'utf8')) as { info: { 'x-sdd-role-matrix': { operations: Array<{ method: string; path: string; roles: string[] }> } } };
 const MATRIX = OPENAPI.info['x-sdd-role-matrix'].operations;
 const shape = (path: string): string => path.replace(/\{[A-Za-z]+\}|:[A-Za-z]+/g, ':p');
-const MATRIX_KEYS = MATRIX.map((o) => `${o.method} ${shape(o.path)}`).sort();
+// Feature 012 (T1636): la cola de disputas de /admin vive en su propio contrato APPROVED (`admin-disputes.openapi.yaml`, sin editar la 011): sus 9 operaciones se suman a lo declarado y se exigen en el registro.
+const DISPUTES = parseYaml(readFileSync('specs/012-multiduenio-microchip-cuidador/contracts/openapi/admin-disputes.openapi.yaml', 'utf8')) as { paths: Record<string, Record<string, { operationId?: string }>> };
+const DISPUTE_OPS = Object.entries(DISPUTES.paths).flatMap(([path, item]) => Object.keys(item).filter((m) => METHODS.has(m.toUpperCase())).map((m) => ({ method: m.toUpperCase(), path: `/api${path}` })));
+const MATRIX_KEYS = [...MATRIX.map((o) => `${o.method} ${shape(o.path)}`), ...DISPUTE_OPS.map((o) => `${o.method} ${shape(o.path)}`)].sort();
 
 /** Lee el árbol de `printRoutes` (`├── /about (GET, HEAD, PUT)`, hijos con sangría) y devuelve `METODO /ruta/completa` de las rutas bajo /api/admin, sin el comodín de respaldo. */
 function mountedAdminRoutes(tree: string): string[] {
@@ -63,12 +66,13 @@ describe('T1525 prueba meta: las rutas /api/admin/* montadas coinciden con el re
     expect(holders).toHaveLength(1);
     const text = readFileSync(holders[0]!, 'utf8');
     for (const op of MATRIX) expect([op.method, op.path, text.includes(op.path)]).toEqual([op.method, op.path, true]);
+    for (const op of DISPUTE_OPS) expect([op.method, op.path, text.includes(op.path)]).toEqual([op.method, op.path, true]);
   });
 
   it('[REQ-ADM11-003][H-7] ninguna ruta /api/admin/* literal de infrastructure/http/ queda fuera de la matriz (salvo el respaldo con comodín que responde el 404 uniforme)', () => {
     const literal = /\bapp\.(?:get|post|put|patch|delete|all)(?:<[^>]*>)?\(\s*[`'"](\/api\/admin[^`'"]*)[`'"]/g;
     const orphans: string[] = [];
-    const known = new Set(MATRIX.map((o) => shape(o.path)));
+    const known = new Set([...MATRIX, ...DISPUTE_OPS].map((o) => shape(o.path)));
     for (const file of sourceFiles('src/infrastructure/http')) {
       for (const m of readFileSync(file, 'utf8').matchAll(literal)) {
         // Una ruta con plantilla (`${action}`) no se puede leer del literal: la cubre la primera prueba (rutas montadas).

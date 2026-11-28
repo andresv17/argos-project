@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyServerOptions, LightMyRequestResponse } fr
 import { expect } from 'vitest';
 import type { PlatformParameterPort } from '../../../src/application/ports/platform-parameter.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
-import type { AdminServices, ApplicationDeps, GoogleServices, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
+import type { AdminServices, ApplicationDeps, EmergencyServices, GoogleServices, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import type { MemoryState } from '../../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
@@ -59,7 +59,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices; readonly admin?: AdminServices; readonly staticRoot?: string; readonly wrapUow?: (uow: UnitOfWorkPort) => UnitOfWorkPort; readonly logger?: FastifyServerOptions['logger'] } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices; readonly admin?: AdminServices; readonly emergency?: EmergencyServices; readonly staticRoot?: string; readonly wrapUow?: (uow: UnitOfWorkPort) => UnitOfWorkPort; readonly logger?: FastifyServerOptions['logger'] } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -76,6 +76,7 @@ export async function createApi(
     ...(options.scene === undefined ? {} : { scene: options.scene }),
     ...(options.google === undefined ? {} : { google: options.google }),
     ...(options.admin === undefined ? {} : { admin: options.admin }),
+    ...(options.emergency === undefined ? {} : { emergency: options.emergency }),
   };
   const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false, ...(options.logger === undefined ? {} : { logger: options.logger }), ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
 

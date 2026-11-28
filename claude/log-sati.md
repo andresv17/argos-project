@@ -228,3 +228,56 @@
 ## 2026-11-25 — Revisión tipografía propia Tipi Display (zip en raíz)
 - Acta `.specify/memory/audits/sati-010-tipografia-display-2026-11-25.md`: PASS CON OBS. woff2 válidos (wOF2, 16.1/16.5 KB), 0 glifos españoles faltantes, contraste Bosque/Crema 9.67, Terracota 3.67 (solo grande), 2.63 sobre Bosque (prohibido), 320/1024/1280 sin desborde.
 - OBS-1 MEDIA: «¡» casi idéntico a «i» (no desciende); OBS-2 Á choca con vértice; OBS-3 sin licencia en metadatos. Diff de styles.css (web y admin) y tailwind.config.ts propuesto, NO aplicado. Nada en src/tests/public; sin [x], sin push.
+- 2026-11-25 [sati] T1510 Bloque A: PASS CON OBS (3 BAJA, por lectura de código, sin navegador); acta sati-011-T1510-bloqueA-2026-11-25.md; sin código tocado.
+- 2026-11-25 [sati] T1516 Bloque B etiqueta IA: PASS CON OBS (3 BAJA; contraste 14.2-17.9:1, asociación aria-describedby OK, 1 etiqueta/superficie, INV-IA11-001 OK); acta sati-011-T1516-bloqueB-2026-11-25.md; sin código, sin [x].
+- 2026-11-25 [sati] T1530 Bloque D delegados: PASS CON OBS (2 MEDIA: borde campos 2.6:1, foco tras Cancelar; 5 BAJA; por lectura, sin navegador); acta sati-011-T1530-bloqueD-2026-11-25.md; sin código, sin [x].
+- 2026-11-25 T1535 Bloque E validado (PASS CON OBS); acta en .specify/memory/audits/sati-011-T1535-bloqueE-2026-11-25.md.
+
+## 2026-11-25 — T1535 Bloque E re-verificación tras fix /keymaker: CERRADO
+- Acta: sección «Re-verificación tras corrección de /keymaker» en sati-011-T1535-bloqueE-2026-11-25.md. 320/1024/1280 sin scroll H (sw=cw), nombre de 50 car. envuelve dentro del nav, foco Tab con ring Terracota. Sin código ni specs tocados.
+
+- 2026-11-25 Bloque F (#59) T1538-T1539: validacion WCAG con Playwright sobre HouseholdPhoto real; FAIL por S-1 (foco a body tras cerrar Quitar, boton disabled en trigger). Acta en .specify/memory/audits/sati-011-T1538-T1539-bloqueF-2026-11-25.md.
+- 2026-11-25 [sati] Re-verificación Bloque F: S-1/S-2 CERRADOS en navegador real; acta actualizada; sin código ni specs tocados.
+
+## 2026-11-25 T1544 Bloque G álbum del hogar
+Validación WCAG 2.2 AA en vivo (API 3200/SPA 5273, 2 mascotas con fotos): PASS CON OBS. Acta en .specify/memory/audits/sati-011-T1544-album-bloqueG-2026-11-25.md. Sin edición de código.
+
+## 2026-11-25 Re-chequeo T1544 Bloque G
+OBS-1/2/3 CERRADAS en navegador real (3200/5273). Reflow y axe 0. Residual: foco pasa a BODY ~300 ms durante la carga (disabled), se recupera al terminar.
+
+## 2026-11-25 T1550 Bloque H tope de hogares
+FAIL en navegador real (3200/5273): S-1 describedby ignorado por Button, S-2 foco a BODY; reflow y axe 0. Acta .specify/memory/audits/sati-011-T1550-tope-hogares-bloqueH-2026-11-25.md.
+
+## 2026-11-25 Re-auditoría T1550 Bloque H (tras /keymaker)
+S-1, S-2 (3 escenarios) y OBS-1 CERRADOS en navegador real (3200/5273, SQLite nueva). Reflow y axe 22aa 0. Acta con sección «Re-auditoría tras corrección de /keymaker». Sin código ni specs tocados.
+
+## 2026-11-25 — T1556 validación a11y Bloque I (foto de perfil)
+- Render real API 3200/SPA 5273, SQLite nueva, usuarios con y sin foto; axe wcag2a/aa/21/22aa = 0 en 24 combos y con recortador abierto.
+- FAIL: H-1 foco a BODY tras cancelar/guardar/quitar; H-2 cero role=status; H-3 scrollWidth 323 vs 320 con recortador abierto a 320.
+- OBS: role=img interactivo sin describedby, sin confirmación en Quitar foto, sin texto de estado de la foto en /cuenta, nav del header +3 px (preexistente).
+- Acta: .specify/memory/audits/sati-011-T1556-avatar-usuario-bloqueI-2026-11-25.md. Sin cambios de código.
+- 2026-11-25 Re-auditoria T1556: H-1/H-2 cerrados, H-3 abierto (323/320, section sin min-w-0), O-5 nueva; acta ampliada; servidores 3200/5273 detenidos.
+
+## 2026-11-25 Re-medicion corta T1556 tras /keymaker
+- H-3 y O-5 CERRADOS en vivo (3200/5273, SQLite nueva): 320/320, 1024/1024, 1280/1280 con recortador abierto, con y sin foto; preview 220 a 320. H-1/H-2 siguen cerrados, axe 0. Acta ampliada; sin tocar codigo ni specs.
+
+## 2026-11-25 T1573 REQ-HOG11-008 opción B
+- Revisión a11y/diseño en 3200/5273 con SQLite nueva: PASS CON OBS (axe 22aa 0 violaciones; reflow sin desborde; contraste >= 7.58:1).
+- OBS-1 «1 vencidas» (plural), OBS-2 lectura continua, OBS-3 aria-label vs h4, OBS-4 «0 alertas» largo; OBS-5 ajena.
+- Acta: .specify/memory/audits/sati-011-T1573-hogar-datos-bloque-2026-11-25.md
+
+## 2026-11-26 TECHDEBT-011-ALB-TAB320 (commit 166e6c0)
+- Validación Playwright en app real (3190/5190 nuevo; 5191 worktree anterior), SQLite nueva: PASS CON OBS. 320/1024/1280 sin desborde; 6 pestañas visibles; Álbum 66 px completo a 320 (3 filas). Anterior: barra 570/254 y 4 pestañas ocultas a 320.
+- axe 0 violaciones (6 pestañas x 3 anchos). Foco visible en las 6 (anillo 4,48:1 vs blanco, 3,10:1 vs accent); subrayado 8,16:1.
+- OBS-1: 3 filas a 320 (160 px alto), huecos irregulares; no bloqueante.
+- Acta: .specify/memory/audits/sati-011-TECHDEBT-ALB-TAB320-2026-11-26.md (evidencia en carpeta sati-011-ALB-TAB320-evidencia/). Procesos y worktree temporales cerrados.
+- 2026-11-27 T1638 auditoria WCAG Bloque B: APTO CON RESERVAS; acta sati-012-bloqueB-T1638-2026-11-27.md (A11Y-012-B-01..09).
+
+## 2026-11-27 T1658 Modo Cuidador
+- Medido en 3210/5210 (SQLite nueva): axe 22aa 0, reflow 320/1024/1280 ok, literales de contrato ok. Reservas M-1..M-4 (foco a BODY al cerrar, sin foco al abrir, errores lejos, aria-invalid nunca). Vista cuidador no verificada.
+- Acta: .specify/memory/audits/sati-012-T1658-2026-11-27.md
+
+## 2026-11-28 T1678 (parte sati) y T1683 dictamen QR
+- Medido en Chromium + vite 5262 con API simulada: pantalla /e/ axe 0 violaciones en 5 estados x 320/1024/1280, sin desborde. QR A6: imagen 60 mm incl. silencio (módulo 1,22 mm, símbolo 50,2 mm); PNG 1024 px crujiente (módulo 20,9 px).
+- Veredicto CUMPLE CON RESERVAS en ambas. MEDIA-1: la hoja A6 es position:fixed, sale en Letter y se repite en cada página (PDF 15 KB/página vs 950 B). BAJA-1 PNG módulo no entero; BAJA-2 sin main/h1 en LOADING/ERROR; BAJA-3 teléfono sin formato ni tel:. Sin decodificador QR: falta prueba física de Neo.
+- Acta: .specify/memory/audits/sati-012-T1678-T1683-2026-11-28.md (evidencia en carpeta sati-012-T1678-T1683-evidencia/). vite cerrado. Sin ediciones en src/ ni specs/.

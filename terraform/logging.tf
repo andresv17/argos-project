@@ -47,3 +47,37 @@ resource "google_logging_project_exclusion" "admin_google_auth_callback_requests
 
   depends_on = [google_project_service.apis]
 }
+
+# Ficha QR de emergencia (Feature 012, Bloque D, DEUDA-012-TERRAFORM-LOGS-QR; REQ-QR12-008, SC-012-086/107). El token de la ficha viaja en la URL
+# (/e/{token} y /api/emergency/{token}); el registro de solicitudes de Cloud Run lo guardaría en claro en _Default. La exclusión descarta la
+# entrada entera de esas solicitudes. Precondición bloqueante de la activación del QR en producción (checklist de release de 012).
+resource "google_logging_project_exclusion" "emergency_qr_page_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-emergency-qr-page-requests"
+  description = "Excluye del sumidero _Default las solicitudes a la vista pública de la ficha QR (/e/{token}; el token no debe quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl =~ \"^https?://[^/]+/e/\""
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_logging_project_exclusion" "emergency_qr_api_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-emergency-qr-api-requests"
+  description = "Excluye del sumidero _Default las solicitudes a la API pública de la ficha QR (/api/emergency/{token}; el token no debe quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl =~ \"^https?://[^/]+/api/emergency/\""
+
+  depends_on = [google_project_service.apis]
+}
+
+# Vista previa de mascotas para un enlace PETS (Feature 012, Bloque E; anexo share-link-subset §8.6.1, Neo). La ruta
+# GET /households/{householdId}/clinical-summary/pets lleva petIds en la query; el registro de solicitudes de Cloud Run guardaría
+# httpRequest.requestUrl (con ?petIds=...). Una exclusión de Cloud Logging descarta la entrada entera: el filtro apunta a la ruta.
+# Precondición bloqueante de la FASE 1 (lector desplegado con la bandera apagada), no solo de la Fase 2.
+resource "google_logging_project_exclusion" "pets_preview_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-pets-preview-requests"
+  description = "Excluye del sumidero _Default las solicitudes a la vista previa de mascotas de un enlace PETS (petIds no debe quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/clinical-summary/pets\""
+
+  depends_on = [google_project_service.apis]
+}

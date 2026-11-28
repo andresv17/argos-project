@@ -71,3 +71,15 @@
 - 2026-11-14 21:18 Neb: Neo pregunta si está cerca de cerrar 002. Respuesta: cerca en pasos, con 3 dependencias: decisión de Neo sobre cobertura 88.29 % (Caso B), evidencia de T308 y T307 (SC-002), y veredicto de Oracle T310 antes de COMPLETED y push. Solo lectura.
 
 - 2026-11-14 21:50 Neb: Neo pregunta si ya empezó la mutación de T309 (1 h). Disco 21:50: no hay Stryker vivo. Keymaker ejecutó compuertas en serie (1-6 OK excepto coverage 88.29 % < 95 %); test:mutation NO relanzado (evidencia lo marca como prohibido, usa 88.98 % aprobado). T309 literal incluye test:mutation: desviación que requiere decisión de Neo. Solo lectura.
+
+## 2026-11-19 — Consulta "cómo va el proyecto?"
+- Rama activa 006-escena-hogar-pixel-art, HEAD 7616fbd, 200 entradas sucias. Local main desfasado; 2862bed (PR #52, 006) está en origin/main.
+- 006: 159 [x], 1 [ ] (T885 bloqueada). Worktree 007 (argos-007) en b1e5ab4, 57 cambios, 56 [ ] / 4 [x] en tasks.md.
+- Discrepancia: bus fecha entradas 2026-11-20/21 con fecha de hoy 2026-11-19; no verificado.
+- Sin modificación de código, specs ni tareas.
+
+## 2026-11-19 — Corrección del informe de /neb (iteración 60)
+- Error mío: di T885 como bloqueada. En disco: T885 es [x] (tasks.md:192), y su texto aún dice «BLOQUEADA… NO ejecutar» (texto obsoleto).
+- 006: 159 [x] y 1 [ ] (T900 [HUM], N/A pendiente de confirmación de Neo, T959). Sin decisiones pendientes de 006 según Neo en logos.json.
+- Neo confirma en logos.json: 006 desplegada (PR #52 @2862bed en origin/main), aviso v2 liquidado en T958, Vertex real activo en Cloud Run.
+- 007: en worktree argos-007, Bloque C sin commitear (41 modificados, 3 nuevos). Turno de Logos pasado a morpheus.

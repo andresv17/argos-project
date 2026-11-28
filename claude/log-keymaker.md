@@ -2521,3 +2521,232 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - Ramas globales 94.64% (4811/5083) -> 95.21% (4892/5138). Nuevas: tests/unit/t1553-admin-acceso-delegados-comportamiento-011.spec.ts (20 tests: anclaje raiz, delegado ACTIVE/INVITED, reciclaje de identidades, carreras, cierre de sesion) y t1553-user-avatar-image-comportamiento-011.spec.ts (19 tests: TOO_LARGE/TYPE/INVALID, PNG/JPEG/WebP, todas las cabeceras).
 - Avatar: 0 ramas nuevas (las 9 restantes de user-avatar-image.ts son defensivas e inalcanzables tras el saneado); admin-use-cases: 24 -> 3 sin cubrir (161, 175, 180 inalcanzables por el flujo). Sin cambios de produccion.
 - tsc=0; semgrep src/ 0; verify-oracles CUMPLE (corregido un not.toBeNull propio); test:gate rc=1 solo por 8 pruebas rojas de H-01 (terraform/workflow).
+
+## 2026-11-26 — TECHDEBT-011-PREVIEW-AVATAR-HOGAR (avatar en vista previa de Hogar)
+- compile-contracts.sh sin --feature no toca v33; con --feature 005 solo cambian 4 archivos de v33 (descripcion de petIds, sin cambio de forma). Commit 5e112f7.
+- Hallazgo: la vista previa NO emitia petIds (t1533 afirmaba lo contrario); se anadio petIds en PreviewClinicalSummaryUseCase y se actualizo la prueba t1533. UI: avatarHref con view.petIds[i] con respaldo a petId de ruta. Commit ac0c64d.
+- Fila TECHDEBT retirada de tasks.md (commit 5bc4739). tsc 0, semgrep 0, t750/t770/t778/t1533/t1535 verdes, traza011 0, oraculos 0; test:gate 9 rojas = 8 H-01 + 1 intermitente (sentinels-010-T1418 SEN-IP-07, verde aislada). Sin [x].
+
+## 2026-11-26 — TECHDEBT-011-ALB-TAB320 (commit 166e6c0) y DEUDA-011-PURGA-DELEGADOS (DETENIDA)
+- TAB320: HouseholdTabs pasa de overflow-x-auto a flex-wrap (px-3 sm:px-4), sin scroll interno; prueba t1544-tabs-320-011.spec.ts; fila retirada de tasks.md. tsc 0, semgrep 0, traza 0, oraculos 0.
+- PURGA-DELEGADOS: NO implementada. Bloqueos: (1) ops.openapi.yaml MaintenanceResult es additionalProperties:false con 5 conteos fijos, sin delegados; (2) AdminDelegateRepositoryPort (src/application/ports/admin.port.ts, vetado) carece de metodos de purga. Reportado a Morpheus.
+
+## 2026-11-26 — fix OUT_DIR quemado en sentinels-011-T1526-admin (CI PR #82)
+- Eliminados OUT_DIR, mkdirSync/writeFileSync y import node:fs; la bateria valida en memoria sobre ROWS (logica `failed` intacta).
+- Suite 2/2 verde, tsc 0, verify-oracles 0 (623 archivos, 0 debiles). Commit solo de ese archivo; sin push, sin [x].
+
+## 2026-11-26 — T1609 verify-traceability reconoce --feature 012
+- La carpeta ya resolvia por glob specs/012-*/; se anadio FEAT12 a la rama FEAT6 (1:1 spec->tasks, evidencia informativa) con OWNED_012 y ERR_ID_012 (OWN12|CAR12|QR12|CHP12|VET12; NFR/EDGE/SC-012; STATE CHIPCLAIM12|OWNAPR12|COOWN12).
+- --feature 011 rc 0 (CUMPLE), 010 rc 0; --feature 012 rc 2: "Fuente ausente: contracts/errors/error-catalog.json" (contracts/ solo tiene README; lo crea /architect). No forzado.
+- Solo scripts/verify-traceability.sh; sin push, sin [x].
+
+## 2026-11-26 — T1613 migraciones co-propiedad (commit 14e4370)
+- SQLite 0033_co_ownership.sql y PostgreSQL 0029_co_ownership.sql: pets.ownership_version, pet_co_owners, owner_requests (tabla unica), indices/UNIQUE parciales, pet_assignments.assigned_by_user_id NULLable con FK SET NULL (SQLite reconstruye la tabla; PG DROP NOT NULL + FK NOT VALID/VALIDATE). La tabla real se llama pet_assignments (el data-model dice pet_household_assignments).
+- Desviacion declarada: marcas de tiempo TEXT ISO (convencion del repo; INTEGER de PG seria de 32 bits) y sin CHECK numerico del techo de 60 dias de frozen_until (regla de dominio). dispute_evidence queda para el Bloque #23.
+- Nuevo t1613-migracion-co-propiedad-012.spec.ts (7 pruebas verdes); paridad extendida (SET NULL, DROP NOT NULL, FK) y 6 aserciones de "ultima migracion/numero de tablas" actualizadas. persistence 891 verdes, tsc 0.
+
+## 2026-11-26 — T1614 pruebas rojas de dominio (commit 974adb3)
+- tests/unit/co-ownership-domain-012.spec.ts y can-act-on-pet-012.spec.ts: API supuesta (co-ownership.ts, can-act-on-pet.ts, feature-012-limits.ts) cubre SC-012-004..010, 012, 071..075, 094, 103 (estados cerrados, tope, quorum sellado, STALE, sucesion, LEAVE, ultimo dueno, matriz acciones x roles, nadie elimina a otro).
+- Rojas por modulo ausente; tsc solo TS2307 (precedente T236). verify-oracles 0 debiles, traza 012 CUMPLE.
+
+## 2026-11-26 — T1615 pruebas rojas de integracion y paridad (commit ce59bca)
+- Fixture co-ownership-012.ts + co-ownership-parity-012.spec.ts (memoria, SQLite, PG skipIf) + co-ownership-races-012.spec.ts (SQLite 2 conexiones, PG 2 sesiones, lock_timeout). Casos de uso y puertos coOwners/ownerRequests SUPUESTOS desde los operationId del OpenAPI.
+- No cubiertas (sin casos de uso aun): END_CO_OWNERSHIP vs LEAVE, apertura de disputa vs LEAVE, ADD_CO_OWNER(claimant) vs LEAVE; columnas care_*/caregiver/emergency de SC-012-076 llegan con #26/#32. Hallazgo: compile-contracts.sh no acepta --feature 012 (src/generated sin ERR-OWN12-*).
+
+## 2026-11-26 — T1616 co-propiedad (Bloque A, #22): dominio, puertos, repos, casos de uso (commits 68ec963, 2db01b6 y el de cierre)
+- compile-contracts.sh --feature 012 -> src/generated/v38 (catalogo 004..012 = 106 codigos). Salvedades: ERR-VALIDATION heredado sin definicion en 004..011 (tolerado con aviso, hallazgo para /architect) y strictRequired de Ajv relajado solo para la 012 (SDD_AJV_STRICT_REQUIRED).
+- Dominio puro: co-ownership.ts, can-act-on-pet.ts, pet-ownership.ts (unica primitiva que compara ownerUserId), feature-012-limits.ts (OWNERSHIP_LOCK_TIMEOUT_MS = 3000). Puertos coOwners/ownerRequests + 3 motores (memoria, SQLite, PG sin probar con PG real).
+- Casos de uso: invitar (contador por intento en transaccion aparte), aceptar/rechazar/cancelar, LEAVE con sucesion (applyLeave, 2 intentos y ERR-OWN12-RETRYABLE), solicitudes con quorum sellado; eraseAccountInTransaction con sucesion y seudonimizacion (T1622 en el mismo cuerpo).
+- Ajustes a pruebas rojas: makeCoOwners aprueba la solicitud de invitacion (REQ-OWN12-004), TRANSFER->CHANGE_PRINCIPAL a co-propietario (EDGE-012-009), unshare disuelve Casa Vallejo, release 005 PN-08 por transferencia real. Pendientes: audit CHECK (migracion 0034/0030 propuesta N2), import ERR-CHP12-MICROCHIP-REGISTERED (Bloque B).
+
+## 2026-11-26 — T1621 (c14ef70), T1622 (887c2fc) y T1623
+- T1621: regla Semgrep argos-no-owner-compare-outside-can-act-on-pet (src/domain y src/application; exentos can-act-on-pet.ts y pet-ownership.ts), comprobacion estatica en ci-ready-sast-static.mjs y prueba (semgrep --test + escaneo real 0 hallazgos). Migracion de access-policy, effective-role, ownership-transfer, household-policies, backup, shared-view y share-link a pet-ownership.
+- T1622: pseudonymizePetOwnerSnapshot (R-04) en los 3 motores; pruebas de supresion (enlace del co-propietario sobrevive, enlaces propios caen, PENDING de mascota eliminada -> CANCELLED, LEFT con seudonimo).
+- T1623: purgeOwnershipData en runMaintenance (patron purgeDelegateData): 90 dias, excluye trigger_request_ids de disputas no terminales y cuenta desde el RESOLVED (P-2). Prueba T0+97 con disputa abierta. Las disputas de apropiacion (365 d) quedan al Bloque B.
+
+## 2026-11-26 — T1627 disparador y ancla de la disputa por ausencia (commit de este bloque)
+- absence-trigger.ts (puro): >= 2 solicitudes SECUENCIALES expiradas por TTL en 60 dias, target en approver_set sin voto/rechazo (DELETE_PET ignorada salvo como prueba de vida), piso de 14 dias y condicion desde la mas antigua (aplica la mas estricta; <= en el borde). Sin Date en dominio (purity gate).
+- absence-dispute-use-cases.ts: apertura bajo bloqueo por mascota, disparador SELLADO en trigger_request_ids, ancla (pet_id, target_user_id), 404 uniforme a no propietarios, ERR-CHP12-ABSENCE-NOT-ELIGIBLE sin causa, limites 3 abiertas y cooldown 90 d; respuesta unica <= 280 puntos de codigo; congelacion por pet_id (permite LEAVE) y moot TARGET_LEFT.
+- Fuente de target_last_active_at fijada: sessions.last_activity_at (nuevo sessions.findLastActivityOfUser). LIMITACION: sesiones se purgan 7 d tras vencer (ADR-002-14): la actividad de solo lectura previa no es observable; reportado.
+
+## 2026-11-27 — Bloque B-3/B-4, T1617 y T1625 (commits 2d1fb09, 572a58c, 374a998, a6310e9, 8a68218)
+- CC-B3: retirados UNRESOLVED_INHERITED_WAIVED (compile-contracts.sh) y SDD_AJV_STRICT_REQUIRED (codegen.mjs y compile); v38 regenerado con la errata (ERR-SCHEMA-VALIDATION-FAILED 422, strictRequired sin relajar). POST de solicitud con un unico propietario = 422 ERR-SCHEMA-VALIDATION-FAILED confirmado por HTTP (co-ownership.api.spec.ts). Commit 2d1fb09.
+- CC-TRANSFER: TRANSFER_PRINCIPAL no tenia cobertura tras el cambio a CHANGE_PRINCIPAL; anadidos caso de paridad (aprobacion, co-propietario anterior ACTIVE, OWNERSHIP_TRANSFER) y carrera con LEAVE del aprobador. Races/parity ahora admiten 404 del aprobador que ya salio y solicitud PENDING (efecto del contador B-4: el cargo es una transaccion previa). Commit 572a58c.
+- CC-B4: migraciones SQLite 0035 y PostgreSQL 0031 (ambitos CO_OWNER_INVITE y OWNER_REQUEST, patron 0010/0006 sin perdida de datos + precheck de huerfanos). Limites en el adaptador con constantes de feature-012-limits (sin tocar app-config.ts por H-01). LIMITACION: rate_limit_events no guarda mascota; OWNER_REQUEST cuenta 10/dia por usuario entre todas sus mascotas (el contrato dice por usuario y mascota; hallazgo para /architect). Commit 374a998.
+- CC-T1617: rutas co-ownership.routes.ts (13 rutas), GetOwnerRequestUseCase nuevo, DomainError v38 registrado en problem-details.ts (sin eso un error 012 daba 500), panel Propietarios (pestana) y OwnershipInbox. app.ts: solo import + registro, staged via cacheinfo sobre HEAD; los hunks de H-01 siguen sin commitear en el arbol. Allowlist INV-AUTH2-002 ampliada con co-ownership-api.ts. Commit a6310e9. Sin prototipo /sati ni prueba visual (T1618/T1619 pendientes).
+- CC-T1625: tests/security/exploits/co-ownership-012.security.spec.ts (17 pruebas, H-01..H-07, H-09, H-10, H-11, H-15, H-02). B-2 intacto: 2 pruebas EDGE-012-044 siguen rojas. Commit 8a68218.
+- 2026-11-27 CC-RES1: OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY -> OWNER_REQUESTS_PER_USER_PER_DAY (feature-012-limits.ts, sliding-window-rate-limiter.adapter.ts; valor 10 y 1440 min intactos; las pruebas no usaban el nombre). tasks.md con los 22 [x] de Neo incluido. Commit 77b3e65. tsc rc=0, trazabilidad 012 rc=0. T1625 renombrado listo; [x] lo pone Neo.
+- 2026-11-27 CC-SERAPH-T1619: S-1/S-2/S-6 en co-ownership-012-seraph-T1619.security.spec.ts (6 pruebas; CSRF con csrf:false en 10 rutas POST, 401 ERR-AUTH-UNAUTHENTICATED en 14 rutas, ex propietario/INVITED/DECLINED -> 404). S-3 (404 con status+code+cuerpo identico a mascota inexistente, instance normalizada, cancel con fila INVITED real de carlos) y S-5 (aserciones exactas) en co-ownership-012.security.spec.ts. Sin bug de produccion. Observacion: el voto duplicado del mismo aprobador responde 200 idempotente (fijado). S-4 no tocado. Commit 03b596a.
+
+- 2026-11-27 [keymaker] sati T1619 S-01..S-05 en CoOwners.tsx: border-border-strong (+bg-white en input) en input y tarjetas; foco a h3/h2 (tabIndex -1) o al grupo de confirmacion de salida tras desmontar botones; regiones role=alert/status persistentes (bandeja anuncia aceptar/rechazar/aprobar/cancelar); describedBy en Enviar invitacion. Test t1617 ajustado (bandeja vacia = solo region live oculta). H-K2: texto unico en co-ownership-api.ts; el catalogo (detailTemplate, src/generated) sigue diciendo "Ya existe una solicitud pendiente": requiere errata de contrato (architect). Gates tsc=0, trace=0, vitest presentation 967/967.
+
+## 2026-11-27 — Reservas oracle 1 y 2 (012, CoOwners a11y)
+- CC: OwnershipInbox conserva la seccion montada tras una accion (estado `acted`) y muestra "No tienes invitaciones ni solicitudes pendientes."; inicial vacio sigue pintando solo la region live.
+- Reserva 1: el repo NO tiene testing-library ni jsdom; sin anadir dependencias, los asertos de t1617 son render estatico (alert/status) + lectura del fuente (foco, border-border-strong, aria-describedby). Brecha: no se ejecuta foco real; cubre T1618 manual.
+- Gates: tsc=0, verify-traceability 012=0, presentation 996 verdes, co-ownership exploits 23 verdes.
+
+## 2026-11-27 — Misión /morpheus (Nivel 2 Neo): H-K1 + S-4 + S-07 + S-08
+- Commit 09eb82c: contratos + v38 recompilados (`compile-contracts.sh --feature 012`; detailTemplate de ERR-OWN12-APPROVAL-PENDING y errata RES1), errata, propuesta H-K1, deploy-rolling-bloque-A, T1626 con referencia (sigue `[ ]`). Ninguna prueba comparaba el detail antiguo.
+- Commit 48939a6 (UI): `co-ownership-gating.ts`; PetsPage consulta `getOwnership` y pasa `multiOwner`; PetDashboard oculta Eliminar/Transferir y muestra «Con más de un propietario, eliminar o transferir necesita la aprobación de todos. Ir a Propietarios»; CoOwners oculta «Salir» con un único ACTIVE (S-07) y exige grupo de confirmación con foco/Esc/aria-describedby antes de «Pedir eliminar» (S-08). Pruebas en t1617-propietarios-012.spec.ts.
+- Commit cce4a4b (S-4): GetOwnerRequestUseCase no abre el atajo de propietario a una CHIP_DISPUTE; prueba de regresión en absence-dispute-012.spec.ts (falla sin el fix).
+- Gates: tsc rc=0; verify-traceability --feature 012 rc=0; rojas solo las 2 de EDGE-012-044 (B-2). Sin dependencias nuevas, sin push, H-01/specs 004-005 intactos.
+
+## 2026-11-27 PG17 real T1620 + commit firma T1626
+- Commit local 0d6db33 (firma T1626, tasks.md + deploy-rolling-bloque-A.md). 24 [x] verificadas, ninguna extra.
+- PG17 real (docker postgres:17.12): 177 ok, 4 rojas (chip registrado en respaldo x3 motores; lock_timeout LEAVE 2 sesiones PG + 23505 audit_log). Acta .specify/memory/audits/pg17-012-T1620-2026-11-27.md. Contenedor eliminado.
+
+## 2026-11-27 fix fixture races 012 (aec3b1a)
+- tests/fixtures: depsA estable por motor (ids/auditIds/reloj una vez), holdingA y setNow reutilizan race.a. Sin tocar src ni asertos.
+- tsc rc=0; races sin PG 14 ok; PG17: races 21/22 (roja: lock_timeout por mascota, hallazgo src), parity 59 ok + 3 rojas EDGE-012-044 (B-2 intacta). Acta pg17-012-races-fixture-2026-11-27.md. Contenedor eliminado.
+
+## 2026-11-27 lock acotado PG (dictamen architect 1-5)
+- src: port runInTransaction(options.boundedLockWait), PostgresUnitOfWork SET LOCAL lock_timeout 3000ms + 55P03->ERR-OWN12-RETRYABLE solo en el candado global; helper runOwnershipTransaction en 4 archivos de casos de uso; JSDoc de 2 niveles.
+- tests: unitaria pg-lock-acotado-012; fixtures reenvian options y lectura read-only del principal (spec:26). tsc rc=0, trace rc=0, PG17 races 22/22, parity solo EDGE-012-044 roja (B-2). Acta pg17-012-lock-acotado-2026-11-27.md.
+
+## 2026-11-27 — Menores de foco sati T1619 (1b80b71)
+CoOwners.tsx: efecto adicional devuelve el foco al disparador «Pedir eliminar la mascota» (span ref + querySelector) al cerrar; se conserva el efecto previo para no alterar asertos. PetDashboard.tsx: «Ir a Propietarios» marca foco pendiente y enfoca #owners-title. +2 pruebas de cableado en t1617. Gates: tsc 0, traceability 012 0, presentation 94 archivos/981 verdes.
+
+## 2026-11-27 — reserva 1 oracle-012 (foco al montar CoOwners)
+- CoOwners.tsx: deleteInitRef descarta el montaje; deleteMounted pasa a ser 'confirmacion estuvo abierta' (true al abrir, false tras enfocar el disparador). Cadena literal del aserto previo intacta (no editable).
+- Prueba de cableado añadida en t1617. Gates: tsc 0, traceability 012 0, vitest presentation 982/982 (94 archivos).
+
+## 2026-11-27 — Bloque B (#23): commits a/d/e, fase 2 BLOQUEADA, migraciones T1633/T1648, rojas T1634
+- (a) ea3801c firmas APPROVED + tasks.md. (b) NO-OP: las 14 actas intermedias ya estaban versionadas en 687fd7c/e855f44 (git ls-files); sin commit.
+- (c) BLOQUEADO: `compile-contracts.sh --feature 012` falla en codegen: nombre de tipo duplicado "MicrochipId" (pet.schema.json de 004 vs chip-claim.schema.json $defs.MicrochipId, ya APPROVED). Sin cambios en src/generated. Requiere /architect + Neo (renombrar el $defs de chip-claim, p. ej. ChipClaimMicrochipId, o decidir la deduplicacion en codegen).
+- (d) dbb826b migraciones SQLite 0036/0037 y PG 0032/0033 (dispute_evidence, ip_rate_events; admin_identities.person_id; owner_requests *_admin_id RESTRICT, *_person_id, second_approved_at). Pruebas de paridad actualizadas; PG17 efimero (puerto 55477) 1197 verdes; contenedor retirado.
+- (e) 206e80b pruebas rojas T1634 (4 specs + fixtures/chip-012.ts): 46 rojas por modulo ausente (23 PG omitidas). tsc 0, oracles 0, traceability 012 CUMPLE.
+
+## 2026-11-27 — Bloque B (#23) FASE VERDE: pasos 0-2 y tramos T1635/T1640, T1641, T1642, T1645/T1646
+- Paso 0 4df7f12 (renombre ChipClaimMicrochipId). Paso 1 2ae1303: compile-contracts --feature 012 FALLABA tras el renombre (alias `DisputeId` -> `OpaqueId` sin declarar por json-schema-to-typescript, y refs relativas sin `./` en openapi-typescript); se corrigio en scripts/codegen.mjs (alias explicitos y prefijo `./`), sin tocar contratos; v38 regenerado con texto neutro NUEVO-6. Paso 2 18ef5bc: referencias 0037/0033 unificadas.
+- T1635/T1640: split de error (chip-uniqueness.ts, un solo comprobador, mismas llamadas), contadores usuario/IP/global (chip-ip-rate-limit.ts + ip_rate_events), reclamacion (+ejecucion CLAIM_CO_OWNERSHIP en owner-request), apertura de disputa, repos 3 motores. T1641: saneo de evidencia (dominio), puerto antimalware + adaptador determinista, retencion/huerfanos. T1642: arbitraje (control dual, step-up, ventana 72 h). T1645/T1646: aviso solo desenlace, reserva, importacion EDGE-012-044.
+- Decisiones/desviaciones: ver bloque DETAILS del reporte (closed_at derivado, motivo sin columna, reencodificacion sin codec, SC-012-017 pide `role` fuera del contrato, 004-era tests con DUPLICATE cross-owner).
+
+## 2026-11-27 — Bloque B (#23): decisiones de Neo 1-6, T1636 (HTTP + UI) y T1643
+- c08cda6: SC-012-017 sin `role` (ya estaba en chip-claim-012.spec), 17 pruebas 004 cross-owner reapuntadas a ERR-CHP12-MICROCHIP-REGISTERED (el mismo dueño conserva DUPLICATE), `CHIP_DISPUTE_BODY_MAX_BYTES=15728640`, `MICROCHIP_IMPORT_MAX_PETS=50` (tope con 429 en la importación, SC-012-117), multipart 10/30 ya vigentes.
+- 0a246e5 (T1636 HTTP): chip.routes.ts (claims, disputes multipart, chip-requests), admin-disputes.routes.ts (9 ops), multipart-form.ts, admin-stepup-store.ts (grant 1 uso, 5 min, en memoria), vistas de cola/expediente, `findPersonId` en admin_identities (3 motores), Retry-After constante en 503, registro de roles. app.ts y server.ts staged SIN H-01 (blob de HEAD + mis hunks; el árbol de trabajo conserva H-01).
+- cfab7f7 (T1636 UI): ChipRegisteredDialog (3 salidas), MyChipRequests, DisputesPanel en /admin. 1d294b8 (T1643): claude/deuda-012-legal-disputas-qr.md + textos D1..D6 en legal-texts.md (010, DRAFT).
+- Pendientes honestos: motivo de decisión NO persistido (audit_log solo guarda hashes y admin_audit_entries.object_ref <=128: sin columna nueva no cabe 500 chars; decisión 6 requiere migración o aceptar solo hash); step-up = sesión vigente + origen propio (la reverificación real con Google queda para Neo); person_id sin vía de asignación (solo SQL).
+
+## 2026-11-27 — Acta oracle bloque B (H-01 c, H-06, H-07)
+- H-06 hecho: 2 pruebas de ruta en chip-routes-012.api.spec.ts (OPERATOR sin actorIdentities; grant ajeno y step-up vencido a 5 min). Commit local selectivo.
+- H-01 (c) BLOQUEADO: `admin_audit_entries` NO tiene columna metadata (id, admin_id, action, object_ref<=128, occurred_at) y ninguna tabla de auditoria la tiene; requiere migracion (prohibida). No se toco codigo ni el comentario de la ruta.
+- H-07 NO aplicado: la lectura se audita solo por `dispute:<id>` sin evidenceId; per-evidencia exige cambiar objectRef, vista y confirm (>10 lineas).
+
+### 2026-11-27 Keymaker - H-01 (a) admin_audit_entries.metadata
+Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motivo de resolve/confirm en metadata JSON {"reason"}; puerto y repos sqlite/pg/memoria; PG real (docker 55432) persistence 82/82. Sin push.
+
+## 2026-11-27 - T1655/T1661 cierre con D-A, D-B, D-D(b) (Keymaker)
+- D-A: UpdateCareRoutineUseCase valida 422 (expectedVersion + captura fusionada) antes de STALE y de LIMIT; Create ya validaba 422 antes de LIMIT. Pruebas de paridad ajustadas (LIMIT exige confirmHighDose).
+- D-B: care-species-group.ts sin "PENDIENTE APROBACION NEO"; mapeo CANINE/FELINE -> CANINE_FELINE, resto -> OTHER_SPECIES.
+- D-D(b): guarda NOT EXISTS care_log_entries en purgeInactiveBefore (memoria, SQLite, PG); caso nuevo en care-retention-012 (MEDICATION inactiva 365<d<1095 sobrevive; se purga >1095).
+- Gates: tsc rc 0; verify-oracles rc 0; traceability T1655 rc 0; test:gate 12 fallos ajenos (H-01 terraform/workflow, verify-ci-ready, 2 de migraciones 0030/31 claves previas a este cambio).
+
+## 2026-11-27 - alinear contadores migraciones/RepositorySet (Keymaker)
+- Atribucion: claves careRoutines/careLog/caregiverAccess = 012 (7eb8b58, T1652/T1654). SQLite 0031 admin_delegates (1486eaf) y 0032 user_avatar (70b47df) = 011; 0033 (14e4370), 0034 (5f36a6b), 0035..0039 = 012. PG 0027/0028 = 011; 0029..0035 = 012.
+- Pruebas: postgres-repositories-part3 (31 -> 34 claves) y t1517 (at(-6) -> at(-10) en SQLite 0030 y PG 0026). Solo expectativas; sin cambios en src/contratos. Sin bug real.
+- Gates: tsc rc 0; 2 archivos 51/51; verify-oracles rc 0; traceability T1655 CUMPLE.
+
+## 2026-11-27 - T1656 rutas HTTP y UI del Modo Cuidador (Keymaker)
+- HTTP: routes/care.routes.ts (14 operaciones de care.openapi.yaml; plugin encapsulado con Cache-Control private,no-store y Vary Cookie), care-rate-limit.ts (R-3: 3 cubos LOG 120/h, ROUTINE 60/h compartido con niveles, REVERT 30/h; 429 ERR-RATE-LIMITED + Retry-After; casos de uso sin limite), GetCareRoutineUseCase (faltaba getCareRoutine), registro en use-cases.ts y 3 hunks en app.ts (imports + 1 linea; sin tocar H-01), problem-details.ts adjunta `existing` al 409 ERR-CAR12-ALREADY-LOGGED (CareLogConflict).
+- UI: care-api.ts, care-view.ts, components/CarePanel.tsx (Hoy, Rutinas, Niveles), pestana `care` en PetDashboard y careSlot en PetsPage para OWNER y CAREGIVER. ADMIN de hogar NO edita rutinas ni concede niveles (contrato H-C3); la tarea decia "propietario/ADMIN", se siguio el contrato.
+- R-1 verificado: DeactivateCareRoutineUseCase fija effectiveTo y updatedAt = now; prueba de ruta nueva lo cubre. Sin cambios de codigo necesarios.
+- Pruebas: tests/integration/api/care-routes-012.api.spec.ts (4) y tests/unit/presentation/t1656-modo-cuidador-012.spec.ts (7).
+
+## 2026-11-27 - T1656 rebote: cupo R-3 tras potestad y marca Tipi (Keymaker)
+- Decision de Neo: el cupo R-3 se consume DESPUES de sesion, CSRF y potestad. Los 7 casos de uso de escritura de cuidado (care-log/care-routine) reciben un gancho opcional `afterAuthorization` (tipo en care-support.ts) invocado justo tras requireTitular/canLogCare; care.routes.ts lo cablea con `quota(bucket, request)` y ya no consume en onRequest. Orden: 403 -> cupo -> 404 -> 422 -> 409 (D-A intacto).
+- care-view.ts: DOSE_DISCLAIMER y CARE_NO_REMINDERS_NOTICE usan BRAND_NAME (brand.ts); texto identico al contrato; comentario corregido (solo "Sin notificaciones" es del contrato).
+- tests/integration/api/care-routes-012.api.spec.ts: +2 casos (403 no gasta cupo; 403 precede al 429). Las iteraciones 120/30 ya usaban al titular (superan la potestad).
+- Gates: tsc rc 0; verify-oracles rc 0; verify-traceability --feature 012 --task T1656 rc 0; presentacion 98 archivos/1011 tests verdes.
+
+## 2026-11-27 - Commit selectivo acta Seraph T1619 + tasks.md T1656 firmada (Keymaker)
+- Mision de Morpheus por decision de Neo: commit local con solo `.specify/memory/audits/seraph-012-T1619-2026-11-27.md` y `specs/012-.../tasks.md` (unico cambio: T1656 [x]). Sin H-01, sin 005, sin logs ajenos. Sin push.
+
+## 2026-11-27 - T1658 lote de correcciones kid/seraph/sati/maggie (Keymaker)
+- CarePanel.tsx: Deshacer solo dentro de 10 min para no titulares (canOfferRevert en care-view.ts, reloj browserRenewal), texto 403 de reversión propio, foco al abrir/cerrar formularios, error de acción junto a la tarjeta, errores de campo del servidor con aria-invalid/describedby, «hora de Bogotá» con mayúscula.
+- Tests: tests/security/exploits/care-012.security.spec.ts (nuevo, 13), +1 caso 403 de titular en care-routes-012.api.spec.ts, +3 en t1656, comentario m-01. m-03 NO aplicada (decisión clínica).
+
+## 2026-11-27 — Commit selectivo T1658 (012)
+- Commit local de 7 archivos del lote T1658 (CarePanel, care-view, Field, 3 specs, care-012.security.spec).
+- Excluidos: H-01, specs/005, tasks.md, logs/bus. Sin push, sin [x].
+
+## 2026-11-27 T1672/T1673/T1674 (Bloque D, #32)
+- cc5edcc pruebas rojas T1674 (246 rojas); 147c52d codificador QR 6-M (72 verdes; fixtures qrcodegen+python-qrcode, OpenCV decodifica 48/48; segno descartado por relleno no ISO); migraciones 0041 SQLite / 0037 PG + contadores actualizados. tsc/oracles/trace 0.
+
+## 2026-11-27 T1680 (Bloque D, #32) — redactSecrets por forma
+- `cloud-logging.ts`: patrón `EMERGENCY_PATH_PATTERN` sin anclar (prefijo `/e/` y `/api/emergency/`, mayúsculas y `%2f`; segmento hasta `/ ? # espacio comilla`, cualquier longitud). Prueba `tests/unit/emergency-012/log-redaction-012.spec.ts` (13 verdes: 43/42/44/200, sufijo, barra final, `Route … not found`, logger real).
+- Orden de commits: T1680 primero porque T1675 declara `Dep: T1674, T1680`. tsc 0, oracles 0, trazabilidad T1675 CUMPLE. Fallo previo AJENO: `t1517 … es la migración 0030, la última de SQLite` (ve 0031; no lo toco).
+
+## 2026-11-27 T1675 (Bloque D, #32) — dominio, casos de uso, repositorios y rutas
+- Verde: 173 rojas iniciales -> 0. Dominio `src/domain/emergency/{token,phone,phone-hmac,text-policy,emergency-card-rules,emergency-url}.ts`; casos de uso `emergency-use-cases.ts` + `emergency-support.ts` (reconcileCard único); repos memoria/SQLite/PG; rutas `emergency.routes.ts`; limitador `emergency-scan-limiter.ts`.
+- Decisiones: constantes en `src/domain/platform/feature-012-limits.ts` (donde las importan las pruebas, no en emergency/); STALE (HMAC distinto) cuenta para la guarda pero no se publica (prueba de rotación); EMERGENCY_CARD_REGENERATED confirmado. Pruebas rojas corregidas (typo `Nĩa`->`Nin̈a`, falta `unshare` en erase). app.ts: parche -U0 solo de mis 3 líneas.
+
+## 2026-11-27 T1684 (Bloque D, #32) — URL base, límite de escaneo, topes
+- `emergency-config.ts` (loadEmergencyServices: PHONE_HMAC_KEY + AppConfig.publicBaseUrl, ASCII, 106 bytes), adaptador CSPRNG, pruebas del limitador (LRU, /64, fail-open), URL y 422 en 3 motores. Limitador y topes 20/60 ya estaban en T1675 porque sus pruebas rojas los exigían.
+
+## 2026-11-27 T1662 (Bloque D, #32)
+- Auditoría PET_CRITICAL_ALLERGIES_UPDATED ya en UpdateCriticalAllergiesUseCase (T1675): actorRole en newStateHash=stateHash({actorRole}), sin contenido. T1662 añade EMERGENCY_TEXTS (m-6) y prueba API con ADMIN/READER.
+
+## 2026-11-27 · Micro-ciclo correcciones Bloque D (A-E) — BLOQUEADO en commits por .git/index.lock obsoleto (20:17, sin proceso git)
+Hechos en disco sin commitear: t1517 -12/-12 (A), prueba 61.ª QR_PRIVATE_WRITE + HEAD/OPTIONS 429 Retry-After (B,E) en emergency-routes-012.api.spec.ts, touchLastScanned fuera de la transacción + regresión PG en emergency-card-parity-012.spec.ts (C), timeout 30s en emergency-migration-012.spec.ts (D). Gates: tsc 0, oracles 0, traceability 0, 344 pruebas dirigidas verdes con PG.
+
+## 2026-11-27 — Cierre Bloque D backend (#32): 7 commits locales
+- 1506c8a, cba507c, 58071ca, 1e25a7a (micro-ciclo A-D); 0bdc12f H-D1(b) auditoría sin newStateHash/actorRole/origin; b5816b5 H-D2 server.ts (solo mi hunk, vía `loadEmergencyServicesFromProcess` en config por INV-ARCH-006) + enganche runMaintenance; 0166edd textos de /architect.
+- Gates: tsc 0, verify-oracles 0, verify-traceability --feature 012 0; 375 pruebas dirigidas verdes. Sin push, sin [x]. Pendiente: purga de audit EMERGENCY_* a 90 días (requiere puerto nuevo en 3 motores).
+
+## 2026-11-27 — T1676 UI del QR, T1681/T1682/T1685 (Bloque D, #32)
+- Commits: 0acba63 (firmas Neo), 23008cc (T1676 UI), 755f130 (deudas y criterio de release). Gates: tsc 0, verify-oracles 0 (0 débiles), verify-traceability --feature 012 0; tests/unit/presentation 97 archivos / 1022 pruebas verdes.
+- Huecos de backend vistos por la UI: la vista de la cuenta no devuelve `phone` ni la de la mascota `criticalAllergies` (annex §1 los declara aditivos); la UI los toma si llegan y, si no, parte vacía. Pendiente para Morpheus/Architect.
+- T1676, T1681, T1682, T1685 siguen [ ] (firma de Neo tras /oracle).
+
+## 2026-11-27 — T1676 hueco 1 (eee8155 backend, UI en commit siguiente)
+- phone (E.164|null) en toSessionView (solo titular); criticalAllergies en dashboard de mascota (quien ya la lee). Verificador OpenAPI de pruebas tolera ambos como aditivos del anexo §1 (contratos 002/004 cerrados, sin editar).
+- UI: editor de alergias y campo de teléfono deshabilitados si el dato falta; funciones puras updateAllergiesIfLoaded/updatePhoneIfLoaded fijadas en tests/unit/presentation/t1676-guarda-datos-ausentes-012.spec.ts.
+
+## 2026-11-28 — 012 D-1/D-2/D-3 (misión Morpheus)
+- D-1: «ARGOS no verifica» -> «Tipi no verifica» en allergiesEditorHelp (src/domain/emergency/emergency-texts.ts y src/presentation/web/emergency-texts.ts); coincide con el schema; ningún test lo fijaba literal.
+- D-2: it.each CAREGIVER/READER en account-pet-additive-fields-012.api.spec.ts (criticalAllergies sí, phone no). D-3: withoutAnnexFields documenta alcance heurístico (no se acota por operationId).
+- Gates: tsc, verify-oracles, verify-traceability --feature 012 rc=0; 6 archivos vitest, 56 tests verdes. Commit local selectivo (sin H-01).
+
+## 2026-11-28 — H-2 oracle: commit selectivo contratos D-1 Tipi (012)
+- Commit local selectivo de schema emergency-card, annex §2 y legal-texts 010 (3 archivos). Sin push, sin tareas marcadas.
+- Verificado: `grep -c "ARGOS no verifica"` = 0 en los 3 archivos; nada más stageado.
+
+## 2026-11-28 — Lote correcciones auditoría 012 (MEDIA-1, BAJA-2, H-T1678-01/02, B-01, S-1/2/3)
+- Commits locales: f4f9ed1 775716e 72db292 13a5537 6581ea2  (sin push). Hoja A6: display:none al resto + @page sin nombre en mm inyectado (la palabra clave A6 no existe en Chromium: salía Letter); prueba page.pdf = 1 página 105x148 mm.
+- H-T1678-01: no reproducible en servidor real (%2e%2e llega al router y da el 404 público); light-my-request normaliza los puntos antes del router. Prueba por socket real. H-T1678-02: CSP añadida al 404 de frameworkErrors.
+- Pruebas nuevas: emergency-private-authz-012.api.spec.ts (S-1 ADMIN/CAREGIVER/READER, S-2 401/403 x7 rutas, S-3 token viejo 404, B-01 Host forjado). RAMA-01/02, BAJA-3, H-01 no tocados.
+
+## 2026-11-28 — Bloque D de cierre (RAMA-01, RAMA-02, BAJA-1)
+- RAMA-01 (opcion a): emergency-use-cases.ts purga 90 d solo EMERGENCY_*; PET_CRITICAL_ALLERGIES_UPDATED se conserva (730 d, annex §7). Prueba emergency-audit-purge-012 ajustada (olds sin alergias; sembrada una alergia de 100 d que sobrevive).
+- RAMA-02 (opcion A, annex §10): puerto EmergencyCardLifecycle (use-case-support.ts) + EmergencyCardLifecycleHook (emergency-support.ts: switchOffIfOn AUTO_PET_DECEASED, un evento solo si afecto fila, actor = quien marco, deleteByPet siempre). UpdatePetUseCase lo invoca en la misma transaccion solo en transicion a DECEASED. Cableado en server.ts (solo esa linea; H-01 intacto, commit selectivo). 3 pruebas de paridad (memoria+SQLite; PG omitido: sin TEST_DATABASE_URL).
+- BAJA-1: emergency-private-authz-012.api.spec.ts siembra ficha ON antes del bucle S-1 y asevera que sigue ON; CAREGIVER 403 ERR-ACC-FORBIDDEN en PUT critical-allergies.
+- Contratos Bloque D (annex, openapi emergency, spec.md, data-model, tasks.md) a commit; Bloque E (share-link, README, error-catalog, src/generated/v38) EXCLUIDO.
+
+## 2026-11-28 — Keymaker: commit local firma Neo T1678/T1683 [x] en 012/tasks.md (3dffe50); 66 [x] / 27 [ ]; solo tasks.md, sin push. Despacho de Morpheus.
+
+## 2026-11-28 — Keymaker: Bloque E (#81) post-firma ENM-005-E 0.2.2: bump 005, T1692, T1693 rojas, T1694 rojas (commits locales, sin push)
+- Commit 13bf24f (docs 012: firma ENM-005-E, tasks 68 [x] / 25 [ ]); f762228 (bump MINOR de 005: share-link 1.3.0, clinical-summary 1.2.0, openapi 3.6.0 + src/generated/v33 recompilado, change_note con el cambio de semantica de activeCount); 1c31b22 (SPA: ShareScopeName admite PETS, tsc verde).
+- d7fd810 T1692: migraciones SQLite 0042 (reconstruccion de share_links con CHECK PETS + share_link_pets sin position) y PostgreSQL 0038 (DO que localiza el CHECK combinado por definicion, scope_check y scope_shape_check NOT VALID + VALIDATE). Paridad y listas de migraciones actualizadas. PG real NO ejecutado (sin TEST_DATABASE_URL).
+- c5956eb T1693 (rojas, 4 specs + fixture + knob petsCreateEnabled en el arnes) y 0c01aa0 T1694 (rojas UI). Contratos supuestos documentados en las cabeceras de tests/fixtures/share-pets-012.ts y t1694-*.spec.ts.
+- Excluido a proposito: emergency-additive-annex.md (Bloque D, no listado), H-01, logos.*, specs/005/tasks.md, claude/* ajenos.
+
+## 2026-11-28 — Keymaker: FASE VERDE Bloque E (#81), T1695/T1696/T1697/T1701/T1702 + limpieza (commits locales, sin push, sin [x] en tasks.md)
+- Commits: 0d92275 T1695 (dominio, puertos, 3 motores, casos de uso, hooks PetsLinkRevocation, rutas, bandera AppConfig.sharePetsCreateEnabled); d0d383f T1696 (PetSubsetSelector + ShareLinks + tolerancia scope); 6e899b3 T1697; a186d92 T1701; 94fdf04 T1702; 9e8a48d limpieza (t1429/t1613/t1517, BAJA-2, BAJA-3).
+- Staging selectivo (H-01 excluido): app-config.ts (3 lineas mias via git apply --cached), server.ts (1 hunk), app.ts NO tocado; origin-verify.ts y origin-verify-guard.spec.ts sin stagear.
+- Defectos de las pruebas rojas corregidos (documentar a /oracle): perfil resumen (`profile.name`), auditTypes sin ACCESS_*, mayusculas con id sin letras, sesiones tras salto de reloj de makeCoOwners, TRANSFER_PRINCIPAL->CHANGE_PRINCIPAL, household.id, filtrado del roll-over de membresias compartidas por referencia (clone en harness), calls<=1 sin uow.write, igualdad de secuencia solo hasta la resolucion, deteccion de checkboxes solo dentro del selector.
+- Gates: tsc rc=0, verify-oracles rc=0, verify-traceability --feature 012 rc=0. PG real no ejecutado (sin TEST_DATABASE_URL).
+
+## 2026-11-28 — Keymaker: lote de corrección tras /oracle (ALTA-1, MEDIA-1, BAJA-1, t1517 P-3), commits locales sin push, sin [x]
+- Commits: 25b5e58 (ALTA-1 aviso previo con confirmación, annex §5.1/§9(q)); 6a8c28c (MEDIA-1 selector con co-poseídas); 61b029d (BAJA-1 precheck de membresía antes de bloquear); 223fdcb (t1517 P-3 por nombre).
+- ALTA-1: pets-link-notice.ts (guardPetsRevocation; sin enlaces ACTIVE no avisa; si la consulta falla no bloquea), PetsRevocationConfirm, ShareApi.listPetPets, cableado en PetAssignments (desasignar), HouseholdsPage (salir/expulsar y degradar rol, solo si el nuevo rol != ADMIN) y CoOwners (pasar el principal y salir de la co-propiedad).
+- MEDIA-1: share-eligible-pets.ts (getOwnership por mascota no propia; ACTIVE = elegible); PetsPage y HouseholdsPage.
+- BAJA-1: listMembershipsOfUsers antes de findOwnershipForUpdate/lockScope; 404 igual. t1517: find por nombre en PG y SQLite (PG real no corrido).
+- Gates: tsc, verify-oracles, verify-traceability --feature 012 rc=0. Un oráculo débil propio (toBeTruthy) detectado y retirado antes del commit.
+
+## 2026-11-28 MEDIA-1 oracle (T1696 transferencia)
+- Rojo->verde: t1696-aviso-transferencia-012.spec.ts (3). PetTransferPanel usa guardPetsRevocation+listPetPets+PetsRevocationConfirm antes del POST ownership-transfer; fail-open.
+- Gates tsc/verify-oracles/traceability 012 rc=0; tests/unit/presentation 1072 verdes. app.ts (T1636 reorden imports/registerCareRoutes) no tocado.
+
+## 2026-11-28 — Directiva Neo (Morpheus): 5 commits de cierre 012
+- Commits locales: tasks.md firmas [x] (76/17), app.ts registerCareRoutes antes de estáticos, logging.tf regex anclada /e/ y /api/emergency/, deploy ARGOS_SHARE_PETS_CREATE_ENABLED=true (cutover único), gobernanza 012.
+- Gates rc=0: tsc, verify-oracles, verify-traceability 012, terraform fmt/validate, vitest terraform-logging y deploy-workflow. test:gate: 609 archivos OK, 8751 tests OK, 0 fallos. Sin push ni apply.

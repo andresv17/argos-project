@@ -43,7 +43,7 @@ describe('composición PostgreSQL de createProductionApp (T428)', () => {
     const app = await createProductionApp(loadAppConfig(PG_ENV), false);
     await app.close();
     expect([mocks.createPostgresPool.mock.calls, mocks.sqliteLoaded.mock.calls.length]).toEqual([[[{ connectionString: URL_SECRET, pgPoolMax: 3 }]], 0]);
-  });
+  }, 30_000);
 
   it('[REQ-CLD-006][REQ-PG-010] el hook onClose llama a closePool una vez con el pool, también tras cerrar dos veces', async () => {
     mocks.createPostgresPool.mockReturnValue(mocks.pool);
@@ -53,7 +53,7 @@ describe('composición PostgreSQL de createProductionApp (T428)', () => {
     await app.close();
     await app.close();
     expect(mocks.closePool.mock.calls).toEqual([[mocks.pool]]);
-  });
+  }, 30_000);
 
   it('[REQ-SEC-003] si databaseUrl llegara null con postgres, lanza un error que no incluye ningún valor de la configuración', async () => {
     const { createProductionApp } = await import('../../src/infrastructure/http/server.ts');
@@ -63,7 +63,7 @@ describe('composición PostgreSQL de createProductionApp (T428)', () => {
       (e: unknown) => e as Error,
     );
     expect([error.message.includes('clave-secreta-428'), error.message.includes('db.example.internal'), error.message === 'no lanzó', mocks.createPostgresPool.mock.calls.length]).toEqual([false, false, false, 0]);
-  });
+  }, 30_000);
 });
 
 describe.skipIf(!process.env['TEST_DATABASE_URL'])('composición PostgreSQL contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', () => {

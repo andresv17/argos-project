@@ -166,3 +166,36 @@ resource "google_secret_manager_secret" "gemini_api_key" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Ficha QR de emergencia (Feature 012, Bloque D, PHONE_HMAC_KEY, T-05; anexo emergency-additive-annex.md §9). Clave HMAC dedicada del
+# teléfono: no es la de sesión ni la de IP. El valor llega por TF_VAR_phone_hmac_key (GitHub Secret) y nunca se escribe aquí.
+# Sin versión habilitada, la ficha no se conecta en la aplicación (fail-closed); deploy-argos.yml la referencia solo si existe.
+resource "google_secret_manager_secret" "phone_hmac_key" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-phone-hmac-key"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "phone_hmac_key" {
+  secret          = google_secret_manager_secret.phone_hmac_key.id
+  secret_data     = var.phone_hmac_key
+  deletion_policy = "ABANDON"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}

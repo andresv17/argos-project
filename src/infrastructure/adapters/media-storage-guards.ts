@@ -11,7 +11,8 @@ export const MIN_SIGNED_URL_TTL_SECONDS = 30;
 export const MAX_SIGNED_URL_TTL_SECONDS = 900;
 const NEUTRAL_FILENAME = /^[A-Za-z0-9]{1,16}\.[a-z0-9]{1,8}$/;
 /** Nombre fijo de la descarga de la escena (REQ-UX8-002, 006 3.5.0): sin nombre de mascota ni de hogar. */
-const DOWNLOAD_FILENAME = /^argos-hogar-\d{4}-\d{2}-\d{2}\.(?:png|jpg|webp)$/;
+/** Descargas como adjunto: la escena del hogar (006) y la evidencia de disputa de chip (012, #23, T1641: `argos-evidencia.<ext>`, nombre neutro sin nada del archivo original). */
+const DOWNLOAD_FILENAME = /^(?:argos-hogar-\d{4}-\d{2}-\d{2}\.(?:png|jpg|webp)|argos-evidencia\.(?:pdf|png|jpg|webp))$/;
 
 export function assertMediaKey(key: string): void {
   if (!isMediaObjectKey(key)) throw new RangeError('Clave de medio no válida.');
@@ -45,6 +46,7 @@ const LIST_PREFIXES: readonly RegExp[] = [
   /^households\/(?:[0-9a-f-]{1,36}(?:\/(?:photo)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
   /^about\/(?:photo(?:\/[0-9a-f-]{0,36})?)?$/,
   /^users\/(?:[0-9a-f-]{1,36}(?:\/(?:avatar)?(?:\/[0-9a-f-]{0,36})?)?)?$/, // ENM-004-MINOR (011, #78): solo `users/<uuid>/avatar/<uuid>`
+  /^claims\/(?:[0-9a-f-]{1,36}(?:\/[0-9a-f-]{0,36})?)?$/, // 012 (#23, T1641): evidencia de disputas de chip `claims/<requestId>/<objectId>`
 ];
 export function assertListPrefix(prefix: string): void {
   if (!LIST_PREFIXES.some((pattern) => pattern.test(prefix))) throw new RangeError('Prefijo de medios no válido.');

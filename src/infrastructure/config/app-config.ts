@@ -98,6 +98,8 @@ export interface AppConfig {
   readonly google?: GoogleOAuthConfig;
   /** Administración de plataforma (feature 009, T1227, REQ-ADM9-003): lista cerrada de correos normalizados (minúsculas); vacía = nadie entra (falla cerrado). */
   readonly adminEmails: readonly string[];
+  /** Fase 2 del despliegue de `ENM-005-E` (feature 012, Bloque E): `ARGOS_SHARE_PETS_CREATE_ENABLED`. Solo la cadena exacta `true` (sin `trim`, sensible a mayúsculas) enciende la creación del alcance `PETS`; defecto OFF; fijada al arrancar. */
+  readonly sharePetsCreateEnabled: boolean;
 }
 
 /** @implements REQ-SSO8-007, NFR-008-004, INV-ARCH-006 */
@@ -607,6 +609,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     mediaMaxBytesPerOwner: Number(raw.ARGOS_MEDIA_MAX_BYTES_PER_OWNER),
     mediaMaxConcurrentUploads: Number(raw.ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS),
     scene,
+    sharePetsCreateEnabled: env['ARGOS_SHARE_PETS_CREATE_ENABLED'] === 'true',
     adminEmails: adminParsed.ok ? adminParsed.emails : [],
     ...(googleId === undefined || googleSecret === undefined || googleRedirect === undefined
       ? {}

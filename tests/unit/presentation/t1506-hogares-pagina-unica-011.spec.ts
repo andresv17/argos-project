@@ -75,7 +75,7 @@ describe('T1506 compartir sin pregunta inútil (REQ-HOG11-006, REQ-HOG11-005, ED
     expect(markup).toContain('Todo el hogar (3 mascotas)');
   });
 
-  it('[REQ-HOG11-005][EDGE-011-014] el hogar crea el enlace sin selector de subconjunto, con el aviso de alcance dinámico', () => {
+  it('[REQ-HOG11-005][EDGE-011-014] sin `householdPets` (el caso de 011) el hogar crea el enlace sin selector de subconjunto, con el aviso de alcance dinámico; la restricción quedó sin efecto en Hogares por D12-19 (T1702)', () => {
     const markup = share({ hideScopeChoice: true, household: { petCount: 2 }, scope: 'HOUSEHOLD' } as Partial<ShareLinksViewProps>);
     expect(markup).not.toContain('¿Qué quieres compartir?');
     expect(markup).not.toContain('name="scope"');

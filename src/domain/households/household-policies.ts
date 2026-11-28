@@ -15,6 +15,7 @@
  * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, INV-ARCH-004, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016, ERR-HOG11-HOUSEHOLD-LIMIT-REACHED
  */
 
+import { isPrincipalOfPet } from '../access/pet-ownership.ts';
 import {
   DomainError,
   STATE_HOUSE_MEMBERSHIP_001,
@@ -506,7 +507,7 @@ export function householdPets(
   const assignments = access?.assignments ?? pets.map((pet) => ({ petId: pet.id, householdId }));
   return activeMembersInOrder(memberships, householdId).flatMap((member) => {
     const owner = ownerTag(usersById.get(member.userId)!, colors);
-    return sortPetsForListing(pets.filter((p) => p.ownerUserId === member.userId)).map((pet) => {
+    return sortPetsForListing(pets.filter((p) => isPrincipalOfPet(member.userId, p))).map((pet) => {
       const role = effectiveRole({ id: actorUserId }, pet, roleRows, assignments) ?? 'READER';
       return { pet, owner, myRole: role, permissions: petPermissionsFor(role) };
     });
@@ -653,7 +654,7 @@ export function pruneAssignmentsOf(
   householdId: string,
   departingUserId: string,
 ): { assignments: HouseholdAssignmentRow[]; audit: MembershipAuditEntry[] } {
-  const ownedHere = new Set(pets.filter((p) => p.ownerUserId === departingUserId).map((p) => p.id));
+  const ownedHere = new Set(pets.filter((p) => isPrincipalOfPet(departingUserId, p)).map((p) => p.id));
   const removed = assignments.filter((a) => a.householdId === householdId && ownedHere.has(a.petId));
   return {
     assignments: assignments.filter((a) => !removed.includes(a)),

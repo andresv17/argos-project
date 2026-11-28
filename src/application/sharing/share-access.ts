@@ -8,14 +8,31 @@
  */
 import { isOwnerRow, type LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
-import type { ShareScope } from '../../domain/sharing/share-link.ts';
+import { assertNever, type ShareScope } from '../../domain/sharing/share-link.ts';
 import { DomainError } from '../../generated/index.ts';
+import { DomainError as DomainErrorV33 } from '../../generated/v33/index.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { requirePetAction } from '../use-cases/use-case-support.ts';
 
-export type ShareScopeRef = { readonly scope: 'PET'; readonly petId: string } | { readonly scope: 'HOUSEHOLD'; readonly householdId: string };
+export type ShareScopeRef = { readonly scope: 'PET'; readonly petId: string } | { readonly scope: 'HOUSEHOLD'; readonly householdId: string } | { readonly scope: 'PETS'; readonly householdId: string };
 
-export const scopeIdOf = (ref: ShareScopeRef): string => (ref.scope === 'PET' ? ref.petId : ref.householdId);
+/** Alcance desconocido: default-deny uniforme (ENM-005-E §8.2.1); `assertNever` hace fallar la compilación si se añade un alcance sin rama. */
+export function denyUnknownScope(value: never): never {
+  assertNever(value);
+  throw new DomainErrorV33('ERR-SHARE-NOT-FOUND');
+}
+
+export function scopeIdOf(ref: ShareScopeRef): string {
+  switch (ref.scope) {
+    case 'PET':
+      return ref.petId;
+    case 'HOUSEHOLD':
+    case 'PETS':
+      return ref.householdId;
+    default:
+      return denyUnknownScope(ref);
+  }
+}
 
 /** Propietario o ADMIN ACTIVE del hogar según las membresías ya leídas. */
 export function isHouseholdManager(memberships: readonly LegacyHouseholdMember[], householdId: string): boolean {
@@ -44,10 +61,13 @@ export async function requireShareAuthority(repositories: RepositorySet, userId:
     const { pet } = await requirePetAction(repositories, userId, ref.petId, 'CREATE_SHARE_LINK');
     return { pets: [pet], petOwnerUserId: pet.ownerUserId };
   }
+  if (ref.scope !== 'HOUSEHOLD' && ref.scope !== 'PETS') return denyUnknownScope(ref);
   const memberships = await repositories.households.listMembershipsOfUsers([userId]);
   const active = memberships.find((m) => m.householdId === ref.householdId && m.status === 'ACTIVE');
   if (active === undefined) throw new DomainError('ERR-HOUSE-NOT-FOUND', undefined, 'householdId');
   if (!isHouseholdManager(memberships, ref.householdId)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
+  // `PETS`: el rol de hogar basta aquí; el subconjunto lo valida `resolveEligiblePets` (annex §3.2: el 403 depende solo del creador).
+  if (ref.scope === 'PETS') return { pets: [], petOwnerUserId: null };
   const pets = await ownedAssignedPets(repositories, ref.householdId, userId);
   if (requireServedPets && pets.length === 0) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
   return { pets, petOwnerUserId: null };

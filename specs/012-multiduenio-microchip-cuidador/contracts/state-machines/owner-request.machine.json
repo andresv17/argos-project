@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-OWNREQ12-001",
+  "version": "0.1.0",
+  "status": "APPROVED",
+  "supersedes": null,
+  "x-sdd-metadata": {
+    "version": "0.1.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Maquina unica de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo; Neo-P P-09): aprobacion conjunta, reclamacion de co-propiedad y disputa en una sola tabla owner_requests; reemplaza a las previstas STATE-OWNAPR12-001 y STATE-CHIPCLAIM12-001. Dos ramas: no-disputa PENDING -> APPROVED | REJECTED | EXPIRED | CANCELLED; disputa UNDER_REVIEW -> RESOLVED | EXPIRED. P-1 (Neo): una disputa UNDER_REVIEW pasa a EXPIRED a los DISPUTE_MAX_OPEN_DAYS = 60 dias sin resolucion de /admin, sin cooldown y sin cambiar titularidad; el vencimiento no es una decision. El cooldown de 90 dias solo lo activa un REJECT decidido por /admin (no moot_reason ni EXPIRED).",
+    "traceability": [
+      "STATE-OWNREQ12-001",
+      "REQ-OWN12-004",
+      "REQ-OWN12-009",
+      "REQ-OWN12-011",
+      "REQ-CHP12-003",
+      "REQ-CHP12-004",
+      "REQ-CHP12-009",
+      "INV-OWN12-001",
+      "INV-OWN12-006",
+      "INV-CHP12-005",
+      "INV-CHP12-006",
+      "INV-CHP12-009",
+      "EDGE-012-030",
+      "EDGE-012-034",
+      "EDGE-012-037",
+      "EDGE-012-055",
+      "EDGE-012-056",
+      "EDGE-012-057",
+      "EDGE-012-059",
+      "EDGE-012-060",
+      "EDGE-012-061",
+      "SC-012-073",
+      "SC-012-098",
+      "SC-012-103",
+      "SC-012-104"
+    ]
+  },
+  "machines": {
+    "STATE-OWNREQ12-001": {
+      "description": "Estado de una fila de owner_requests. Rama no-disputa (DELETE_PET, TRANSFER_PRINCIPAL, CHANGE_PRINCIPAL, INVITE_CO_OWNER, CLAIM_CO_OWNERSHIP) y rama disputa (CHIP_DISPUTE: CHIP_APPROPRIATION, CO_OWNER_ABSENT_OR_BLOCKING, PRINCIPAL_ABSENT). Toda transicion de aprobacion, ejecucion, apertura de disputa por ausencia y resolucion toma el bloqueo por mascota y revalida dentro de la transaccion.",
+      "context": {
+        "now": "ClockPort.now(); un solo instante por operacion",
+        "approvalTtl": "OWNER_APPROVAL_TTL_DAYS (7) para acciones criticas; CHIP_CLAIM_TTL_DAYS (14) para CLAIM_CO_OWNERSHIP; vigencia [created_at, expires_at)",
+        "approverSet": "todos los co-propietarios ACTIVE distintos del solicitante al crear; sellado e inmutable; el solicitante no vota; INVITED no vota",
+        "frozen": "congelacion de la disputa: por chip (CHIP_APPROPRIATION) o por pet_id (ausencia); frozen_until = created_at + 30 dias, una prorroga unica de 30 dias, techo 60 dias",
+        "disputeMaxOpenDays": "DISPUTE_MAX_OPEN_DAYS = 60 dias calendario desde la apertura (P-1)",
+        "trigger": "solo disputas por ausencia: ids sellados en trigger_request_ids; >= 2 solicitudes criticas secuenciales (sin DELETE_PET) expiradas por TTL en 60 dias, target en approver_set sin voto ni rechazo, y target sin sesion activa >= 14 dias (ABSENCE_MIN_INACTIVE_DAYS) y desde la primera expirada (N2-R1, P-5, H-09)"
+      },
+      "initialState": "PENDING",
+      "states": {
+        "PENDING": {
+          "label": "Pendiente de votos",
+          "isTerminal": false,
+          "invariant": "Una viva por (pet_id, action) en las acciones criticas; una por (solicitante, chip_hmac) en CLAIM_CO_OWNERSHIP; now >= expires_at se trata como EXPIRED en lectura y en escritura bajo el bloqueo"
+        },
+        "APPROVED": {
+          "label": "Aprobada y ejecutada",
+          "isTerminal": true,
+          "invariant": "Se ejecuta en la MISMA transaccion del ultimo voto; al aprobarse DELETE_PET el resto de solicitudes de esa mascota pasa a CANCELLED; solo una accion critica surte efecto por mascota a la vez"
+        },
+        "REJECTED": {
+          "label": "Rechazada",
+          "isTerminal": true,
+          "invariant": "Por el voto de rechazo de un aprobador (un no explicito es un voto legitimo, nunca ausencia) o por tope superado al ejecutar; en CLAIM_CO_OWNERSHIP activa CHIP_CLAIM_COOLDOWN_DAYS por (solicitante, chip)"
+        },
+        "EXPIRED": {
+          "label": "Vencida u obsoleta; o disputa vencida sin resolver",
+          "isTerminal": true,
+          "invariant": "No-disputa: TTL vencido (sin stale_reason) u obsoleta (stale_reason: ERR-OWN12-STALE) o conjunto de aprobadores vacio (no se autoejecuta). Disputa: DISPUTE_MAX_OPEN_DAYS sin resolucion (P-1), resolution NULL, SIN cooldown, libera reserva del chip y congelacion; no hay efecto automatico. Falla cerrada: nunca ejecuta"
+        },
+        "CANCELLED": {
+          "label": "Cancelada",
+          "isTerminal": true,
+          "invariant": "Por el solicitante, por la salida o supresion de su cuenta, por la aprobacion de DELETE_PET o por la eliminacion de la mascota; se conserva 90 dias para auditoria (lock R-12)"
+        },
+        "UNDER_REVIEW": {
+          "label": "Disputa en revision de /admin",
+          "isTerminal": false,
+          "invariant": "CHIP_DISPUTE; no se transfiere nada automaticamente; el temporizador de 72 h solo ejecuta una decision humana ya registrada y es cancelable (vuelve a UNDER_REVIEW); con la mascota inexistente el unico desenlace es REJECT (moot PET_GONE); SLA de 15 dias habiles escala a SUPER_ADMIN sin cambiar de estado"
+        },
+        "RESOLVED": {
+          "label": "Disputa resuelta",
+          "isTerminal": true,
+          "invariant": "resolution en REJECT, ADD_CO_OWNER, REQUEST_CHANGE_PRINCIPAL, END_CO_OWNERSHIP; moot_reason solo con REJECT sin efecto; target_response se borra; retencion desde resolved_at (365 dias apropiacion con evidencia, 90 dias ausencia; P-2)"
+        }
+      },
+      "transitions": [
+        {
+          "from": "(ninguno)",
+          "to": "PENDING",
+          "event": "CREATE",
+          "guard": "solicitante co-propietario ACTIVE (o principal) de la mascota; con mas de un propietario ACTIVE; sin otra viva por (pet_id, action); sin congelacion; version de la mascota y approver_set sellados; con un unico propietario ACTIVE no se crea fila y la accion se ejecuta como hoy (REQ-OWN12-004 j); terceros reciben 404 uniforme",
+          "requirementRef": "REQ-OWN12-004, INV-OWN12-001, INV-OWN12-004"
+        },
+        {
+          "from": "PENDING",
+          "to": "PENDING",
+          "event": "VOTE_APPROVE",
+          "guard": "aprobador del conjunto sellado; now < expires_at (frontera [created_at, expires_at)); voto ligado a (request_id, version, action, target_user_id); aun faltan votos; sin ejecucion",
+          "requirementRef": "REQ-OWN12-004, SC-012-103"
+        },
+        {
+          "from": "PENDING",
+          "to": "APPROVED",
+          "event": "VOTE_APPROVE",
+          "guard": "ultimo voto necesario: todos los co-propietarios ACTIVE distintos del solicitante votaron APPROVE; revalida bajo el bloqueo por mascota (REQ-OWN12-011) con revalidacion dentro de la transaccion: principal, ownership_version, tope, ausencia de congelacion y que sigue siendo la unica accion critica en curso; ejecuta y sube ownership_version; si algo cambio pasa a EXPIRED con ERR-OWN12-STALE y no ejecuta",
+          "requirementRef": "REQ-OWN12-004, REQ-OWN12-011, NFR-012-008, EDGE-012-030"
+        },
+        {
+          "from": "PENDING",
+          "to": "REJECTED",
+          "event": "VOTE_REJECT",
+          "guard": "aprobador; el voto de rechazo termina la solicitud; deja rejected_by (SET NULL + seudonimo al borrar la cuenta)",
+          "requirementRef": "REQ-OWN12-004, REQ-CHP12-003"
+        },
+        {
+          "from": "PENDING",
+          "to": "REJECTED",
+          "event": "LIMIT_REACHED",
+          "guard": "al ejecutar, el tope MAX_CO_OWNERS_PER_PET ya se supero: estado terminal con ERR-OWN12-CO-OWNER-LIMIT, nunca PENDING colgada",
+          "requirementRef": "REQ-OWN12-003, EDGE-012-035"
+        },
+        {
+          "from": "PENDING",
+          "to": "EXPIRED",
+          "event": "EXPIRE",
+          "guard": "now >= expires_at (TTL de 7 o 14 dias); perezosa, materializada antes de contar el disparador de ausencia; libera la solicitud viva por accion",
+          "requirementRef": "REQ-OWN12-004, SC-012-103"
+        },
+        {
+          "from": "PENDING",
+          "to": "EXPIRED",
+          "event": "STALE",
+          "guard": "cambio de ownership_version, del principal o del conjunto de aprobadores entre la creacion y el voto o la ejecucion; conjunto vacio (no se autoejecuta); stale_reason relleno; el detalle no revela quien entro o salio",
+          "requirementRef": "REQ-OWN12-004, EDGE-012-007, SC-012-073"
+        },
+        {
+          "from": "PENDING",
+          "to": "CANCELLED",
+          "event": "CANCEL",
+          "guard": "solicitante; o LEAVE/ERASE_ACCOUNT del solicitante; o aprobacion de DELETE_PET; o eliminacion de la mascota",
+          "requirementRef": "REQ-OWN12-004, REQ-OWN12-006, EDGE-012-033, EDGE-012-034"
+        },
+        {
+          "from": "(ninguno)",
+          "to": "UNDER_REVIEW",
+          "event": "OPEN_DISPUTE",
+          "guard": "CHIP_APPROPRIATION: solicitante que no es principal ni co-propietario INVITED/ACTIVE de una mascota con ese chip, con chip registrado o reservado, evidencia documental, limites (1 por ancla, 3 simultaneas) y cooldown superados; chip sin mascota ni reserva o precondicion fallida: 202 uniforme sin fila. Ausencia: co-propietario ACTIVE con disparador cumplido sellado (>= 2 solicitudes criticas secuenciales sin DELETE_PET expiradas por TTL en 60 dias, target en approver_set sin voto ni rechazo, y target sin sesion activa >= 14 dias y desde la primera expirada; P-5, H-09), target no principal en CO_OWNER_ABSENT_OR_BLOCKING o principal en PRINCIPAL_ABSENT (P-3, solo con expediente completo ante /admin); ancla (pet_id, target_user_id) unica; apertura bajo el bloqueo por mascota; congelacion y SLA fijados",
+          "requirementRef": "REQ-CHP12-004, REQ-OWN12-009, REQ-OWN12-011, N2-R1, N2-R5, P-3, P-5"
+        },
+        {
+          "from": "UNDER_REVIEW",
+          "to": "UNDER_REVIEW",
+          "event": "EXTEND_FREEZE",
+          "guard": "/admin con motivo auditado; una sola prorroga de 30 dias (DISPUTE_FREEZE_MAX_EXTENSIONS = 1); techo de 60 dias calendario desde la apertura; el caso sigue UNDER_REVIEW aunque la congelacion haya caducado",
+          "requirementRef": "REQ-CHP12-004, N2-R5, SC-012-098"
+        },
+        {
+          "from": "UNDER_REVIEW",
+          "to": "UNDER_REVIEW",
+          "event": "CANCEL_SCHEDULED_EXECUTION",
+          "guard": "el arbitro principal cancela la ventana de 72 h; el caso vuelve a UNDER_REVIEW con motivo auditado",
+          "requirementRef": "REQ-CHP12-009, EDGE-012-060, SC-012-104"
+        },
+        {
+          "from": "UNDER_REVIEW",
+          "to": "RESOLVED",
+          "event": "RESOLVE",
+          "guard": "arbitro SUPER_ADMIN u OPERATOR que no es parte (ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT); desenlace cerrado: REJECT (activa cooldown de 90 dias), ADD_CO_OWNER(claimant), REQUEST_CHANGE_PRINCIPAL (CHIP_APPROPRIATION y PRINCIPAL_ABSENT: el principal ausente pasa a co-propietario ACTIVE y otro co-propietario ACTIVE hereda el principal), END_CO_OWNERSHIP(target) (solo CO_OWNER_ABSENT_OR_BLOCKING); todo cambio de titularidad exige dos administradores distintos o ventana de 72 h; revalidacion bajo el bloqueo antes de ejecutar; motivo obligatorio y auditado",
+          "requirementRef": "REQ-CHP12-009, REQ-OWN12-009, INV-CHP12-006, INV-OWN12-002"
+        },
+        {
+          "from": "UNDER_REVIEW",
+          "to": "RESOLVED",
+          "event": "CLOSE_MOOT",
+          "guard": "cierre sin efecto con resolution = REJECT y moot_reason (TARGET_LEFT, TARGET_NOT_ACTIVE, REQUESTER_NOT_ACTIVE, TRIGGER_LOST, PET_GONE): el target sale, deja de ser ACTIVE, el solicitante deja de serlo, las solicitudes selladas dejan de ser EXPIRED sin voto del target (el paso del tiempo no cuenta) o la mascota ya no existe; NO activa el cooldown de 90 dias; libera la reserva del chip",
+          "requirementRef": "REQ-OWN12-009, REQ-CHP12-004, EDGE-012-056, EDGE-012-057"
+        },
+        {
+          "from": "UNDER_REVIEW",
+          "to": "EXPIRED",
+          "event": "EXPIRE_DISPUTE",
+          "guard": "now >= created_at + DISPUTE_MAX_OPEN_DAYS (60 dias calendario) sin resolucion de /admin (P-1, Neo 2026-11-26); perezosa y en el mantenimiento; resolution NULL; SIN cooldown para el solicitante; libera reserva del chip y congelacion; no cambia titularidad ni co-propiedad; auditoria y aviso en la aplicacion al solicitante y a los propietarios sin identidad del reclamante; la retencion cuenta desde este estado terminal",
+          "requirementRef": "REQ-CHP12-004, INV-CHP12-006, INV-CHP12-009, SC-012-098, P-1"
+        }
+      ]
+    }
+  }
+}

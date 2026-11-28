@@ -24,12 +24,14 @@ import { DomainError as DomainErrorV35 } from '../../../generated/v35/index.ts';
 import { DomainError as DomainErrorV36 } from '../../../generated/v36/index.ts';
 // El catálogo 1.1.0 de la feature 011 añade los ERR-ADM11-*: séptima clase con el mismo contrato.
 import { DomainError as DomainErrorV37 } from '../../../generated/v37/index.ts';
+// El catálogo de la feature 012 (v38) añade los ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-* y ERR-VET12-*: octava clase con el mismo contrato.
+import { DomainError as DomainErrorV38 } from '../../../generated/v38/index.ts';
 import { MAX_IMPORT_BYTES } from '../../../application/use-cases/backup-use-cases.ts';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json; charset=utf-8';
 export const BACKUP_IMPORT_PATH = '/api/backup/import';
 /** `POST /api/pets/<id>/media`, `PUT /api/pets/<id>/avatar` y `PUT /api/households/<id>/photo` (006) `PUT /api/admin/about/photo` (010) y `PUT /api/account/avatar` (011, #78, Trinity H-1): rutas de cuerpo crudo de medios. */
-const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo|admin\/about\/photo|account\/avatar)$/;
+const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo|admin\/about\/photo|account\/avatar|chip-disputes)$/;
 /** `PUT /api/admin/about` (010, H-ARCH-ACE-413): el JSON de texto que supera el límite de lectura es `ERR-ACE10-BODY-TOO-LARGE` (413), solo en esta ruta. */
 const ABOUT_TEXT_PATH = '/api/admin/about';
 
@@ -45,8 +47,8 @@ function isFastifyRequestError(error: unknown): error is FastifyError {
  * Traduce cualquier error a un DomainError del catálogo.
  * @implements ERR-INTERNAL-UNEXPECTED, ERR-BACKUP-PAYLOAD-TOO-LARGE
  */
-export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 | DomainErrorV37 {
-  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33 || error instanceof DomainErrorV34 || error instanceof DomainErrorV35 || error instanceof DomainErrorV36 || error instanceof DomainErrorV37) return error;
+export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 | DomainErrorV37 | DomainErrorV38 {
+  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33 || error instanceof DomainErrorV34 || error instanceof DomainErrorV35 || error instanceof DomainErrorV36 || error instanceof DomainErrorV37 || error instanceof DomainErrorV38) return error;
   if (isFastifyRequestError(error)) {
     // Medios y avatar (REQ-ARC-001, REQ-AVA-001): el cuerpo que supera el tope de lectura es ERR-MEDIA-TOO-LARGE (413), no un fallo de esquema.
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && MEDIA_UPLOAD_PATH.test(requestPath(request))) return new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
@@ -59,18 +61,24 @@ export function toDomainError(error: unknown, request: FastifyRequest): DomainEr
   return new DomainError('ERR-INTERNAL-UNEXPECTED');
 }
 
-export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 | DomainErrorV37): FastifyReply {
-  return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(error.toProblemDetails(requestPath(request)));
+export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 | DomainErrorV37 | DomainErrorV38): FastifyReply {
+  const problem: Record<string, unknown> = { ...error.toProblemDetails(requestPath(request)) };
+  // 012, REQ-CAR12-009 (`CareLogConflict`): el 409 de doble registro lleva autor visible, hora y estado de la ocurrencia en conflicto (lo fija el caso de uso).
+  const existing = (error as { existing?: unknown }).existing;
+  if (error.code === 'ERR-CAR12-ALREADY-LOGGED' && typeof existing === 'object' && existing !== null) problem['existing'] = existing;
+  return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(problem);
 }
 
 /** @implements ERR-INTERNAL-UNEXPECTED */
 export function registerProblemDetails(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const problem = toDomainError(error, request);
-    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34) && !(error instanceof DomainErrorV35) && !(error instanceof DomainErrorV36 || error instanceof DomainErrorV37)) request.log.error({ err: error }, 'error no previsto');
+    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34) && !(error instanceof DomainErrorV35) && !(error instanceof DomainErrorV36 || error instanceof DomainErrorV37 || error instanceof DomainErrorV38)) request.log.error({ err: error }, 'error no previsto');
     // 429 de la escena (REQ-ESC6-034), de administración y del registro (009): los segundos de espera viajan en `Retry-After`.
     const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
     if ((problem.code === 'ERR-RATE-LIMITED' || problem.code === 'ERR-ADMIN-RATE-LIMITED' || problem.code === 'ERR-ACCOUNT-REGISTRATION-RATE-LIMITED') && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));
+    // 503 reintentable de la 012: `Retry-After` CONSTANTE, idéntico para cualquier chip (REQ-OWN12-011, trinity H-A1).
+    if (problem.code === 'ERR-OWN12-RETRYABLE') reply.header('retry-after', '2');
     // 429 de administración (009, EDGE-009-035): sin caché y sin revelar nada más que el código del catálogo.
     if (problem.code === 'ERR-ADMIN-RATE-LIMITED') reply.header('cache-control', 'no-store');
     return sendProblem(reply, request, problem);

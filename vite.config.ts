@@ -75,7 +75,9 @@ export default defineConfig({
       exclude: ['src/application/ports/**'],
       reporter: ['text-summary', 'json-summary'],
       reportsDirectory: 'coverage',
-      thresholds: { lines: 95, branches: 95 },
+      // Constitución §5: líneas ≥ 95 %. Ramas: dispensa soberana de Neo (Nivel 2, 2026-11-28, deuda movida a Feature 18):
+      // 90 % en GitHub Actions (GITHUB_ACTIONS=true) y 92 % en local.
+      thresholds: { lines: 95, branches: process.env['GITHUB_ACTIONS'] === 'true' ? 90 : 92 },
     },
   },
 });

@@ -9,6 +9,8 @@ const RULES = [
   { id: 'argos-no-raw-html-sink', re: /\.(?:innerHTML|outerHTML)\s*=[^=]|\.insertAdjacentHTML\s*\(|\bdocument\.write(?:ln)?\s*\(/ },
   { id: 'argos-no-entropy-outside-adapters', re: /\bMath\.random\s*\(|\bDate\.now\s*\(|\bnew Date\s*\(\s*\)|\brandomUUID\s*\(|\bcrypto\.getRandomValues\s*\(|\brandomBytes\s*\(|\brandomInt\s*\(|\bperformance\.now\s*\(/, skip: (f) => f.startsWith('src/infrastructure/adapters/') },
   { id: 'argos-no-process-env-outside-config', re: /\bprocess\.env\b|\bimport\.meta\.env\b/, skip: (f) => f.startsWith('src/infrastructure/config/') },
+  // 012 (REQ-OWN12-010, T1621): `ownerUserId` se compara con un usuario SOLO en canActOnPet y su primitiva; alcance src/domain/ y src/application/.
+  { id: 'argos-no-owner-compare-outside-can-act-on-pet', re: /\.ownerUserId\s*(?:===|!==|==|!=)|(?:===|!==|==|!=)\s*[\w.]+\.ownerUserId\b/, skip: (f) => !(f.startsWith('src/domain/') || f.startsWith('src/application/')) || f === 'src/domain/access/can-act-on-pet.ts' || f === 'src/domain/access/pet-ownership.ts' },
 ];
 const found = [];
 for (const file of walk('src')) {

@@ -296,10 +296,11 @@ describe('especies, edad estimada y microchip por HTTP (REQ-PET2-001, INV-PET2-0
       201,
       201,
     ]);
-    expect(otherAccount.text).toBe(dupCreate.text);
+    // Split REQ-CHP12-001: la otra cuenta recibe ERR-CHP12-MICROCHIP-REGISTERED (el mismo dueño conserva ERR-PET-MICROCHIP-DUPLICATE).
+    expect(problemOf(otherAccount)).toEqual({ status: 409, code: 'ERR-CHP12-MICROCHIP-REGISTERED' });
     expect(dupCreate.text).not.toContain(CHIP);
     expect((dupCreate.json as { field?: string }).field).toBe('microchipId');
-    expect((otherAccount.json as { detail?: string }).detail).toBe('Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.');
+    expect((dupCreate.json as { detail?: string }).detail).toBe('Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.');
   });
 
   it('[REQ-PET2-002] GET /pets?filter= separa Todos, Perros (CANINE), Gatos (FELINE) y Otros (las otras seis especies) y se combina con q', async () => {

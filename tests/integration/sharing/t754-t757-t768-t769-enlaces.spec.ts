@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { hashToken } from '../../../src/domain/sharing/share-token.ts';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { ShareScopeRef } from '../../../src/application/sharing/share-access.ts';
+import { TransferPetOwnershipUseCase } from '../../../src/application/use-cases/ownership-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../src/application/use-cases/shared-view-use-cases.ts';
 import { validateCreateShareLinkReplay, validateCreateShareLinkResult, validateShareLinkList, validateSharedSummaryView } from '../../../src/generated/v33/index.ts';
@@ -452,9 +453,9 @@ describe('T755 resolver y resumen público (REQ-VET-002, REQ-VET-006, INV-005-00
       const byAdmin = await created(e, MARIA, PET_REF, 2);
       expect((await summary(e, byOwner.token)).summary.pets).toHaveLength(1);
       expect((await summary(e, byAdmin.token)).summary.pets).toHaveLength(1);
+      // T1616 (ENM-005-A §2.2, B-1): la autoridad ya no se decide con `pet_owner_user_id_at_creation`; la muerte del enlace es la REVOCACIÓN explícita de la transferencia (misma transacción), no una escritura cruda del propietario.
+      await new TransferPetOwnershipUseCase(e.deps).execute(ANDRES, ARGOS.id, { targetUserId: MARIA });
       await e.run(async (r) => {
-        const pet = (await r.pets.findById(ARGOS.id))!;
-        await r.pets.save({ ...pet, ownerUserId: MARIA });
         const andres = (await r.households.listMembershipsOfUsers([ANDRES])).find((m) => m.householdId === HOUSEHOLD_ID)!;
         await r.households.saveMembership({ ...andres, role: 'ADMIN', isHouseholdOwner: false });
       });

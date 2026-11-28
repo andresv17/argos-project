@@ -15,8 +15,10 @@ import type { PlatformParameterRepositoryPort } from '../../application/ports/pl
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
 import { RunSceneGenerationUseCase } from '../../application/use-cases/scene-run-use-case.ts';
 import { SceneLifecycleHooks } from '../../application/use-cases/scene-lifecycle-hooks.ts';
+import { EmergencyCardLifecycleHook } from '../../application/use-cases/emergency-support.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
+import { DeterministicMalwareScannerAdapter } from '../adapters/deterministic-malware-scanner.adapter.ts';
 import { CryptoOneTimeTokenEntropyAdapter } from '../adapters/crypto-one-time-token-entropy.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
 import { HmacAuditPseudonymAdapter } from '../adapters/hmac-audit-pseudonym.adapter.ts';
@@ -27,6 +29,7 @@ import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { ADMIN_GOOGLE_CALLBACK_PATH, DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { DEVELOPMENT_SHARE_IP_HMAC_SECRET, loadShareConfig } from '../config/share-config.ts';
+import { loadEmergencyServicesFromProcess } from '../config/emergency-config.ts';
 import { CryptoTokenGenerator } from '../adapters/crypto-token-generator.adapter.ts';
 import { SharedAccessLimiter } from '../../application/sharing/shared-access-limiter.ts';
 import type { MediaStoragePort } from '../../application/ports/media-storage.port.ts';
@@ -179,6 +182,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const sceneRunner: { current: RunSceneGenerationUseCase | null } = { current: null };
   const runScene = (job: { sceneId: string; attemptId: string }, signal: AbortSignal) => sceneRunner.current!.execute(job, signal);
   const shareSecret = options.shareIpHmacSecret ?? (config.host === '0.0.0.0' ? null : DEVELOPMENT_SHARE_IP_HMAC_SECRET);
+  // 012 (Bloque D, #32): sin `PHONE_HMAC_KEY` la ficha no se compone (null); con ella se validan la clave y `ARGOS_PUBLIC_BASE_URL` y un valor inválido detiene el arranque (EmergencyConfigError).
+  const emergency = loadEmergencyServicesFromProcess(config.publicBaseUrl);
   const deps: ApplicationDeps = {
     uow: persistence.uow,
     clock,
@@ -213,10 +218,14 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
             allowedEmails: config.adminEmails,
           },
         }),
+    // 012 (T1636, REQ-CHP12-008): antimalware de la evidencia de disputa. En desarrollo y CI (driver de medios en memoria) el adaptador determinista; en producción el puerto queda SIN adaptador
+    // hasta aprovisionar ClamAV (condición bloqueante de release) y la apertura de disputas falla cerrado con 503 (ERR-OWN12-RETRYABLE).
+    ...(config.mediaDriver === 'memory' ? { malwareScanner: new DeterministicMalwareScannerAdapter() } : {}),
+    ...(emergency === null ? {} : { emergency, emergencyLifecycle: new EmergencyCardLifecycleHook(() => deps) }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
     ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider, selectionSource: { repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) } }) }),
-    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
+    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter(), petsCreateEnabled: config.sharePetsCreateEnabled } }),
     ...(mediaStorage === null
       ? {}
       : {

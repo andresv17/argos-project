@@ -32,7 +32,7 @@ describe('registro por HTTP (src/infrastructure/http/routes/auth.routes.ts)', ()
     const view = r.json as { user: Record<string, unknown> };
     expect([r.status, r.setCookie]).toEqual([200, 'argos_session=token-0001; Max-Age=86400; Path=/; HttpOnly; SameSite=Strict']);
     expect(r.json).toEqual({
-      user: { id: view.user['id'], username: 'nueva.usuaria', displayName: 'Nueva', createdAt: REFERENCE_NOW, email: null, preferredLanguage: 'es', timezone: 'America/Bogota' },
+      user: { id: view.user['id'], username: 'nueva.usuaria', displayName: 'Nueva', createdAt: REFERENCE_NOW, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', phone: null },
       createdAt: REFERENCE_NOW,
       lastActivityAt: REFERENCE_NOW,
       idleExpiresAt: instant(30 * MINUTE),

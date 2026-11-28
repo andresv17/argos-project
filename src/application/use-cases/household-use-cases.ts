@@ -55,7 +55,9 @@ import { ipLimitKey } from '../../domain/sharing/ip-limit-key.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import type { InviteeSearchLimiterPort } from '../ports/invitee-search-limiter.port.ts';
 import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
 import { recordAssignmentRemoved, recordAudit } from './audit-support.ts';
+import { runOwnershipTransaction } from './co-ownership-support.ts';
 import { keepsCard, petListFilterOf, type PetListQuery } from './pet-use-cases.ts';
 import {
   assertMatchesSchema,
@@ -314,7 +316,12 @@ async function saveChangedRows(repositories: RepositorySet, before: readonly Leg
 }
 
 async function endMembership(deps: ApplicationDeps, actorUserId: string, householdId: string, targetUserId: string): Promise<204> {
-  return deps.uow.runInTransaction(async (repositories) => {
+  return runOwnershipTransaction(deps, async (repositories) => {
+    // ENM-005-E §6: si la baja también retira asignaciones, primero los bloqueos de mascota (`pet_id ASC`) y después el candado del hogar (lo toma el disparador de la fila 3).
+    const targetPetIds = new Set((await repositories.pets.listByOwners([targetUserId])).map((p) => p.id));
+    for (const assignment of [...(await repositories.assignments.listByHousehold(householdId))].sort((a, b) => (a.petId < b.petId ? -1 : 1))) {
+      if (targetPetIds.has(assignment.petId)) await repositories.pets.findOwnershipForUpdate(assignment.petId);
+    }
     const memberships = await repositories.households.listMemberships(householdId);
     if (actorUserId !== targetUserId && !memberships.some((m) => m.householdId === householdId && m.userId === targetUserId && m.status === 'ACTIVE')) {
       // Sin membresía ACTIVE del destino, la baja puede ser la cancelación de su invitación (vive en household_invitations).
@@ -352,9 +359,13 @@ async function endMembership(deps: ApplicationDeps, actorUserId: string, househo
     for (const assignment of assignments) {
       if (kept.has(assignment.petId)) continue;
       await repositories.assignments.remove(assignment.petId, householdId);
+      // ENM-005-E §5.1 fila 1: la mascota deja de estar asignada al hogar; se revocan los `PETS` que la contienen y se borra su fila.
+      await PetsLinkRevocation.revokeForPetLeftHousehold(deps, repositories, { petId: assignment.petId, householdId, actorUserId, now: deps.clock.nowIsoTimestamp() });
       // Excepción de REQ-AUD-001: cada asignación podada genera su propia fila UNASSIGN.
       await recordAssignmentRemoved(deps, repositories, actorUserId, assignment);
     }
+    // ENM-005-E §5.1 fila 3 (EDGE-012-075): quien deja de ser propietario o ADMIN ACTIVE del hogar pierde sus `PETS` (candado del hogar, sin bloqueos de mascota).
+    await PetsLinkRevocation.revokeForCreatorsWithoutHouseholdRole(deps, repositories, { householdId, actorUserId, now: deps.clock.nowIsoTimestamp() });
     return 204 as const;
   });
 }
@@ -372,6 +383,8 @@ export class ChangeMemberRoleUseCase {
       const memberships = await repositories.households.listMemberships(householdId);
       const out = changeMemberRole(memberships, householdId, actorUserId, input.userId, input.role, this.deps.clock.nowIsoTimestamp());
       await saveChangedRows(repositories, memberships, out.memberships);
+      // ENM-005-E §5.1 fila 3 (EDGE-012-021): la degradación revoca los `PETS` activos del hogar creados por quien deja de ser ADMIN.
+      await PetsLinkRevocation.revokeForCreatorsWithoutHouseholdRole(this.deps, repositories, { householdId, actorUserId, now: this.deps.clock.nowIsoTimestamp() });
       const row = out.memberships.find((m) => m.userId === input.userId && m.status === 'ACTIVE')!;
       const previous = memberships.find((m) => m.membershipId === row.membershipId)!;
       await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'ROLE_CHANGE', entityType: 'HOUSEHOLD_MEMBERSHIP', entityId: row.membershipId, previous, next: row });
@@ -396,6 +409,7 @@ export class TransferHouseholdOwnershipUseCase {
       const out = transferHouseholdOwnership(memberships, householdId, actorUserId, targetUserId, this.deps.clock.nowIsoTimestamp());
       await saveChangedRows(repositories, memberships, out.memberships);
       await repositories.households.updateOwner(householdId, out.household.ownerUserId);
+      await PetsLinkRevocation.revokeForCreatorsWithoutHouseholdRole(this.deps, repositories, { householdId, actorUserId, now: this.deps.clock.nowIsoTimestamp() }); // el anterior propietario queda ADMIN: conserva sus enlaces (solo revoca quien perdió el rol)
       const previousHousehold = (await repositories.households.findById(householdId))!;
       const household = { ...previousHousehold, ownerUserId: out.household.ownerUserId };
       await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'HOUSEHOLD', entityId: householdId, previous: previousHousehold, next: household });

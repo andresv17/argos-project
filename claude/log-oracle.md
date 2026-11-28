@@ -516,3 +516,635 @@ PASS CON OBS. Traza 241/241 rc0, oraculos 0 debiles, tsc 0, test:gate PG17 rc0 (
 
 ## 2026-11-20 Oracle: Fase 14 cierre final (006)
 - Revalide en disco: gate PG17 rc 0 (5289 pasan), tsc 0, traza CUMPLE, oraculos 0 debiles, scan 0; T885 sigue [ ]. Veredicto PASS CON OBS (H-CF-1 decision Neo). Acta .specify/memory/audits/oracle-006-fase14-cierre-final.md.
+
+## 2026-11-19 | Auditoria forense 007 Bloque C + semilla (e0764a9, b1e5ab4, 83c2f5d, 351bf9a) en worktree argos-007
+- Contratos/generated: src/generated recompilado con compile-contracts (002/004/005/006) y diff -r IDENTICO; contracts/** solo en e0764a9; tasks.md 007 sin [x] nuevos (5 antes, 5 despues); sin APPROVED/LOCKED.
+- Gates: tsc 0; vitest unit+integration+security rc0, 332 archivos pasan/3 omitidos, 5212 pasan/203 omitidas/0 rojas (PG sin motor: SQL Postgres 0010 y upsert $12 NO ejercitados); oraculos 395/0 debiles; traza 007 FALLA 31/53 (22 FAIL; REQ-FAL7-004..008 solo con ID en describe, no en it).
+- Decisiones del Keymaker verificadas en codigo (version solo columna, auditPetView sin version, export 3.2.0, import version+1, lockPet 1a operacion). Trailer Co-Authored-By dice "Claude Haiku 5.5" en los 4 commits. Veredicto: PASS CON OBS x4. Sin commit, sin [x].
+
+## 2026-11-19 | Auditoria acotada c308614 (007, worktree argos-007): IDs REQ-FAL7 en titulos + no-retroceso de version
+- Solo 4 tests/unit/*.spec.ts; sin diff en src/, contracts/, src/generated/ ni tasks.md. Titulos de it() con solo prefijo de texto; 0 aserciones tocadas. Prueba nueva con oraculos reales (7->8, version==prior+1, no-retroceso). Mapeo REQ-FAL7-008 valido (WRITE_PET: 403/404).
+- Gates: tsc 0; vitest 4 archivos 114 pasan; oraculos 395/0 debiles; traza 007 FALLA 36/53 (17 FAIL, antes 31/53). Trailer sigue "Claude Haiku 5.5".
+- Veredicto PASS CON OBS. Sin commit ni [x].
+
+## 2026-11-19 | Auditoria forense 007 lote ab8aa2c..6e7f0a3 (7 commits, worktree argos-007, HEAD 6e7f0a3)
+- Alcance: 28 archivos src/ y tests/; sin diff en contracts/**, src/generated/** ni specs/**/tasks.md (los 3 archivos tests/integration/contracts/* son pruebas). Autor Andres Vallejo; trailer sigue "Claude Haiku 5.5" en los 7.
+- Oraculos nuevos (t1022 x2, t1026, t1027, E2E T1029) con aserciones de valor exacto; sin vacias. t778 relajado de igualdad exacta a MAJOR + const summaryVersion del esquema: justificado (MINOR 1.1.0 aditiva), obs: ya no detecta deriva MINOR. Correcciones E2E (deceasedAt '' al pasar a ALIVE, confirmed.current en onFormSubmit) presentes en PetForm.tsx:153/166-170.
+- Gates: tsc 0; vitest unit+integration+security con PG17 55432 rc0 (339 archivos, 5442 pasan, 1 omitida); oraculos 400/0 debiles; traza 007 FALLA 47/53 (6 FAIL: ESC7-003..006, FEC7-006, REG7-003); Playwright estado-vida-007 7/7.
+- Veredicto: PASS CON OBS x7 (sin FAIL). Sin commit, sin [x].
+
+## 2026-11-19 | Auditoria acotada f070ba2 (007, worktree argos-007): segmentos de fecha a 320 px + formato ISO nacimiento
+- Alcance exacto: DateField.tsx, PetCards.tsx, PetDashboard.tsx y fecha-segmentos-007.spec.ts; sin diff en contracts/**, src/generated/**, tasks.md. DateField: solo clases (grow/max-w/basis-0/min-w-0); logica, fieldset/legend, min-h-12 y ring-2 intactos. PetDashboard usa formatIsoDateEs (existe en view-model.ts:220); PetCards solo whitespace-nowrap.
+- Gates: tsc 0; vitest tests/unit/presentation 53 archivos/556 pasan; Playwright chromium fecha-segmentos-007 9/9 (nueva prueba 320 px pasa); oraculos 400/0 debiles.
+- OBS: no se re-ejecuto el stash; no se comprobo que la prueba nueva falle sin el arreglo (anchos viejos suman 240 px, podrian caber en el contenedor del formulario de peso); trailer sigue "Claude Haiku 5.5". Veredicto PASS CON OBS. Sin commit ni [x].
+
+## 2026-11-19 | Auditoria forense 007 lote de cierre a63e285..94e0865 (7 commits, worktree argos-007, HEAD 94e0865)
+- Alcance: 46 archivos; sin diff en contracts/**, src/generated/** ni [x] en tasks.md. Autor Andres Vallejo; trailer sigue "Claude Haiku 5.5" en los 7.
+- Migraciones 0015/0011: CHECK IN (0,1), NOT NULL DEFAULT 0, paridad (PG con NOT VALID+VALIDATE); sin UPDATE sobre include_deceased_at. Gate deceasedAt solo con includeDeceasedAt===true && DECEASED; sameCreation incluye el flag (422 probado t1026:105). EXCLUDED_BY_DECISION solo feature 007 con motivo (REG7-003, FEC7-006); ESC7-003..006 NO excluidos (siguen FAIL).
+- Gates: tsc 0; vitest unit+integration+security con PG17 55432: 344 archivos, 5474 pasan, 1 omitida, 0 rojas; oraculos 405/0 debiles; traza 007 FALLA 47/51 (solo ESC7-003..006); verify-ci-ready LISTO rc0 (semgrep ausente: estatico).
+- Veredicto PASS CON OBS x7. Sin commit ni [x].
+
+## 2026-11-20 Oracle: T1077 auditoria Bloque G (19af111, 4b2f206)
+- PASS / PASS CON OBS; tsc 0, vitest 5319 ok, oraculos 0 debiles, traza 51/51. Acta .specify/memory/audits/oracle-t1077-bloque-g.md. OBS: tasks.md del worktree con cambios sin commit.
+
+## 2026-11-20 Oracle: auditoria lote Architect 008 (c8e59e7, 86fad83, cebdf9f)
+- c8e59e7 solo constitution.md; 86fad83 solo contratos 002/004/006 + src/generated; cebdf9f sin src/tests. Constitucion 3.8.0 coherente (jose 6.2.17 solo google-oidc-verify.ts; argos_oauth Lax 900 s; argos_session Strict); sin APPROVED/LOCKED.
+- compile 002/004/005/006 rc 0, sin deriva en src; oraculos 412/0 debiles; tsc 0. 0 [x]; 64 abiertas + 36 diferidas sin casilla. Sin /api/admin ni PENDING. Veredicto PASS CON OBS x3. Acta .specify/memory/audits/oracle-008-contratos.md. Sin commit.
+
+## 2026-11-20 Oracle: auditoria 008 rebanada 1 (82127e2, 30af1b8, c4a8c98)
+- PASS CON OBS / PASS / PASS CON OBS. vitest 76 archivos 1185 ok, tsc 0, oraculos 0 debiles, traza 002 124/124, 008 38/87 (esperado; UX8-002 trazado). Acta .specify/memory/audits/oracle-008-rebanada1.md. Sin commit ni [x].
+- 2026-11-20 Oracle: acta d48524f T1168 servidor PASS CON OBS (190 ok, tsc 0, oraculos 0 debiles). .specify/memory/audits/oracle-008-d48524f.md
+
+## 2026-11-20 oracle 008 bloques K e I
+Veredicto PASS CON OBS (238a89b, 52c0065). 57 passed/1 skipped en suites propias, tsc rc 0, verify-oracles CUMPLE, trazabilidad ROL8/BIO8 OK. Acta en .specify/memory/audits/oracle-008-bloques-K-I.md. Pendiente Caso B: ayuda del Administrador.
+
+## 2026-11-21 Oracle: auditoria 008 Bloque J (3bf26bd, 548ecb7)
+- 3bf26bd PASS (contador por puntos de codigo, borde 280/281 emojis). 548ecb7 PASS CON OBS x6 (H-J-1..6: 422/403 sin espia de lecturas, PG real no ejercitado, IP solo en unidad, limiter por instancia, UI obsoleta 300 ms).
+- Gates propios: tsc 0; oraculos 426/0 debiles; traza 008 52/87 con pureza 0; vitest 7 archivos 69 ok. Acta .specify/memory/audits/oracle-008-bloque-J.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: auditoria parche Bloque J (b0d5a88, 4e0108e)
+- b0d5a88 PASS (6 mutaciones M1..M6b en copia scratchpad, todas detectadas; cierra H-J-1, H-J-3, H-J-4). 4e0108e PASS CON OBS (OBS-3..6: sin 202 explicito, esperas 600/400 ms, solo Chromium y 4 de los casos de T1192). Deuda H-K-1 debounce documentada, sin arreglar.
+- Gates: tsc 0; t1188 api 11/11; Playwright chromium 4/4 (3200/5273 libres); oraculos 427/0 debiles; traza 008 52/87 pureza 0. Acta .specify/memory/audits/oracle-008-bloque-J-parche.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: auditoria d320b1d (T1192 sin coincidencias y limite de tasa)
+- Solo tests/e2e/visual/invitee-autocomplete-008.spec.ts; playwright.config.ts fuera del commit. tsc 0; Playwright chromium 6/6; oraculos 427/0 debiles. Cupo agotado por bucle hasta 429 (no depende del orden); aviso visible y status verificados por separado; sin esperas nuevas.
+- Veredicto PASS CON OBS (H-T1192-1..4: locators por clase, status vacio en sin-coincidencias, 'lim' sin conteo, Firefox/WebKit no instalados -> pendiente de Neo). OBS-6 cerrado en Chromium. Acta .specify/memory/audits/oracle-008-T1192-d320b1d.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: auditoria b3922ba (H-T1192-2 status sin coincidencias)
+- PASS CON OBS: InviteeCombobox.tsx:99 anuncia D8-11, `<p>` visible sin role; rate-limited/failed intactos. Mutacion en scratchpad cae 1/8 solo la prueba nueva. tsc 0; t1191 8/8; Playwright chromium 6/6; oraculos 427/0 debiles.
+- OBS: log-keymaker +71 lineas de entradas 007 mezcladas en commit de codigo (no viola reglas). Acta .specify/memory/audits/oracle-008-b3922ba.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: auditoria 200d9ac (T1192 multi-navegador + PG17)
+- 200d9ac PASS: prefijos por proyecto y espera por condicion no aflojan oraculos; cubeta U:/I: del limiter coincide con su doc. E2E reproducido 18/18 (Chromium, Firefox, WebKit 6/6). tsc 0; oraculos 427/0 debiles.
+- part1 usa cliente doble, no PG real. postgres-repositories.spec.ts con PG real: caso de prefijo pasa, pero 28/41 rojas por BASELINE sin 0012 (biography) en spec:20 (origen 52c0065). H-J-2 NO cerrado. playwright.config.ts sin commitear.
+- Veredicto PASS CON OBS; T1192 a REVIEW en 3 navegadores. Acta .specify/memory/audits/oracle-008-200d9ac.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: re-auditoria H-J-2 (ef8ca23, 6965d52)
+- PASS CON OBS. Helper lee las 12 migraciones en orden; PG_SHARE_SQL retirado sin perder cobertura (0007/0008/0011 dentro del esquema completo); 0 skip nuevos.
+- Con PG real persistence+sharing 836 ok/1 skip/0 rojas (postgres-repositories 41/41); sin variable 645 ok/192 skip/0 rojas; tsc 0; oraculos 428/0 debiles.
+- H-J-2 CERRADO. OBS: listas manuales sin 0012 en t834:385-389 y t862:184-188 (latentes). Acta .specify/memory/audits/oracle-008-H-J-2-reauditoria.md. Sin commit ni [x].
+
+## 2026-11-21 Oracle: validacion forense T1193 (actas Trinity, Rama, Sentinels + prueba t1193)
+- Trinity PASS CON OBS, Rama PASS (H-RAMA-008-J-01 ALTO CONFIRMADO: terraform/logging.tf:6-10 solo excluye /shared/, sin /invitees), Sentinels PASS CON OBS. Citas archivo:linea reales (solo rutas abreviadas y deriva de 1 linea).
+- Prueba t1193 11/11, tests/security 424/424, tsc 0, oraculos 429/0 debiles, traza 113/113. src/ y terraform/ sin cambios.
+- H-ORA-T1193-1 MEDIO: test XSS en username vacio (sin usuarios 'pedro' en createApi por defecto); -2 aserciones not.toBe(200)/[200,422]; -3 POST de fixture. T1193 no cerrable hasta mitigar H-RAMA-008-J-01. Acta .specify/memory/audits/oracle-008-T1193.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria c2d1b48 (T1193 sentinels con datos sembrados)
+- H-ORA-T1193-1 y -2 CERRADOS: createApi(stateWith(EXTRA)), names.length>0 antes del for, 404 exacto (IDOR x2, INVITED), 200 exacto con items [] en __proto__/constructor/prototype (valido por InviteeSearchPrefix 680-686 y household-use-cases.ts:226; aserto aceptable).
+- t1193 11/11; tests/security 424/424; tsc 0; oraculos 429/0 debiles. OBS BAJO H-ORA-T1193-5 (CSRF/brute solo comparan status). PASS CON OBS. Acta .specify/memory/audits/oracle-008-c2d1b48.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria 441a158 (exclusiones _Default J-01/J-02)
+- PASS CON OBS: +24/-0 solo terraform/logging.tf, 2 exclusiones con patron identico a shared_token_requests; ruta real /api/households/:householdId/invitees, filtro "/invitees?q=" coincide (subcadena). fmt -check 0, validate OK (init -backend=false); sin plan/apply.
+- Callback: exclusion de requestUrl no afecta logs de app (sin httpRequest); riesgo BAJO de perdida de estado HTTP de plataforma. Spec NFR-008-004/EDGE-008-044 a reformular (architect). Aplicacion pendiente de Neo.
+- Acta .specify/memory/audits/oracle-008-441a158.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria forense lote A1 008 (877988b..9015ed0, T1112..T1117)
+- PASS CON OBS: H-A1-1 (t1114 solo prueba alg none, no HS256), H-A1-2 (3e29017 arrastra chaos smith-006; causa del rojo de verify-ci-ready), H-A1-3 (aud arreglo sin azp), H-A1-4 (state/nonce/verifier/pending_email en claro 900 s; purga sin planificador). Sin ALTO/MEDIO.
+- Gates: tsc 0; t1112/t1114/t869 57 ok; tests/security 428 ok; oraculos 434/0 debiles; traza 008 57/87 (faltantes de bloques posteriores), pureza 0; PG real persistence 804 ok/1 skip/0 rojas.
+- password_hash NOT NULL vs SC-008-062: conflicto real, dos opciones (sentinela o relajar columna) sin decidir. Acta .specify/memory/audits/oracle-008-lote-A1.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria 020ede2 (T1124 Terraform Google OAuth)
+- PASS CON OBS: secreto sin version/valor/tfvars; secretAccessor solo argos-run sobre el secreto; patron identico a los 3 existentes; variables validadas sin default; fmt/init/validate OK (sin plan/apply).
+- H-ORA-1 MEDIO client id fuera de Secret Manager vs REQ-SSO8-007; H-ORA-2 falta viewer del deployer; H-ORA-3 infraestructura.yml sin TF_VAR_google_oauth_*; H-ORA-4 4 tests rojos (secret-manager:27, iam:36, iam-secrets:39, labels:44; solo cuentan 3 -> 4).
+- Acta .specify/memory/audits/oracle-008-020ede2.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria 679df2a y 9cf93ea (viewer deployer, TF_VAR CI, conteos, HS256)
+- 679df2a PASS CON OBS: viewer identico a los 3 existentes (viewer, solo ese secreto, deployer); 6 pasos con TF_VAR desde secrets, sin literales ni pasos de validacion tocados. H-ORA-2 y H-ORA-3 CERRADOS. OBS: validate-secrets.mjs no cubre GOOGLE_OAUTH_* (falla ruidosa del plan sin mensaje de guia).
+- 9cf93ea PASS: conteos 3->4 son ampliaciones exactas (4 recursos reales); HS256 espera 'SIGNATURE' uniforme. H-ORA-4 y H-A1-1 CERRADOS. vitest 57/57, tsc 0, oraculos 434/0 debiles, fmt/init/validate OK.
+- H-ORA-5 MEDIO: github-bootstrap-docs.spec.ts roja; SECRETOS (:15) y quickstart.md sin los 2 secretos nuevos; terraform/README.md ya modificado sin commitear. Stash: 2 previos (18-20 nov), ninguno de hoy. Acta .specify/memory/audits/oracle-008-679df2a-9cf93ea.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria cadena Bloque A 008 (bf5b4a7..ee8b1ab)
+- PASS CON OBS global. bf5b4a7 (ADR-008-14 real; el mensaje dice 005: H-BA-1 BAJO), ad72062 (H-BA-2 sin prueba del cableado env:/guardia, H-BA-3), c153583 PASS, 3947dfa PASS (sin otras referencias), 891d66d PASS, ee8b1ab PASS CON OBS.
+- Gates: tsc 0; unit 3073/3073; oraculos 433/0 debiles; verify-ci-ready LISTO; terraform validate OK, fmt 0. Sin secretos (solo ejemplo 000000000000-example). H-A1-2 y H-ORA-5 cerrados.
+- Acta .specify/memory/audits/oracle-008-bloqueA-cadena.md. Bloque A apto para REVIEW. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria lote A2-1 008 (59d28fe, 15cb6d8; T1120, T1121)
+- 59d28fe PASS; 15cb6d8 PASS CON OBS. Centinela: dummy con mismos N/r/p (medido real 26.97 ms, centinela 27.81 ms, razon 1.03); tolerancia de prueba 0.4x-3x demasiado amplia (H-A21-1 BAJO).
+- Decision 1 (LINK emite sesion nueva + revokeOthers): conforme con obs; contradice "Set-Cookie solo caso 1" del contrato y no ata a la sesion origen (H-A21-2 MEDIO, architect). Decision 2: 500 declarado en contrato, conforme. Decision 3: constantes, sin cifras en contrato; NAT BAJO.
+- H-A21-5 ALTO fuera de alcance: cuenta Google no puede borrar cuenta (DeleteAccount/ChangePassword exigen contrasena); decision de Neo. H-A21-7 trazabilidad REQ-VIN8-004.
+- Gates: tsc 0; 58/58 lote; security 428; oraculos 0 debiles; PG real 804 ok; traza 59/87 (bloques posteriores). Acta .specify/memory/audits/oracle-008-A2-1.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: revalidacion 99b9cc7 (H-A21-1, H-A21-4 link, H-A21-7)
+- PASS CON OBS: los tres hallazgos cerrados. Razon centinela/real 0.99-1.01 (3 corridas estables); mutantes sin dummy 0.00, N/2 0.489, r=4 0.491 fallan (copias temporales borradas). Unico cambio en src: etiqueta @implements REQ-VIN8-004. Prueba link usa GOOGLE_AUTH_LIMITS.link.maxPerWindow.
+- OBS BAJO: solo 1 de 3 hashes basura se mide en coste (el resto solo false).
+- Gates: tsc 0; lote 53/53; unit 3114; security 428; oraculos 438/0 debiles; traza 61/87 (esperado). Acta .specify/memory/audits/oracle-008-99b9cc7.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria lote vinculacion atada a sesion de origen 008 (0c0823f, 778f033, 341ba6c)
+- 0c0823f PASS; 778f033 PASS CON OBS; 341ba6c PASS CON OBS. Callback LINK exige origen existente/mismo usuario/AUTHENTICATED sin renovar, revokeOthersByTokenHash conserva origen, LINKED sin token ni Set-Cookie; hashSessionToken == sessions.token_hash (SHA-256 hex). CHECKs en dos restricciones, mas estrictos que el dictamen (H-VO-1 BAJO doc).
+- Riesgo 3.5 MEDIO residual aceptado por Neo, documentado en spec/tasks (DEUDA-008-GOOGLE-LINK-2STEP). Aviso de perfil conforme (authMethods ausente = con contrasena); H-VO-2/3/4 BAJOS (SC-008-013 inexistente en tasks T1129/T1134).
+- Gates: tsc 0; unit 3124; security 428; oraculos 439/0 debiles; traza 008 62/88 (VIN8-002/004, INV-VIN8-005 trazados); PG real 807 ok/1 skip/0 rojas. Acta .specify/memory/audits/oracle-008-vinculacion-origen.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria T1122 y T1123 008 (5d79f42, c5583ce, 65e80e6)
+- 5d79f42 PASS; c5583ce PASS CON OBS; 65e80e6 PASS CON OBS. Enlace a /api/auth/google/start sin datos, sin storage, /elige-usuario publica, POST con CSRF, mensajes del catalogo en role=alert; anti-enumeracion conforme a REQ-LOG-002 (ocupado solo con flujo vigente); harness sin red externa, sin esperas arbitrarias.
+- H-T1122-2 MEDIO: el 400 del callback es problem+json por contrato (openapi 004 L148+); JSON crudo en pantalla; requiere decision architect/Neo. H-T1122-3 BAJO: 3 rojas de auth-pet-forms/medios-csp-wcag YA fallaban en e3dc7ca (worktree temporal, borrado); etiqueta quitada por 942fac0 (004 T550), no por c5583ce.
+- Gates: tsc 0; unit 3135; security 428; oraculos 442/0 debiles; traza 62/88; E2E google 21/21 en 3 navegadores (puertos 3800/5873 por 3200 ocupado). Arbol avanzo durante la auditoria (8602971 + cambio sin commit).
+- Acta .specify/memory/audits/oracle-008-T1122-T1123.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria 8602971 y 381dc48 (foco al campo en /elige-usuario, H-T1122-S1)
+- 8602971 PASS CON OBS; 381dc48 PASS CON OBS. Cambio local (solo ChooseUsernamePage.tsx, +8; Field.tsx intacto); contador errorFocus dispara con error de cliente y de servidor (field=username), no con error de flujo; E2E rojo demostrado en worktree temporal (toBeFocused inactive), borrado.
+- H-FOCO-1 BAJO-MEDIO: envio con Enter (foco ya en el input) no re-anuncia el error, sin prueba. H-FOCO-2 BAJO: cuerpo 409 simulado sin invariantRef (requerido por ProblemDetails).
+- Gates: tsc 0; unit 3135; security 428; oraculos 442/0 debiles; E2E google 21/21 en 3 navegadores (puertos 3800/5873; 3200/5273 ocupados). H-T1122-S1 cerrado (flujo de clic).
+- Acta .specify/memory/audits/oracle-008-foco-elige-usuario.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria cdc5baa y 9960495 (auth-pet-forms, 004 T550)
+- cdc5baa PASS; 9960495 PASS. Solo localizadores (+3/-3 lineas), 0 aserciones quitadas, 0 skip/only/todo; DOG_PASTOR_ALEMAN CANINE no deprecated, especie por defecto CANINE, select Raza lee BREEDS. PetForm y medios-csp-wcag intactos.
+- E2E por proyecto 7/7 en chromium, firefox y webkit (3200/5273). En una sola invocacion con 3 proyectos firefox/webkit fallan L40 y L103 por usernames fijos sobre BD compartida (H-AP-1 BAJO, no de los commits). tsc 0; oraculos 442/0 debiles.
+- Acta .specify/memory/audits/oracle-008-auth-pet-forms-004.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria 3cfa52f, 46f6275, bac74a6 (H-FOCO-1/2)
+- 3cfa52f PASS CON OBS; 46f6275 FAIL aislado (3 guardas rojas: presentation-architecture, session-client, ui-invitation-logs; HEAD 22/22 verdes); bac74a6 PASS CON OBS. 0 temporizadores en ChooseUsernamePage.tsx; Field.tsx intacto; 409 con invariantRef INV-AUTH-001 fiel al catalogo.
+- H-FOCO-3 MEDIO-BAJO: vaciado y reposicion en el mismo frame en firefox/webkit (medido); en chromium 14 ms/otro frame; re-anuncio del mismo error no garantizado; patron React valido, tecnica fragil. Prueba E2E no demuestra lectura (H-F-2). H-FOCO-2 cerrado.
+- Gates: tsc 0; unit 3135; security 428; oraculos 442/0 debiles; E2E 24/24 (3800/5873). Prueba roja en 9960495 (worktree borrado). Recomendado squash local 46f6275+bac74a6 (decide Neo). T1122/T1123 aptos para REVIEW.
+- Acta .specify/memory/audits/oracle-008-H-FOCO.md. Sin commit ni [x]; bus central no tocado por orden.
+
+## 2026-11-21 Oracle: auditoria T1125/T1126 008 (3 archivos nuevos sin commit; caracterizacion de T1121 778f033/15cb6d8)
+- PASS CON OBS. 24/24 verdes (t1125 8, t1126 unit 10, t1126 api 6); sin skip/only/todo/any; todos los titulos trazan a INV/REQ/EDGE; oraculos fuertes (toMatchObject de codigo+estado, cuerpos identicos, conteo de identidades, estado del arnes). Son caracterizacion legitima: el SUT ya cumplia (T1121), no hay tautologias.
+- OBS: (1) 401 INV-VIN8-001 compara solo code/status, no cuerpo; (2) coste de SC-008-012 no compara googleCompletions en el caso (c) y 'coste' = solo llamadas al hasher; (3) HTTP bloqueo por intentos usa status>=400 laxo (el unit si fija ERR-AUTH-TOO-MANY-ATTEMPTS); (4) auditoria HTTP solo negativa (sin sub/correo), sin afirmar USER/UPDATE (el unit solo '"UPDATE"'); (5) T1126 no cubre en estos archivos sin-contrasena/LINK-CONFLICT inicial (si en t1120 L333/L342).
+- DISCREPANCIA SC-008-014 (para T1128, NO resuelta): spec.md L189 y error-catalog 004 (ERR-AUTH-GOOGLE-LINK-CONFLICT 409: 'sub ya pertenece a otra cuenta') exigen 409; openapi 004 callback solo declara 400 y la implementacion (use-cases L222-224) y estas pruebas (INV-VIN8-002, SC-008-014) fijan 400 ERR-AUTH-GOOGLE-FAILED. Cuenta con Google ya vinculado: 409 solo en startGoogleLink; en callback 400. Requiere decision architect/Neo antes de marcar T1126/T1128.
+- Gates: vitest 3 archivos 24/24; tsc 0; verify-oracles 445 archivos/0 debiles. Sin commit ni [x]; nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: revalidacion lote T1125/T1126 tras alinear a opcion A (sin commit)
+- PASS CON OBS. OBS-1 cerrada (401 compara cuerpo completo JSON), OBS-2 cerrada en parte (googleCompletions [1,1,0] comparado; "coste" sigue siendo solo llamadas al hasher), OBS-3 cerrada (HTTP bloqueo fija 429 ERR-RATE-LIMITED exacto; TOO-MANY-ATTEMPTS en login HTTP y unit), OBS-4 cerrada (fila audit_log USER/UPDATE, entity_id == executor), OBS-5 cerrada (unit sin-contrasena 409 y 409 HTTP con Google ya vinculado, sin argos_oauth).
+- 409 de startGoogleLink: oraculo fuerte (code+status, flows sin crecer, identidades intactas, sin cookie); no tautologico. Opcion A coherente entre spec SC-008-014, tasks T1126, catalogo LINK-CONFLICT y pruebas (400 callback / 409 start).
+- H-429 (sin resolver): HTTP da 429 ERR-RATE-LIMITED (limite de ruta 5/15 min precede al bloqueo); spec REQ-VIN8-002/SC-008-011 no nombra el codigo del bloqueo, no hay contradiccion literal; REQ-VIN8-002 remite al contador de REQ-LOG-001 (TOO-MANY-ATTEMPTS). Ambiguedad a decidir por architect/Neo.
+- Gates: vitest 27/27; tsc 0; oraculos 445/0 debiles; JSON catalogo OK. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria nota LINK-CONFLICT + precedencia H-429 (sin commit)
+- PASS. Catalogos 002/004: 1 linea cada uno, solo campo note de ERR-AUTH-GOOGLE-LINK-CONFLICT; JSON valido. Generados (4 error-codes.ts): 1 linea cada uno, solo note, sin tipos/logica/status. spec.md REQ-VIN8-002: solo se anade la frase de precedencia H-429 (429 ERR-RATE-LIMITED por limitador HTTP primero; TOO-MANY-ATTEMPTS en casos de uso); cifras e IDs intactos.
+- Coherencia: nota (409 solo en startGoogleLink; callback 400 ERR-AUTH-GOOGLE-FAILED) = SC-008-014/T1126 = prueba API L138 (409 start); precedencia = pruebas (429 HTTP / TOO-MANY unit). H-429 queda resuelto en spec.
+- Gates: tsc 0; vitest 27/27 (t1125/t1126); deriva 30/30 (codegen-drift, generated-004, generated-contracts); verify-oracles 445/0 debiles. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1131 008 (vincular Google en perfil, sin commit)
+- PASS CON OBS. 12/12 verdes; titulos con REQ-VIN8-001/002, NFR-008-002, SC-008-010/011; sin any, skip/only/todo; oraculos fuertes (toEqual de feedback completo, contra ERROR_CATALOG; authMethods en 4 combinaciones).
+- Contrasena incorrecta -> bajo el campo + foco (focusField); resto de codigos -> mensaje del catalogo aunque el servidor envie detail crudo (probado). Estado vinculado solo de authMethods.google===true; sin authMethods = con contrasena; sin contrasena y sin Google = sin seccion. Contrasena se limpia antes de navegar. Sin datos sensibles reales (fixtures .test).
+- Conocido (no FAIL): DEUDA-008-CALLBACK-400-PROBLEM (JSON problem+json crudo del callback LINK) diferido a 009 por Neo.
+- OBS: (1) GoogleLinkSection (handler, foco por efecto, window.location.assign) sin prueba unitaria: cubierto solo por E2E T1132; (2) test «estado vinculado» con role=status prueba presencia, no anuncio real; (3) warnings useLayoutEffect de MemoryRouter en SSR (ruido, no fallo); (4) revision visual 320/1024/1280 pendiente de /sati.
+- Gates: tsc 0; t1131 12/12; unit 211 archivos/3167; verify-oracles 446/0 debiles. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: revalidacion T1131 008 tras correcciones de /sati (sin commit)
+- PASS. H-T1131-S1: GOOGLE_LINK_WRONG_PASSWORD texto llano propio; la prueba nueva fija que no contiene detailTemplate del catalogo, "pérdida de sesión", "ERR-" ni "urn:argos" (no vacua: el catalogo trae la nota de desarrollador). Resto de errores via problemMessage (catalogo) sin cuerpo crudo, probado con detail crudo inyectado (5 codigos, toEqual completo).
+- OBS-2 cerrada: GoogleLinkedStatus sin role=status, con aria-labelledby; la prueba afirma ausencia de role=status y presencia de aria-labelledby dentro de la seccion extraida (si la seccion faltara, falla por toContain 'Google vinculado'): no es falsa.
+- Gates: tsc 0; t1131 13/13; unit 211 archivos/3168; verify-oracles 446/0 debiles; git diff src/generated y contracts vacio. OBS-1 (GoogleLinkSection sin prueba unitaria, cubierta por E2E T1132) sigue vigente. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1132 008 (E2E vincular Google, google-vincular-008.spec.ts sin commit; google-sim-support.ts sin diff)
+- PASS CON OBS. 12/12 verdes (4 casos x chromium/firefox/webkit, 35 s); tsc 0; verify-oracles 447/0 debiles. Sin skip/only/todo/any; titulos con REQ-VIN8-001/002/004 y SC-008-010/011/013/014.
+- SC-008-014 ya alineado a opcion A (spec.md L189, commit 4619d32): el caso (d) fija 400 ERR-AUTH-GOOGLE-FAILED en callback (UI y cadena HTTP), cuerpo sin sub ni correo, sin vincular, la otra sesion sigue 200; no usa LINK-CONFLICT. El reporte de keymaker "pendiente de architect" esta desfasado. 409 de startGoogleLink queda en T1126 (API).
+- Revocacion (e): otra sesion 200 antes y 401 despues; origen 200 con google=true; sin Set-Cookie argos_session y cookie intacta (caso b, SC-008-063 parte vigente). El meta refresh en WebKit solo sustituye el 302 del page.route; la espera del callback y los status/estado se afirman igual: no oculta fallos.
+- OBS: (1) caso (d) depende de (b) por sharedSub en modo serial (si (b) falla, (d) falla con ruido); (2) SC-008-063 negativos (origen revocada/vencida/otro usuario) no estan en E2E, solo unit/API; (3) caso (d) asume Firefox sin navegar y lo evita con otra pestana (DEUDA-008-CALLBACK-400-PROBLEM, conocida); (4) mala-contrasena no comprueba que no hubo peticion al callback (solo URL y authMethods). Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1133 008 (tests/security/t1133-vinculacion-google-008.security.spec.ts, 29 pruebas, sin commit)
+- PASS CON OBS. 29/29 verdes; tests/security 25 archivos/464 verdes; tsc 0; verify-oracles 450 archivos/0 debiles. Sin skip/only/todo/any; titulos trazan a REQ-VIN8-001..004, INV-VIN8-001/005, EDGE-008-003/023/050, SC-008-009..013.
+- V-A/V-B/V-C reales (estado en BD, identidades, usersDump, huella completa estado+tipo+cache+cuerpo+cookies en V-C1; la uniformidad NO esconde diferencias HTTP). V-D es conteo determinista (hasher.verify, completions), no tiempo.
+- OBS: (1) V-B1 hace 4 CSRF y luego login correcto; el bloqueo es a 5 (MAX_FAILED_ATTEMPTS=5): 4 no demuestra que no sumen, subir a >=5. (2) V-A7 titulo cita tope 24 h pero solo prueba inactividad 31 min. (3) V-D4 titulo cita callback y start, solo prueba /link. (4) Laxos: V-A6 [400,401,422], V-A8 [200,204], V-C4 solo regex negativa, V-C5 solo status/code. (5) OBS-1 coste por latencia no HTTP: V-D prueba conteos, no igualdad de tiempo; canje a Google solo ocurre con estado valido (diferencia de latencia real entre rechazo previo y posterior al canje), coherente con spec INV-VIN8-001 como no medible aqui. (6) OBS-2 DEUDA-008-GOOGLE-LINK-2STEP: sin prueba de posesion de sesion en callback (robo de argos_oauth); spec.md L113/L226 la acepta (Opcion A); sin contradiccion. Ninguna prueba afirma lo contrario.
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1134 008 parte (a) H-RAMA-008-T1134-01 (purga oauth_flow_states, sin commit)
+- PASS CON OBS. Produccion: sqlite purgeExpired anade DELETE oauth_flow_states WHERE expires_at <= @now sin tocar el return; postgres-maintenance anade bucle DELETE por lotes (ctid IN ... LIMIT $2) tras login_attempts; MaintenanceCounts sigue con 5 conteos (diff solo anade sentencias, sin conteo propio), patron = login_attempts.
+- Pruebas: t1134-purga (2), t1134-retencion-cascada (11, sin it.fails), t1134-security (7; 2 it.fails son H-02/H-03 distintos, documentados), postgres-maintenance (TABLES+byTable con oauth_flow_states). 34 verdes, 1 skip preexistente (PG real sin TEST_DATABASE_URL, T431).
+- Parte (b): solo bloque de comentario "PENDIENTE DE DECISION DE ESQUEMA (Neo/architect)", sin it.skip/todo ni verde falso; CHECK USERNAME (0017/0013) exige correo y sub NOT NULL; requiere migracion Nivel 2.
+- Gates: tsc 0; verify-oracles 451 archivos/0 debiles; src/generated, contracts sin diff. OBS: DELETE PG no probado contra PG real (solo forma de sentencia); (b) sin prueba ejecutable por diseno. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: revalidacion T1133 008 tras ajustes (MAX_RETRY=1, sin commit)
+- PASS CON OBS. OBS-1 cerrada (V-B1: 6 rechazos CSRF > MAX_FAILED_ATTEMPTS=5, luego login correcto 200 afirmado; si sumaran, el login quedaria bloqueado), OBS-2 cerrada (V-A7 titulo = inactividad 31 min, 400 + code), OBS-3 cerrada (V-D4 acotado a /link, aclara que callback/start no se prueban).
+- Exactas: V-A6 (status+code por caso, 422/422/401/422), V-A8 204, V-C4 (400, code, sin argos_session, identityRows [], sin location), V-C5 (401 ambos, code, cuerpo igual salvo instance).
+- OBS residual (no bloqueante, fuera de los puntos pedidos): laxas restantes en L253 ([404,405]), L432 y L471 (>=400, V-C6/otro); no fijan status exacto.
+- Gates: t1133 29/29; tsc 0; verify-oracles 451 archivos/0 debiles. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria E2E escena-008.spec.ts (T1165/T1169, sin commit; tests/e2e/visual/escena-008.spec.ts nuevo)
+- PASS CON OBS. 9/9 verdes (3 casos x chromium/firefox/webkit, 20.8 s); tsc 0; vitest 9 archivos/110 verdes (t1163, t1166, t1170, t918, t1051, t875 x2, t1168 unit + api); verify-oracles 452/0 debiles. Sin skip/only/todo/any; titulos con REQ-UX8-001/002, SC-008-034..038, EDGE-008-020/021, NFR-008-002.
+- Oraculos fuertes: texto exacto (exact:true) calculado desde quota.resetsAt del servidor en America/Bogota, 320/1024/1280 sin desbordar, ausencia del texto viejo; sin imagen -> boton ausente (toHaveCount 0) con «Crear imagen» visible; con imagen -> evento download real, nombre /^argos-hogar-AAAA-MM-DD.png$/ sin PII, bytes PNG (firma), clic y teclado, 44x44, sin navegar. La omision de axe en Firefox esta comentada (crash de axe ajeno a la app) y afecta solo a Firefox: Chromium y WebKit la ejecutan con toEqual([]) en 3 anchos.
+- Commits 1c1c899 (T1163/1164), c4a8c98 (T1166/1168 UI), d48524f (T1168 servidor), ec50937 (T1170..1172) cumplen lo declarado en tasks.md; sin diff en src/contracts pendiente.
+- OBS: (1) SC-008-038 es la parte E2E; Content-Disposition/redireccion solo en API t1168 (aceptable). (2) E2E no cubre EDGE-008-022/SC-008-039..041 (Mascotas): T1171 por grep de E2E «sin textos» no verificado aqui. (3) axe en Firefox sin sustituto (WCAG Firefox no auditado). (4) fecha del nombre no comparada con updatedAt en E2E (solo formato; unit lo cubre). (5) readFile import dinamico: cosmetico.
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1184 008 (tests/e2e/visual/biografia-008.spec.ts nuevo, sin commit)
+- PASS CON OBS. 9/9 verdes (3 casos x chromium/firefox/webkit, 21.9 s); tsc 0; verify-oracles 453 archivos/0 debiles; sin diff en src/contracts. Sin skip/only/todo/any; titulos con REQ-BIO8-001..003, REQ-RBAC-001, SC-008-043..046, EDGE-008-042.
+- Caso 1: biografia con <b>/& se afirma con toHaveText literal y locator('b') = 0 (texto, no HTML), tras recargar y por API (profile.biography). Caso 2: Lector ve texto sin <b>, sin boton Editar ni campo (toHaveCount 0); PATCH -> [403,'ERR-ACC-FORBIDDEN'] exacto y valor intacto leido por la propietaria. Caso 3: imageTag/status/pending/quota.remaining iguales a la referencia previa (owner y reader), canUpdate=false + NO_CHANGES; control de mascota nueva deja pending>0 (el detector reacciona).
+- OBS: (1) la nota de caracterizacion (nacio verde porque T1183 ya existia) NO esta declarada en el archivo ni en tasks.md; solo en el bus (keymaker). No se presenta como prueba de fallo, pero conviene un comentario de cabecera. (2) Caso 3 depende del caso 1 (serial) para que la biografia exista y no guarda por si mismo; si el 1 falla, el 3 pierde sentido. (3) El titulo del caso 3 dice «Actualizar sin habilitar» pero solo se afirma canUpdate por API, no el boton en UI. (4) El control sube pending pero no reafirma imageTag; aceptable. (5) EDGE-008-042 (resumen veterinario/logs/prompt) no se cubre en E2E: va en T1185 (rama/trinity).
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1185 (unit /rama) + ajustes OBS-1/OBS-3 de T1184 (sin commit)
+- PASS CON OBS. t1185-privacidad-biografia-008.spec.ts 10/10; E2E biografia-008 9/9 (3 casos x chromium/firefox/webkit, 16.1 s); tsc 0; verify-oracles 455 archivos/0 debiles (CUMPLE, el t1185 security ajeno de trinity no fallo). Sin skip/only/todo/any en ambos archivos; src/contracts sin cambios de este trabajo.
+- Unit: oraculos fuertes con centinela SECRETO-T1185: errores (message + JSON de propiedades propias + stack) sin el texto ni su prefijo; auditLog tras UpdatePetUseCase sin centinela (con length>0 y la mascota si lo guarda); intento invalido deja snapshot identico; respaldo dueno contiene el centinela y el de MARIA no; sobre 3.3.0 valida y rechaza \u0000, salto de linea y 281 (280 valido); resumen veterinario sin centinela ni /biography/ con todas las opciones; ficha escapa HTML; guarda estatica de consola/logger sobre >5 modulos. Titulos con REQ-BIO8-001/002/004, NFR-008-004, EDGE-008-041/042.
+- E2E OBS-1 cerrada: comentario de cabecera correcto (caracterizacion; UI solo tiene «Regenerar/Crear imagen del hogar» por canRegenerate, scene-view.ts:207 confirma que canUpdate/NO_CHANGES no se leen; no hay boton «Actualizar»). OBS-3 cerrada: titulo del caso 3 ya dice canUpdate=false (NO_CHANGES) en la API, sin prometer boton.
+- OBS: (1) caso «otra cuenta» (MARIA) solo prueba ausencia; no afirma que su respaldo traiga datos propios (riesgo de vacuidad bajo: contraste con el del dueno, mismo harness). (2) Test «normalizador» es casi trivial. (3) Guarda estatica por regex amplia (console./logger.) sobre archivos que mencionan biography: heuristica, no prueba de flujo; hoy sin infractores. (4) Escena (D8-12=A) delegada a t1182, declarado en cabecera. (5) Caso 3 E2E sigue serial dependiente del caso 1 (OBS previa, no bloqueante).
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: re-auditoria T1183 008 tras correcciones de /sati S1/S2/S4 (sin commit)
+- PASS CON OBS. t1183 10/10; unit/presentation 65 archivos/660; tsc 0; verify-oracles 455/0 debiles; src/generated y contracts sin diff.
+- (1) Pruebas nuevas con oraculos fuertes: S1 exige [overflow-wrap:anywhere] y min-w-0 en la etiqueta de data-pet-biography; S4 posicional (bio despues del primer shrink-0 = envoltorio del avatar, PetDashboard L406; en HEAD la bio iba antes, asi que el rojo es real, coherente con los 3 fallos de la bitacora de keymaker); S2 exige role=alert en #b-error, texto propio y ausencia del generico. Rojo inicial 3/3 declarado.
+- (2) BIOGRAPHY_TOO_LONG solo en PetForm.tsx (grep en src/contracts/specs/tests); catalogo y contrato intactos. Solo reemplaza el texto cuando over=true; errores de servidor/otros pasan tal cual.
+- (3) Foco: useEffect depende de [errors]; en use-contract-form errors es useState que solo cambia en onSubmit (L50/L60), no en onChange: teclear no roba foco. Verificacion en navegador queda para /sati.
+- (4) Sin lecturas sensibles ni cambio de permisos: BiographyField solo se monta con profile!==null en el formulario de edicion (canEdit); la lectura sigue sin boton Editar para Lector/Cuidador.
+- OBS: (a) S4 usa proxy 'shrink-0' (el fallback data-pet-avatar no existe): fragil ante reordenar clases; (b) si hay error en otro campo y en biografia, ambos efectos enfocan y gana el ultimo en montarse (biografia), no necesariamente el primer error: verificar en /sati; (c) el contador role=status solo al exceder y el role=alert coexisten (doble anuncio posible), juicio de /sati.
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: T1173 parcial, auditoria en disco Bloques A, B, F, G, H, I, J (K excluido; sin commit)
+- Gates (HEAD e96209a): tsc 0 errores; verify-oracles 456 archivos/0 debiles CUMPLE; verify-traceability --feature 008 FALLA, 63/88 IDs, purity 0. Sin diff en src/contracts/package.json. tasks.md: 0 [x] de agentes (solo texto «0 [x]» en Registro); T1110/T1111/T1167/T1178/T1187 [ARCH] en REVIEW por texto del Registro, resto [ ].
+- IDs sin cubrir (FAIL): A = REQ-SSO8-002, REQ-SSO8-006, STATE-ACCT8-001 (todos diferidos a 009 por D8-04=C/M8-01; spec L109/L212). B = INV-VIN8-001/002/003 sin @implements en src (OBS real, T1128 los cita; pruebas si los trazan), INV-VIN8-004 y REQ-VIN8-005 diferidos a 009. F/G/H/I = 0 sin cubrir. J = REQ-INV8-002 descartado por D8-10=A. Resto (ADM8, APR8, PRM8) son 009 y no pertenecen a estos bloques.
+- SC en titulos de it/test: presentes SC-008-001..006, 009..012, 014, 032..041, 043..052, 054, 055, 061, 062. Hallazgos: SC-008-053 solo en rangos de cabecera («048..052/048..053»), ningun titulo; SC-008-013 se cita en el titulo de google-vincular-008.spec.ts L121 aunque H-VO-3 (e3dc7ca) lo declaro inexistente (spec solo da 009..014 por rango); SC-008-042 transversal sin titulo (esperado, cierre de feature).
+- Commits: 76 en main..HEAD; cada tarea de A,B,F,G,H,I,J con commit propio salvo T1128/T1180/T1181/T1190 solo en mensajes de rango (T1121, T1179..T1183, T1188/1190/1191). Veredictos previos existen en este log y audits/ para cadena A (bf5b4a7..ee8b1ab), B (T1125/6/31..34), F/G/H (rebanada 1 y escena-008), I (oracle-008-bloques-K-I, T1183..T1185), J (3bf26bd..6965d52, T1192/T1193). Sin veredicto nominal: T1113..T1116 (cubiertos por la cadena A), T1190 (por J).
+- Veredicto: A PASS CON OBS, B PASS CON OBS, F PASS, G PASS, H PASS CON OBS (EDGE-008-022/SC-008-039..041 sin E2E de Mascotas, ya anotado), I PASS CON OBS, J PASS CON OBS. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria T1198 (E2E roles-ayuda-008.spec.ts, nuevo) y T1199 [GOV] (contraste de frases con can()), sin commit
+- T1198 PASS CON OBS. 9/9 verdes (3 casos x chromium/firefox/webkit, 40.5 s); t1196 10/10; tsc 0; verify-oracles 456/0 debiles. Sin skip/only/todo/any (el unico match de grep es texto). Titulos con SC-008-056..060, EDGE-008-049, REQ-ROL8-001/002, REQ-RBAC-001.
+- Oraculos fuertes: toHaveText literal de las frases D8-13, toHaveAccessibleDescription en selector y por miembro, ADMIN sin frase (count 0); aviso de la propietaria ligado al group de alcance. Caso 3: rol real por API (myRole CAREGIVER/READER) y control positivo (pestana «Historial / Archivos» seleccionada + enlace «Ver el album de fotos» visible) antes de afirmar count 0 de panel, titulo, marcador y texto del aviso; ademas su propia frase si aparece en /households.
+- OBS: (1) el riesgo latente de canCreateLinks (PetsPage L279-281: condicion myRole OWNER||ADMIN y prop literal `canCreateLinks`; ShareLinks default false) NO esta declarado en el spec ni en tasks.md; el E2E solo cubre el caso por rol, no una regresion donde canCreateLinks=true se pase a un Cuidador; la proteccion real es la condicion del padre + unit t1196 (marcado sin permiso). Declarar en cabecera. (2) Serial: casos 2/3 dependen del beforeAll, aceptable. (3) Sin axe/320-1280 aqui (es de /sati).
+- T1199 PASS. Frases vs src/domain/access/rbac.ts: Cuidador allows WRITE_WEIGHTS_AND_MEASUREMENTS/WRITE_HEALTH_EVENTS/WRITE_MEDIA = [OWNER,ADMIN,CAREGIVER] (cierto), denies EDIT_PET_BASICS/MANAGE_HOUSEHOLD_MEMBERS/CREATE_SHARE_LINK = solo OWNER,ADMIN (cierto); Lector solo READ_MEDIA/EXPORT_IMPORT_BACKUP, resto negado (frase «solo consultar», «ni registrar ni editar» cierta). Ninguna promete mascotas ajenas (aviso: «asignadas a ese hogar» y «que sean tuyas» = REQ-VET-002). t1196 compara catalogo con can() real (15 acciones, fijado de la matriz).
+- Cero cambios en can() ni contrato 005: git diff 238a89b..working de src/domain/access, specs/005*/contracts, media-use-cases y share = 0 lineas. Contratos tocados desde 238a89b son 002/004 error-catalog/openapi (otros bloques de 008, ajenos a #25). Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria sc053-sin-busqueda-correo-008.api.spec.ts (SC-008-053, D8-10=A; sin commit)
+- PASS CON OBS. Caso 1/1 verde (98 ms); tsc 0; verify-oracles 457 archivos/0 debiles CUMPLE. Sin skip/only/todo/any/asercion vacia.
+- (1) Espia = copia fiel del de t1188 (H-J-1, L99-132): proxy de repositorios dentro de runInTransaction, registra repositorio.metodo salvo sessions. Puede fallar: el toEqual exige ['households.listMemberships'] no vacio (si no registrara, fallaria) y si la ruta consultara users/invitations/profiles aparecerian. Control positivo con prefijo valido esta en t1188 L148-151 (users.searchUsernamesByPrefix + invitations.listByHousehold), no en este archivo.
+- (2) Cubre EMAIL, ana@x.com, PEDRO.A@EXAMPLE.TEST y ped@; status 422 y code ERR-SCHEMA-VALIDATION-FAILED exactos via problemOf; ademas texto de respuesta sin reflejo (q, example.test, pedro.a/b).
+- (4) «Nacio verde» correcto: SearchInviteesUseCase (household-use-cases.ts L226) valida con InviteeSearchPrefix, schema identity.schema.json L675-681 pattern ^[A-Za-z0-9._-]+$ (sin @); la validacion va tras requireManager y antes de limiter/lecturas. No hay brecha.
+- OBS: (a) sin control positivo propio en el archivo (depende de t1188); (b) no hay prueba de mutacion ejecutada (no se modifico nada); (c) el rechazo es por patron generico, no por rama «correo» explicita: si el patron admitiera «@» en el futuro la prueba si fallaria (bien). Nada modificado salvo bitacora y bus.
+
+## 2026-11-22 Oracle: auditoria opcion A, EXCLUDED_BY_DECISION 008 en verify-traceability.sh (sin commit)
+- PASS. Diff +16/-1 solo anade rama feature==='008' (ternario anidado tras la de 007); la logica de verificacion y las entradas de 007 no cambian. 22 IDs = 6 sueltos + APR8 1..5 + ADM8 1..6 + PRM8 1..4 + REQ-INV8-002.
+- Cada ID aparece en spec.md «Diferido a 009» (L212, L220-225) con su motivo; INV-ADM8-001 esta diferido explicitamente (L223, Bloque D con REQ-ADM8-001..006; definicion L268), no es exclusion indebida. STATE-ACCT8-001 y APR8 en Bloque C (D8-02); REQ-INV8-002 descartado D8-10=A.
+- Gates: traceability 008 66/66 CUMPLE pureza 0; 007 51/51 CUMPLE (2 excluidos, sin cambio); verify-oracles 457/0 debiles; tsc 0.
+- OBS: los motivos de la lista cubren D8-01/02/03/04/07/08/10 y M8-01/03; la spec cita D8-07 y D8-08 solo como motivos, texto de la decision no re-auditado. Nada modificado salvo bitacora y bus.
+
+## 2026-11-21 Oracle: auditoria H-T1197-S1 (min-h-10 a min-h-11 en select «Rol de <miembro>»), sin commit
+- PASS. Diff HouseholdsPage.tsx = 1 linea (L148), solo clase min-h-10 a min-h-11; aria-label, aria-describedby, onChange y frases intactos. Unico min-h-1x en el archivo en esa linea.
+- Prueba nueva (t1196 L94-102): extrae por regex los <select aria-label="Rol de ..."> reales del markup de HouseholdCard (OWNER), exige length>0 y por cada uno clase con \bmin-h-11\b y ausencia de min-h-10. No vacua. Simulacion en memoria con node: con min-h-10 la asercion positiva da false (falla), con min-h-11 true (pasa). No se toco disco.
+- Gates: vitest t1196 11/11 verde; tsc 0; verify-oracles 457/0 debiles CUMPLE.
+- OBS menores: la prueba verifica la clase Tailwind, no la altura renderizada (la altura real 44 px es de /sati/E2E); si el select tuviera una clase min-h-12 fallaria (aceptable, estricta). Otros cambios sin commit en src (google-auth) son ajenos a esta correccion. Nada modificado salvo bitacora y bus.
+
+## 2026-11-22 Oracle: compuerta transversal final T1174 008 (HEAD 1c7e854, sin commit)
+- (1) verify-traceability --feature 008: PASS, 66/66 CUMPLE, pureza 0. (2) verify-oracles: PASS, 457 archivos/0 debiles. (4) tsc --noEmit: PASS, 0 errores.
+- (3) verify-ci-ready.sh (existe): FAIL. Semgrep PASA y tests/ sin rutas claude/ PASA; falla (iii) por 4 archivos rastreados modificados sin commit: src/application/use-cases/google-auth-use-cases.ts, src/infrastructure/http/routes/google-auth.routes.ts, src/presentation/web/pages/HouseholdsPage.tsx, tests/unit/presentation/t1196-ayuda-rol-008.spec.ts. Es estado de arbol de trabajo, no defecto de codigo.
+- (5) test:gate con TEST_DATABASE_URL=postgres://argos_test:argos_test@127.0.0.1:55432/argos_test (docker-compose.test.yml): BLOQUEADO/FAIL. Al inicio PG 17.12 respondia (pg_isready OK). 1.a corrida: terminada por SIGTERM (143) a mitad, persistencia verde hasta ahi. 2.a corrida: 206 fallos/5844 pass/8 skip en 35 archivos, todos persistencia/integracion PG con ECONNREFUSED 127.0.0.1:55432; Docker daemon caido (docker.sock inaccesible) y puerto 55432 sin listener. Gates previos del test:gate (compile, traceability 002/003/006, oracles) CUMPLEN. No se reinicio Docker ni se toco nada. No es resultado valido de la suite; no es PASS.
+- Nada modificado salvo bitacora y bus.
+
+## 2026-11-23 T1220/T1221
+Validacion en disco: PASS CON OBSERVACIONES. Acta oracle-009-T1220-T1221.md. tsc 0, vitest 21/21, oracles 0 debiles, E2E 009 3/3x3, 008 12/12x3.
+
+## 2026-11-23 /oracle T1223 Fase 2 de 009
+- Compuerta final ejecutada: tsc exit 0; test:gate exit 1 (2 failed/6185 passed/1 skipped); traceability 009 exit 1 (43/79, 0 huerfanos, 36 FAIL de Fases 3+), 008 66/66, 007 51/51, 006 196/279; oracles exit 0 (0 debiles).
+- Hallazgo ORA-T1223-01 (ALTO): account-deletion-google.ts usa fetch sin notifyActivity (rompe ui-invitation-logs INV-AUTH2-002). verify-ci-ready exit 1 esperado (sin commit).
+- Veredicto FAIL; acta .specify/memory/audits/oracle-009-T1223-fase2.md
+
+## 2026-11-23 Oracle T1224/T1226 fase 3
+Acta .specify/memory/audits/oracle-009-T1224-T1226-fase3.md: PASS CON OBSERVACIONES (OBS-1..3); compile-contracts 009 exit 0, src/generated sin diff; 3 decisiones abiertas para Neo.
+
+## 2026-11-23 — Oracle 009 Fase 3 (#19) T1228..T1234: PASS CON OBSERVACIONES
+- Auditoría en disco del portal /admin: tsc 0; vitest 7 archivos / 102 tests verdes; verify-oracles CUMPLE (475, 0 débiles); trazabilidad 009 = 52/79 (sin FAIL ADM9); verify-ci-ready falla por archivos sin commit (esperado). Migraciones 0019/0015 aditivas, 0014/0018 sin diff.
+- Decisiones a-g de keymaker: ninguna contradice; b (correo en reposo) y c (acumulación de flujos) escaladas como observación. Acta: .specify/memory/audits/oracle-009-T1228-T1234-fase3.md. Sin [x], sin commit.
+
+## 2026-11-23 Oracle — auditoría regla CSRF-antes-de-sesión (admin.openapi 1.2.0)
+- Acta: .specify/memory/audits/oracle-009-admin-csrf-order-1.2.0.md. Veredicto: PASS CON OBS (contrato/plan y código).
+- Guard global csrf-guard.ts:25 ya da 403 previo a sesión e idéntico al de ruta inexistente (sin fuga); choca solo con la letra "404" de T1228/SC-009-009.
+- OBS: origen evaluado tras sesión (admin.routes.ts:123-124) vs texto 1.2.0 ambiguo; docstring 1.1.0; falta firma Neo. t1228+t1231 28/28 verdes.
+- 2026-11-23T13:25 [oracle] 009 pre-commit Fase 3: PASS CON OBS (t1228/t1231/t1227 38/38, tsc 0, yaml via node OK; PyYAML ausente). Orden Origin/CSRF CONFIRMED, O-2 OK. Acta oracle-009-precommit-fase3.md. Sin FAIL.
+- 2026-11-23 [oracle] T1235 auditado: PASS CON OBS; FAIL fallback admin.html->index.html en static-assets.ts:25 (sirve app de usuarios en /admin sin admin.html; fix keymaker fail-closed); SC-009-010 baseline = pregunta N2 a Neo; vitest 68/68, tsc 0, pw 21/21. Acta: .specify/memory/audits/oracle-009-T1235-admin-ui.md
+- 2026-11-23 [oracle] T1235 RETRY: PASS (fail-closed /admin: sin admin.html 404 text/plain GET/HEAD/?a=1, nunca app de usuarios; boot guard server.ts:147 ok; vitest 70/70, tsc 0). OBS: dist/ actual viejo sin admin.html -> rebuild antes de deploy. Acta: .specify/memory/audits/oracle-009-T1235-retry.md
+- 2026-11-23 [oracle] T1236/T1237 + regen v35 auditados: PASS CON OBS (vitest 72/72, pw chromium 25/25, tsc 0, mutacion T1236 roja). Acta: .specify/memory/audits/oracle-009-T1236-T1237.md
+- 2026-11-23 [oracle] T1238 auditado: PASS CON OBS (api 542/542, security 561/561, 2 suites 52/52, tsc 0; mutaciones M1/M2 rojas; 01b real). OBS: actas sentinels/trinity desactualizadas (refrescar antes de commit). Acta: .specify/memory/audits/oracle-009-T1238.md
+- 2026-11-23 [oracle] T1239 re-auditado: PASS CON OBS (64/64 3 suites, persistence 671 ok/212 skip PG real, tsc 0, verify-oracles 0; PG real NO ejecutado). admin_audit retencion sigue pendiente de Neo. Acta: .specify/memory/audits/oracle-009-T1239.md
+- 2026-11-23 [oracle] T1240 compuerta FINAL Fase 3: FAIL (PG17 real ok; persistence 881/883 1 fail schema-parity viva sin 0015 -> keymaker; test:gate 2 fail: schema-parity + presentation-architecture REQ-UI-004 vs src/presentation/admin -> architect/keymaker; traceability 52/79; oracles 0; tsc 0; E2E 73/75: webkit A6/A7 foco skip link). Seraph cookies PASS. Acta: .specify/memory/audits/oracle-009-T1240-fase3-final.md
+- 2026-11-23 [oracle] T1240 reintento: gate VERDE (persistence 882/883, test:gate 415 files 6377 pass cov 98.87%, e2e 25/25/25 chromium/firefox/webkit, tsc/oracles exit 0, trazabilidad 009 solo Fase 4-5 abiertos). Acta oracle-009-T1240-retry.md. [x] pendiente Neo.
+- 2026-11-23 [oracle] 009 T1241..T1244 auditado: PASS CON OBS (persistence+t1244 59 files 899 ok/1 skip PG17 real, tsc 0, verify-oracles 0; full suite 52 fail = deriva 002/004 DRAFT + 1 untracked 0016 en verify-ci-ready). Acta .specify/memory/audits/oracle-009-T1241-T1244.md
+- 2026-11-23 [oracle] 009 T1245+T1246 auditado: PASS CON OBS (tsc 0, oraculos 0, persistence+T1245/T1246 con PG17 915 ok/7 rojas esperadas T1248; suite completa 16 rojas = 4 T1248 + 11 deriva 002/004 + gates-004 + verify-ci). OBS: presentacion rota hasta T1249, no desplegar. Acta .specify/memory/audits/oracle-009-T1245-T1246.md
+- 2026-11-23 oracle: T1248 PASS CON OBS (OBS-1 cast PG con createdAt no-timestamp aborta la pasada; no alcanzable). PG17 916 passed, tsc 0, verify-oracles 0; suite 12 rojos ajenos (deriva DRAFT, gates-004, t1238 flaky). Acta audits/oracle-009-T1248.md
+- 2026-11-23 [oracle] T1249 auditado: PASS CON OBS (tsc 0, oraculos 0 exit 0, t1249 10/10, e2e chromium 4/4, 48 px real; suite 11 rojos = deriva 002/004 + gates-004 T1288/9; WebKit/FF no corridos). Acta oracle-009-T1249.md
+- 2026-11-23 /oracle: auditoria corte supresion 009 Fase 4 = PASS CON OBS (tsc 0, oracles 0, vitest 6205/1 gates-004 esperado, pw 4/4, v34 requerido por drift CI). Acta .specify/memory/audits/oracle-009-corte-supresion-fase4.md
+- 2026-11-23 /oracle: auditoria T1288+T1289 (009) PASS CON OBS (carrera check-then-record por instancia; trustProxy TRI-03; aviso sin cablear hasta T1247/T1250). Acta .specify/memory/audits/oracle-009-T1288-T1289.md. Sin [x].
+- 2026-11-23 /oracle: auditoria T1247 (009) PASS CON OBS (CAS atomico 3 motores, PG17 carrera real; revoke con '' fragil; 404 uniforme JSON pre-existente; contador <30d; archivo -E huerfano). Acta .specify/memory/audits/oracle-009-T1247.md. Sin [x].
+- 2026-11-23 /oracle: T1250 (009) PASS CON OBS (tsc 0, oraculos 0, vitest 19/19, pw chromium 14/14; OBS S1 exito solo sr-only, S2 foco, S3 gap 320). Acta audits/oracle-009-T1250.md. Sin [x].
+
+- 2026-11-23 /oracle T1251: PASS CON OBS. Acta oracle-009-T1251.md.
+
+- 2026-11-23 /oracle RAMA-T1239-03: PASS CON OBS. Acta oracle-009-T1252-retencion.md.
+- 2026-11-23 /oracle T1253 Fase 4 (#18): PASS CON OBS. tsc 0, oraculos 0, test:gate PG17 exit 0 (6501 pass, cov 98.87%), trazabilidad 009 60/78 con 0 FAIL de Fase 4 (4 FAIL son Fase 1, 14 Fase 5); sin EmailSenderPort ni dependencia de correo. Acta oracle-009-T1253-fase4.md. Sin [x].
+
+- 2026-11-23 /oracle 009 Fase 5a ola 1 (T1258/T1260/T1262/T1263): PASS CON OBS. Acta oracle-009-fase5a-ola1.md. Sin [x].
+
+- 2026-11-23 /oracle 009 Fase 5a ola 2 (T1264/T1266): PASS CON OBS. Acta oracle-009-fase5a-ola2.md. Sin [x].
+
+## 2026-11-23 Oracle 009 Fase 5a ola 3 (T1262/T1268): PASS CON OBS
+- Alcance opcion A conforme (3 motores), CAS por fila real, 409 sin auditoria, 422 cuerpo no vacio; aserciones T1262 no relajadas. OBS-1 rama null sin prueba determinista; OBS-2 PG sin cobertura de correo/exclusiones. Acta .specify/memory/audits/oracle-009-fase5a-ola3-reinicio.md. Sin [x], sin commit.
+- 2026-11-23 /oracle 009 Fase 5a ola 4 (T1293/T1297 EDGE-009-048): PASS CON OBS. tsc 0, oraculos 0, vitest 2+1skip, PG17 3/3; media-use-cases.ts sin diff. Acta .specify/memory/audits/oracle-009-fase5a-ola4-fotos.md. Sin [x].
+
+- 2026-11-23 /oracle 009 Fase 5a ola 5 (T1269): PASS CON OBS. Acta oracle-009-fase5a-ola5-editor.md. Sin [x].
+
+- 2026-11-23 /oracle 009 Fase 5a ola 6 (revalidacion T1269): PASS CON OBS. tsc 0, oraculos 0, unit 12/12, pw 51/51. Vitest completo 2 rojos: t1235-api (CAUSADO por T1269: adminId en src/presentation/admin vs regex prohibida) y t1238 timing (flaky preexistente, 3/3 verde aislado). Acta oracle-009-fase5a-ola6-revalidacion.md. Sin [x].
+
+- 2026-11-23 /oracle 009 Fase 5a ola 7 (T1269 OPCION 2): PASS CON OBS. Acta oracle-009-fase5a-ola7-t1269.md. Sin [x].
+
+- 2026-11-23 /oracle T1304 compuerta final 5a: PASS CON OBS. Acta oracle-009-T1304-fase5a.md. Sin [x].
+
+- 2026-11-23 /oracle 009 5b ola 1 (T1261/T1295 rojo): PASS CON OBS. Acta oracle-009-5b-ola1-rojo.md. Sin [x].
+
+- 2026-11-23 /oracle 009 5b borradores sin cifras: PASS CON OBS. Acta oracle-009-5b-borradores.md. Sin [x].
+- 2026-11-23 [oracle] 009 5b Ola 2 (T1267/T1303/T1298) auditada: PASS CON OBS (tsc 0, oraculos 0 debiles, 3 suites 59 verdes, PG17 persistence 1018/1018). OBS: fallback registra defectos en vez de null (antes de T1300); rama RENDER en incrementales inalcanzable, la causa es el fixture de t1261; falta prueba de composicion providerCall. Acta: .specify/memory/audits/oracle-009-5b-ola2.md
+
+- 2026-11-23 /oracle 009 5b Ola 2 revalidacion: PASS. Acta oracle-009-5b-ola2-revalidacion.md. Sin [x].
+- 2026-11-23 /oracle 009 5b ola 3 (rojo T1292/T1259): PASS CON OBS. Acta oracle-009-5b-ola3-rojo.md. Sin [x].
+
+- 2026-11-23 /oracle 009 5b ola 4 (T1265/T1296): PASS CON OBS. Acta oracle-009-5b-ola4-T1265-T1296.md. Sin [x].
+
+## 2026-11-23 — Auditoria T1296 paso 1 (h)
+- PASS CON OBS: providerCall dinamico cierra (h); composicion no vacua. Acta oracle-009-5b-T1296-paso1.md. tsc 0; oracles 0 debiles; 6/6 verdes.
+
+- 2026-11-23 /oracle 009 5b T1296 FINAL: PASS CON OBS. Acta oracle-009-5b-T1296-final.md. Sin [x].
+
+## 2026-11-23 — T1305 auditoría editor 5b
+- PASS CON OBS: ver .specify/memory/audits/oracle-009-T1305-editor5b.md. OBS-1 bloqueante (EDGE-009-036 previo), OBS-2/3 bajos.
+
+- 2026-11-23 /oracle 009 admin 1.5.0 contrato: FAIL (cifras 45_000/5_000_000 en l.820 y change_note). Acta oracle-009-admin-1.5.0-contrato.md. Sin [x].
+
+## 2026-11-23 — 5b ola 8 final: PASS CON OBS (OBS-1 aserto de restauracion t1306 debil; OBS-2 sin tarea T1307). Acta oracle-009-5b-ola8-final.md
+- 2026-11-23 /oracle T1272 (009 Fase 5 completa 5a+5b): PASS CON OBS. tsc 0, oraculos 0, traza 78/78, E2E admin 85/86 (1 flake ENOENT traza t1270, 6/6 aislado), PG17 985/985+1 skip. OBS-1 nota de despliegue /link (cuota 112..1000, no fijar entorno). Acta oracle-009-T1272-fase5.md. Sin [x].
+- 2026-11-23 /oracle T1274 cierre: FAIL (t1235 por URL http en SceneParameterEditors.tsx l.54). Acta oracle-009-T1274-cierre.md. Sin [x].
+
+## 2026-11-24 — Auditoría fix/006-escena T961..T967: PASS CON OBS
+- Gates rc=0 (tsc, oráculos, trazabilidad 006, test:gate con PG17). Acta .specify/memory/audits/oracle-006-fix-escena-2026-11-24.md. Sin [x], commit ni push.
+
+- 2026-11-24 [oracle] T968 revalidacion: PASS CON OBS. R-1 (scene-run-use-case:151-153) = compuerta de loadLiveInputs; R-2 notice §4/§6 ok, gemini-api sin "no entrena". Gates verdes (test:gate rc=0 en 2a corrida, flake t1238). Acta oracle-006-T968-revalidacion-2026-11-24.md
+
+## 2026-11-24 — 006 consolidado (504e4a0..12651ee)
+- Veredicto PASS CON OBS (OBS-1 spec 009 desfasada, OBS-2 APP14 Adobe, OBS-3 decision incrementales, OBS-4 flake t1238). Acta audits/oracle-006-consolidado-2026-11-24.md.
+
+## 2026-11-24 — 009 fix/009-escena-driver-selector-y-reset (6a4aabd, 86a89c7, a7ac566)
+- Veredicto PASS CON OBS. T1313/T1315/T1316 verificados en disco; gates tsc, oraculos, traza 009/006, vitest 6993 rc0, terraform fmt/validate rc0. OBS: SC-009-059 dice 5 (codigo 20), 009-C no cubre global/preview/Anexo A, marca de escena libera ACTOR_LIMIT de otros actores, gcloud silencioso en deploy, mock t1307. t1306 pendiente de corrida real. Acta audits/oracle-009-driver-reset-a7ac566-2026-11-24.md.
+
+## 2026-11-24 — Oracle: auditoria cierre 009 HEAD 240b89a
+- PASS CON OBS. Ver audits/oracle-009-cierre-240b89a-2026-11-24.md (deriva generated v35, 3 contradicciones spec 009, flake t591).
+
+## 2026-11-25 — T1418 abfacfa
+- PASS CON OBS. ipLimitKey y setBounded en los 5 limitadores verificados; OBS-3 t1416 endurecida; gates verdes. Acta audits/oracle-010-T1418-abfacfa-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — T1418 revalidación (4dbc441, b6fde9b)
+- PASS. Fix SEN-IP-09 real (trim eliminado, FORBIDDEN_CHARS), oráculos endurecidos sin debilitar; gates rc 0. Acta audits/oracle-010-T1418-revalidacion-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1422 + T1423 (a45ea50, cc1f7fc)
+- Veredicto PASS CON OBS. Alcance limpio (solo log-keymaker propio), rojas T1422 por falta de implementación, contratos/migraciones conformes a REQ-MEN10-001..003, compile-contracts determinista sin tocar v35. Gates rc 0 (tsc, oráculos, traza T1423, compile 002/003/006/010).
+- OBS: PG real no ejecutado; ADULT_NOTICE_VERSION indefinida. Acta audits/oracle-010-T1422-T1423-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1425 (8c01cdf)
+- PASS CON OBS. Alcance limpio; textos 18+ de legal-texts/Terminos/Privacidad coinciden con T1424 (casilla en registro y /elige-usuario, rechazo servidor, fecha+version 0.1.0, sin nacimiento/documento, eliminacion /cuenta); sin acciones de admin prometidas; 4 placeholders literales; scene-notice/LegalLayout intactos.
+- Gates rc 0: tsc, traza 010, t1411 18/18. OBS: 4 puntos legales (no 5), t1411 no cubre 18+, contacto@tipi.pet solo en meta de legal-texts.
+- Acta audits/oracle-010-T1425-8c01cdf-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1424 (2dce52f)
+- Veredicto PASS CON OBS. Alcance limpio (solo log-keymaker propio, sin specs/logos). requireAdultDeclaration antes de existencia y antes de oauthFlows.consume; version 0.1.0 solo en servidor, cliente no la envía; update SQL/PG/memoria no toca columnas; tests existentes solo ganan adultDeclaration (2 aserciones ampliadas, 0 debilitadas).
+- Gates rc 0: tsc, oráculos (0 débiles), traza T1424 6/6, vitest t1422 con PG17 43/43 sin skip. OBS: sin prueba directa de update-no-toca; pet-dashboard:166 (T1406) y t1238 flaky no atribuibles; E2E de casilla no corrido. Acta audits/oracle-010-T1424-2dce52f-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 Bloque D parcial (906754d, b17c686, 0ae8459, 1cce3c2)
+- PASS CON OBS. Alcance limpio en los 4; redacciones de /rama idénticas en legal-texts/Privacidad/Términos, DRAFT 0.1.0, 4 placeholders, sin contacto@tipi.pet, scene-notice/LegalLayout intactos; RAMA-T1426-01 sin aplicar.
+- t1424-update-no-toca-adult: 9/9 con PG17, oráculos fuertes. Gates rc 0: tsc, oráculos, traza 010, t1411 18/18.
+- OBS: RAMA-T1426-01 pendiente de Neo; t1411 no cubre frases nuevas; H-01/H-02 lock BAJA. Acta audits/oracle-010-bloqueD-parcial-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 cierre Bloque D (T1422..T1426, foco 759a330)
+- PASS CON OBS. 759a330 acotado (3 .tsx + 1 test + log propio); role="alert" sin cambio de texto; helpers solo para la casilla; 0 bitácoras ajenas en los 9 commits.
+- rc 0: t1424-casilla 8/8; t1422+t1424-update PG17 45/45; traza 010 (CUMPLE). test:gate no corrido (Morpheus).
+- OBS: foco/limpieza sin prueba de cableado; RAMA-T1426-01 pendiente Neo. Acta audits/oracle-010-bloqueD-cierre-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 Bloque E rojo + contrato (648a2a7, a07e265)
+- PASS CON OBS. Alcance limpio (0 bitácoras ajenas); rojo por falta de implementación (about-markdown, about-use-cases, AboutPage, aboutContent, rutas); 4 guardas verdes legítimas (404 uniforme y /acerca-de verdes por construcción); oráculos fuertes (0 débiles); If-Match: 412 obsoleto, 422 ausente, foto incrementa versión.
+- Migraciones 0029/0025 aditivas, tabla vacía, CHECK 20 000; tests actualizados sin debilitar salvo .at(-1)->toContain en t831/t1423. Gates rc 0: tsc, oráculos, traza T1429, compile 010 sin deriva.
+- OBS: PG real no ejecutado; decisión A pendiente de Neo. Acta audits/oracle-010-bloqueE-rojo-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1430 (f9638bf)
+- PASS CON OBS. Alcance limpio (solo log-keymaker propio; sin specs/contratos/generated). Orden CSRF -> sesión (404 uniforme, antes del cuerpo) -> origen -> cuerpo verificado en código y prueba (JSON 5 MB sin sesión = baseline). CAS 422/412, foto siempre +1, limpieza en 412. 413 solo en PUT /api/admin/about; foto cruda ERR-MEDIA-TOO-LARGE.
+- Stripper movido a dominio: diff byte a byte vacío, sin imports; t847/t848b/t874/t568 verdes. Conciliación about/ compara con photo_object_key (la vigente no se encola). Claves: solo requireUuid, prefijo about/ 15 min.
+- Gates rc 0: tsc, oráculos (0 débiles), PG17 t1428 81/81 sin omitidas, lote 132/132, traza T1430 rc 0 (no rc 1). Fuzz propio 50 000 corridas del sanitizador: 0 violaciones. Acta audits/oracle-010-T1430-f9638bf-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1431 (51c4d67)
+- PASS CON OBS. Alcance limpio (11 archivos, solo log-keymaker propio). about-markdown web sin imports, escape total y lista cerrada de etiquetas; 16 hostiles + fuzz 60 000 (web y servidor->web): 0 violaciones reales.
+- /acerca-de fuera de Guard/Session, credentials omit, h1 único; admin If-Match con etag, 412 con recarga, maxLength 20000 + contador; t1249 solo añade '/acerca-de'. Los 3 fallos Playwright no corresponden a archivos tocados.
+- Gates rc 0: tsc, vitest 58/58, oráculos, traza T1431. OBS: href `/\evil.com` permitido (BAJO), sin prueba de AboutPanel. Acta audits/oracle-010-T1431-51c4d67-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1431 revalidación del fix (b2ab1d9)
+- PASS CON OBS. Alcance limpio (7 archivos, solo log-keymaker propio). `\/(?![\/\\])` bloquea `/\evil.com` y `//evil.com` en servidor y cliente sin romper rutas válidas; LINK con un nivel de paréntesis: render(x)==render(sanitizar(x)) en las hostiles del test.
+- Pruebas AboutPanel con oráculos fuertes (If-Match, 412 role=alert, maxLength 20000, altWarning); reflow E2E 4/4 (rojo-antes por bitácora de keymaker, no reproducido). Gates rc 0: tsc, vitest 83/83, oráculos 0, traza T1431, playwright reflow.
+- OBS: 2+ niveles de anidado difieren web/servidor (inerte, sin fuga); panel probado por fragmentos; alt vacío aviso vs nota del esquema. Acta audits/oracle-010-T1431-fix-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1431 cierre (3fbc04b, abec567)
+- PASS. Alcance limpio (logos propios). AboutContent movido literal, misma carga (fetch /api/about, credentials omit, sin /auth/me); t1444 11/11.
+- Pruebas alt="" y alt escapado fuertes (0 débiles). about.schema 1.0.1 PATCH: estructura JSON idéntica sin description; generated v36 solo descripción/versión, compile 010 sin deriva.
+- Gates rc 0: tsc, vitest 75/75, oráculos, traza T1431, compile. OBS-3 cerrada. Acta audits/oracle-010-T1431-cierre-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1431 OBS-4 sati (e174c26)
+- PASS CON OBS. Compilé Tailwind real: `[&_a:focus-visible]` genera `.cls a:focus-visible` con box-shadow/ring Terracota; `outline-none` = `2px solid transparent` (visible por anillo; E2E exige outline != auto).
+- Alcance: sin PetForm/pet-dashboard/household/medios-csp/playwright.config; OBS BAJO: el commit incluye 46 líneas ajenas del registro (arrastradas por git add del archivo). Stash@{0}/@{1} y árbol intactos.
+- Gates rc 0: tsc, vitest 29/29, pw 6/6, oráculos, traza T1431. Acta audits/oracle-010-T1431-e174c26-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1432 TRI-01/02/03 (e384094)
+- FAIL. Alcance limpio (7 archivos, sin registro ni bitácoras ajenas). Seguridad PASS: solo h1-h6/p/ul/ol/li/strong/em/a, href con SAFE_HREF, 0 innerHTML en código, semgrep 0, excepción de fetch acotada (solo +1 entrada y 2 controles), TRI-03 no altera enlaces válidos.
+- Equivalencia de render NO demostrada: fuzz 300k (viejo parcheado con regla TRI-03) da 1 820 difs, 1 725 con viejo BIEN anidado y texto visible distinto (`**a _b_ c**` -> `_b_` literal, `__a *b* c__`), 0 difs de href. Las ~26k "marcador" = entradas con U+E000/E001 (99,2 % de difs en mi alfabeto), nuevo las cambia a U+FFFD.
+- Gates: tsc 0, vitest 818/818, security rc 0 (1.ª con flaky t1238 de latencia, aislado verde), semgrep 0, oráculos 0, traza rc 0. Acta audits/oracle-010-T1432-e384094-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1432 reintento ORA-T1432-01 (99614b4)
+- FAIL. Alcance limpio, seguridad/TRI-03/pruebas OK, casos del acta y PUA corregidos (salida idéntica al viejo).
+- Pero con 300k entradas propias: 336 viejo mal anidado distinto; 100 solo serialización, 236 con texto visible perdido (nuevo siempre más corto). Causa: `stack.length = at + 1` descarta nodos abiertos intermedios. Ej. `**x _y** z_` pierde "y". La propiedad de keymaker excluye todo mal anidado y no lo ve.
+- Gates rc 0 (tsc, vitest 89/89, security 641, semgrep, oráculos, traza). ORA-T1432-04 ALTO; MAX_RETRY agotado -> Neo. Acta audits/oracle-010-T1432-99614b4-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1432 re-auditoría ORA-T1432-04 (55799b4)
+- PASS. Excepción a MAX_RETRY autorizada por Neo. Alcance limpio (4 archivos, solo log-keymaker propio). `emphasis()` promueve intermedias abiertas al cerrar (sin `stack.length = at + 1`); 13 cruces manuales con texto visible igual y salida bien anidada.
+- Muestreo propio 4 semillas x 300 000 = 1,2 M entradas (52 átomos, PUA, U+2028/2029, NBSP, enlaces): 0 diferencias de texto visible, 0 etiquetas fuera de lista, 0 hrefs distintos fuera de TRI-03; fixture == e384094^.
+- Propiedad: seed 1432, 20 000, compara textContent; única exclusión TRI-03; 0 aserciones débiles; t1428/t1431/t1444 intactos. pet-dashboard solo 3.2.0 -> 3.3.0.
+- Gates rc 0: tsc, vitest 91/91, security 641, semgrep, oráculos, traza T1432. Acta audits/oracle-010-T1432-55799b4-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1431 guarda T1235 copia admin (31b5d46)
+- PASS CON OBS. Alcance limpio (3 src + prueba + log-keymaker propio, sin registro). `cmp` de las 2 parejas rc 0; solo la prueba nueva en tests/, guardas intactas.
+- Identidad cubierta: toBe sobre fuentes + arbol/render; test:gate corre vitest completo sin include restrictivo. Seguridad: SAFE_HREF, rel, lista cerrada, 0 innerHTML, semgrep 0.
+- OBS BAJA: propiedad t1432 solo ejercita web (admin cubierta transitivamente). Gates rc 0: tsc, vitest 21/21, oráculos, traza T1431. Acta audits/oracle-010-T1235-copia-admin-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 010 T1436 cierre de feature (63a2c9b)
+- PASS CON OBS. Rama limpia de cambios propios (diff src/tests/specs010 vacío); 59 commits desde b4067b7.
+- Gates rc 0: traza 010 (75/75), compile 010 sin deriva, tsc, oráculos 0 débiles, vitest dirigido 100/100, semgrep 0 hallazgos.
+- Marca: toLowerCase en 4 cabeceras, logo horizontal solo en admin, 0 nunito en código. Legal: contacto@tipi.pet, 3 placeholders intactos, 0.1.0 DRAFT. Acerca de: lista cerrada de etiquetas, SAFE_HREF, 0 innerHTML en código, copias identicas.
+- OBS BAJA: zips/whl/gate-output sueltos en raíz; legal-texts.md línea 17 desactualizada. Deuda declarada (h). Acta audits/oracle-010-T1436-cierre-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 011 paquete DRAFT (db8eb75)
+- PASS CON OBS. Alcance limpio (4 archivos de specs/011 + 5 líneas de log-architect, 0 src/tests). 9/9 requerimientos del inbox cubiertos; 61 tareas, 0 sin [GH:], 0 [x]; 9 bloques con [LOCAL] antes de compuertas, sync en cada cierre, T1560 Closes #N.
+- Inventario en disco cierto: sin tope de hogares, sin picture/avatar de usuario, IA solo escena, ARGOS_ADMIN_EMAILS única fuente, vista pública excluye avatar/álbum.
+- OBS: ORA-011-01 IDs de tarea erróneos en «Bloquea» de spec (D11-01/03/04/06/09); ORA-011-02 decisiones presupuestas (STATE ACTIVE↔DISABLED vs D11-04, página única vs D11-05, álbum vs D11-11); ORA-011-03/04 BAJA. Traza 011 rc 2 confirmada: falta error-catalog.json y script sin ramal 011. Acta audits/oracle-011-paquete-db8eb75-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 011 enmienda documental (a755193)
+- PASS CON OBS. Alcance limpio (4 archivos specs/011 + log-architect propio, 0 src/tests). OBS-1 verificada ID por ID contra tasks.md (D11-01 T1524..T1531, D11-03/04 T1524+T1527, D11-06 T1507+T1508, D11-09 T1534+T1535).
+- OBS-2/3/4 resueltas: presunciones condicionadas a D11-xx, 0 «Vertex AI» único, nota de trazabilidad sin catálogo ni script 011. D11-01..13 abiertas, 0 [x]. Traza 010 rc 0.
+- OBS BAJA residual: plan.md:21, T1508, T1510 y SC-011-001 dicen «página única» sin marca D11-05. Acta audits/oracle-011-enmienda-a755193-2026-11-25.md. Sin [x].
+
+## 2026-11-25 — 011 acta D11 (T1501)
+- PASS CON OBS. D11-01..13 + ORDEN reflejadas sin contradiccion en spec/plan/tasks; D11-02 abierta en los 4 artefactos; 0 residuos 'segun D11-xx'; 0 [x]. Traza 011 rc=0 (109/109), oraculos rc=0. Sin checklists/.
+- OBS: ORA-1 rama 'a crear' obsoleta; ORA-2 tabla premisas en tono de decision abierta; ORA-3 plan #74 migracion y T1507 [N2] sobrantes; ORA-4 posibles adiciones (sanear historicos T1519, cuentas sin Google, N2 de constantes); ORA-5 REQ-HOG11-007 vs endpoint avatar #31; ORA-6 cambios ajenos (005 T797 [x], settings, etc.). Acta audits/oracle-011-acta-d11-2026-11-25.md.
+
+## 2026-11-25 — 011 revalidación Fase 0 (MAX_RETRY=1)
+- PASS CON OBS. Hallazgos lock/trinity/mifune/merovingian/architect incorporados; Pendientes de Neo (F-03,F-05,F-11,H-1,H-6,MIF-03/04/10,MER-11-01,paginación,2FA) intactos; EDGE-011-011/014 sin texto; 0 IDs duplicados; 0 [x]; traza 011 rc=0, oráculos rc=0.
+- OBS: ORA-1 EDGE-017/T1543 presupone paginación global (MEDIA); ORA-2 spec:16 y fila 2FA sin citar acta architect; ORA-3 contracts/README desfasado; ORA-4 US2.1 «descarga»; ORA-5 trinity H-5/H-2b sin traza. Acta: .specify/memory/audits/oracle-011-fase0-2026-11-25.md
+- 2026-11-25 [oracle] Auditoría cierre Fase 0 de 011 (directiva Neo iter 208): PASS CON OBS (ORA-1 decisiones derivadas sin rotular, ORA-2, ORA-3); traceability rc=0, oracles rc=0, 0 [x]. Acta: .specify/memory/audits/oracle-011-cierre-fase0-2026-11-25.md
+- 2026-11-25 oracle T1511 Bloque A (#64): PASS CON OBS (ORA-1..4); acta .specify/memory/audits/oracle-011-T1511-bloqueA-2026-11-25.md
+- 2026-11-25 oracle T1516 Bloque B (#72): PASS CON OBS (ORA-1 T1515 manual pendiente, ORA-2 T797 [x] ajeno en 005 sin commit); tsc/vitest(59)/oracles/trazabilidad rc=0; acta .specify/memory/audits/oracle-011-T1516-bloqueB-2026-11-25.md
+- 2026-11-25 oracle T1523 Bloque C (#73): PASS CON OBS (ORA-1 spec REQ-IA11-004 sin enmendar, ORA-2 cambio breed/speciesOther sin declarar, ORA-3 DEUDA-011-RETENCION-CONSOLA solo en log; ORA-4 PG skipped); tsc/vitest(40)/oracles/trazabilidad T1519+T1521 rc=0; acta .specify/memory/audits/oracle-011-T1523-bloqueC-2026-11-25.md
+- 2026-11-25 oracle T1524 contratos roles 011: PASS CON OBS (ORA-1 recuperación EDGE-011-019 inalcanzable con UNIQUE(email)+INVITE no-op; ORA-2 derivadas (g)(h) sin rotular); verify-traceability 011/010/009 rc=0, oráculos rc=0; ERR_ID_011 correcto; acta .specify/memory/audits/oracle-011-T1524-roles-2026-11-25.md
+- 2026-11-25 oracle T1526+T1527 Bloque D (#63): PASS CON OBS (ORA-1 indice sub ACTIVE no rotulado derivada pendiente de Neo, ORA-2 anexo con UNIQUE incondicional, ORA-3 PG omitido, ORA-4 OUT_DIR fijo en sentinels); tsc/vitest(182p/9s)/oracles/traza 011,T1526,T1527 rc=0; stash sin entradas nuevas; acta .specify/memory/audits/oracle-011-T1526-T1527-bloqueD-2026-11-25.md
+- 2026-11-25 oracle cierre Bloque D (#63) T1524-T1531: PASS CON OBS (ORA-1 MEDIA ratificación iter 226 no registrada en decisiones/anexo, ORA-2 D-4 sin PG, ORA-3..5 BAJA); tsc/oracles/traza 011+T1531 rc=0, vitest 210p/9s, PG17 propio 219/219; mutación D-4 falla; acta .specify/memory/audits/oracle-011-bloqueD-cierre-2026-11-25.md
+2026-11-25 T1538-T1539 bloque F auditado: CUMPLE CON RESERVAS; acta en .specify/memory/audits/oracle-011-T1538-T1539-bloqueF-2026-11-25.md
+
+## 2026-11-25 — 011 Bloque G (T1543/T1544/T1546)
+- Veredicto CUMPLE CON RESERVAS; PG17 efimero verde; RES-1 trazabilidad T1543 rc1 (SC-011-046..052 sin ID individual), RES-2 deuda sin TECHDEBT. Acta oracle-011-T1547-bloqueG-2026-11-25.md.
+
+## 2026-11-25 — 011 Bloque H (T1548-T1550, cierre T1552)
+- Veredicto CUMPLE CON RESERVAS; PG17 real verde (71/1 skip placeholder); acta oracle-011-T1552-bloqueH-2026-11-25.md
+- 2026-11-25 [oracle] Validación final Bloque H (tras S-1/S-2/OBS-1) hecha: CUMPLE CON RESERVAS; ver acta oracle-011-T1552.
+- 2026-11-25 T1558 validacion Bloque I: CUMPLE CON RESERVAS; acta .specify/memory/audits/oracle-011-T1558-bloqueI-2026-11-25.md
+- 2026-11-25 oracle: validé ampliación ficha mascota (011) -> CUMPLE CON RESERVAS; acta en audits/oracle-011-ampliacion-ficha-mascota-2026-11-25.md
+
+## 2026-11-26 Auditoria commits 011
+- Revise 70b47df, ebf6ec0, 73c058f, 2ee0162 contra disco.
+- Hallazgo bloqueante: registerUserAvatarRoutes ausente en app.ts de 70b47df (18 pruebas t1554 rojas en worktree limpio, verdes en arbol sucio).
+- verify-ci-ready: Semgrep (AdministratorsPanel, T1528 de 011) y archivos sin commit fallan; trazabilidad 011 y oraculos rc=0.
+- Acta: .specify/memory/audits/oracle-011-auditoria-commits-2026-11-26.md
+
+## 2026-11-26 T1559 cierre consolidado 011
+- B-1 PASS (worktree limpio HEAD 4e83e72: app.ts cableado, tsc 0, t1554+t1535 vista previa 34 ok). B-2 PASS (Semgrep 0; verify-ci-ready i,ii OK; iii solo H-01/config). Traza 011 rc=0, oraculos rc=0.
+- Hallazgo nuevo: test:gate en HEAD limpio rc=1 (49 rojas). 46 = tests de config sin commit; H-011-1 PetDashboard "OWNER/ADMIN" vs t1235/t1236 (ebf6ec0); H-011-2 AdministratorsPanel importa de web/ (4e83e72). Mi auditoria de ebf6ec0 no ejecuto test:gate.
+- Acta: .specify/memory/audits/oracle-011-T1559-cierre-consolidado-2026-11-26.md (CUMPLE CON RESERVAS BLOQUEANTES). Worktrees eliminados.
+
+## 2026-11-26 — T1559 revalidacion e7602fe
+- test:gate HEAD limpio rc=1: 45 rojas/15 archivos, todas config (ARGOS_ADMIN_EMAILS) con arreglo sin commit; los 6 archivos H-01 verdes en HEAD. Arbol sucio: 8 rojas = lista H-01. t1238 28/28 x3 (flaky).
+- admin-clock: CUMPLE SOLO LA FORMA; propuesto nosemgrep explicito (precedente SessionExpiryNotice). Gates tsc/semgrep/trace/oraculos OK. Acta ampliada; T1559 sin [x]. Worktree retirado.
+
+## 2026-11-26 — T1559 revalidacion final en e3cf678
+- Worktree limpio e3cf678 (eliminado). test:gate rc=1: 0 pruebas rojas, pero cobertura de ramas 94.65% < 95% (H-011-3, nuevo, fuera de lista H-01). Los 6 specs H-01 verdes en HEAD limpio.
+- 738fe05 solo tests/**; e3cf678 solo admin-clock.ts: sin H-01. nosemgrep en l.14 antes de Date.now() l.15, regla exacta.
+- tsc 0, semgrep 0, traza 011 0, oraculos 0. Veredicto: NO CUMPLE provisional (un bloqueo: cobertura). Sin [x], sin commits. Acta actualizada.
+
+## 2026-11-26 — Revalidacion a50cdb5 (H-011-3)
+- Worktree huerfano wt: sin cambios rastreados; retirado y recreado desde a50cdb5; eliminado al cierre.
+- test:gate rc=0 (7681 ok, 0 rojas, ramas 95.21%); tsc, semgrep, verify-traceability 011, verify-oracles rc=0.
+- Commit a50cdb5: 2 tests t1553 + 2 bitacoras; sin H-01/005 tasks/inbox. Higiene: bitacoras arrastran ~124/206 lineas ajenas a Keymaker.
+- Veredicto T1559: CUMPLE CON RESERVAS (commit de H-01 por Neo antes de push). Sin [x].
+
+## 2026-11-26 — Auditoría TECHDEBT-011-PREVIEW-AVATAR-HOGAR (HEAD 5bc4739)
+- Worktree limpio: test:gate rc=0 (7683 passed, branches 95.23%, 0 rojas); SEN-IP-07 no reprodujo (3x aislado verde).
+- Commits 5e112f7/ac0c64d/5bc4739 limpios (sin H-01, 005/tasks, inbox, logs); generated v33 solo descripción de petIds.
+- Backend petIds en vista previa autenticada coincide con la autorización de Neo; avatar valida pertenencia y sesión.
+- Gates tsc/semgrep/traceability 011/oracles/compile 005: rc=0, sin diff. Veredicto CUMPLE CON RESERVAS (H-01 sin commitear). Acta en .specify/memory/audits/oracle-011-preview-avatar-hogar-2026-11-26.md.
+
+## 2026-11-26 — Auditoría purga de delegados (216f4b9)
+- Worktree limpio desde 216f4b9; test:gate rc=1 x2 por 4 rojas intermitentes distintas (vacuum-sentinel, t591, t1525-tope PG, t1238), todas verdes aisladas; vitest completo 535/535, ramas 95.24 %.
+- H-9 PASA (2 DELETE en src/, ambos con forma autorizada); retención 72/30/365 coincide; commit 216f4b9 con los 9 archivos esperados; tsc/semgrep/trace 011/oracles rc=0.
+- Veredicto CUMPLE CON RESERVAS; acta en .specify/memory/audits/oracle-011-purga-delegados-2026-11-26.md. Worktree eliminado.
+
+## 2026-11-26 — Auditoría fillSlots (0d56466) y desviación H-9 (b85e19a)
+- Worktree limpio desde b85e19a; test:gate rc=1 por 1 roja intermitente (t1525-tope PG, loginRoot del arnés, no usa fillSlots); aislada 3/3 verde (37/37); vitest completo con cobertura 535/535, 8044 pruebas, ramas 95.24 %.
+- 0d56466 correcto (lanza ante !=202 y conteo, sin PII; aserción 19 antes de la carrera; expectativa intacta). b85e19a ACEPTABLE: 2 delegados previos + 18 = 20, mismos 6 estados.
+- tsc/semgrep/trace 011/oracles rc=0. Veredicto CUMPLE CON RESERVAS; acta en .specify/memory/audits/oracle-011-fillSlots-2026-11-26.md. Sin commit (decisión de Neo).
+
+## 2026-11-26 — Auditoría T1612 (Feature 012, Bloque A, 3c2fa6c + DRAFT sin commit)
+- Gates rc=0: traceability --feature 012 (295/295), verify-oracles (0 débiles), tsc; 5 JSON y OpenAPI (ruby) parsean; 25/25 ERR-* de spec en el catálogo.
+- DRAFT intacto, sin [x] nuevos, APPROVED solo ENM-002-MINOR-012/ENM-005-A; ABSENCE_MIN_INACTIVE_DAYS=14 y secuencialidad coherentes en spec/data-model/contratos/T1625/T1627.
+- Veredicto CUMPLE CON RESERVAS (11 archivos sin commit; falta firma de Neo/trinity). Acta .specify/memory/audits/oracle-012-T1612-2026-11-26.md.
+
+## 2026-11-26 — Auditoría T1613 (Feature 012, Bloque A, 14e4370)
+- Gates: traza 012 rc=0, oraculos rc=0, persistence 891 ok/0 fallos (PG omitido); tsc rc=2 solo por 13 errores de las rojas T1614/T1615 (modulos aun inexistentes), ninguno fuera de ellas.
+- Commit 14e4370 limpio (9 archivos, sin H-01/005); paridad SQLite/PG de pet_co_owners, owner_requests, ownership_version y FK SET NULL identica; desviaciones de nombre (pet_assignments) y TEXT ISO documentadas solo en errata DRAFT untracked.
+- Veredicto CUMPLE CON RESERVAS. Acta .specify/memory/audits/oracle-012-T1613-2026-11-26.md.
+
+## `[2026-11-26 | Auditoria dominio 012 Bloque A, 68ec963..1283ba5]`
+- Gates: tsc 0, oraculos 0, traza 012 0, semgrep 0 hallazgos; vitest 012: 197 verdes, 2 rojas (B-2 chip registrado, memoria+SQLite), 43 omitidas (PG); T1614 98 verdes.
+- Commits sin H-01/005/contratos 001..011; 0034/0030 con paridad e integridad de datos; sin pruebas debilitadas (TRANSFER->CHANGE_PRINCIPAL en 2 casos, reserva).
+- Veredicto CUMPLE CON RESERVAS. Acta .specify/memory/audits/oracle-012-dominio-2026-11-26.md.
+- 2026-11-27 oracle: acta 012 1283ba5..8a68218 CUMPLE CON RESERVAS (5 reservas).
+
+## 2026-11-27 — Validacion Bloque B v0.8
+CUMPLE CON RESERVAS; gates rc=0/0; acta oracle-012-bloqueB-v08-2026-11-27.md. Sin aprobacion.
+- 2026-11-27 [oracle] Auditoria Bloque B (ea3801c/dbb826b/206e80b): CUMPLE CON RESERVAS; acta en audits/oracle-012-bloqueB-migraciones-T1633-T1648-2026-11-27.md
+
+## 2026-11-27 — Auditoria Bloque B T1636+T1643 (49243e7..1d294b8)
+- Veredicto CUMPLE CON RESERVAS. Gates rc=0 (tsc, trace, oracles, trace --task T1635, vitest 218 verdes).
+- Hallazgos: H-01 motivo no persistido, H-02 person_id sin via de asignacion, H-03 step-up nominal y en memoria (bloqueantes de produccion); H-04..H-07 menores. Acta en .specify/memory/audits/oracle-012-bloqueB-T1636-T1643-2026-11-27.md.
+- 2026-11-27 oracle: rango 1d294b8..d5d6d47 NO CUMPLE por gate oráculos (O-01). Acta oracle-012-rango-1d294b8-d5d6d47-2026-11-27.md
+
+## 2026-11-27 — Revision rojas T1653/T1654 (Bloque C, 3e9aae5 + 115fa8a)
+- Veredicto CUMPLE CON RESERVAS. Constantes: las 10 coinciden. Gates en rojo: tsc rc=2 (15 errores, todos care), oracles rc=0, trace rc=0. Tras dba20eb: trace rc=1 (4 PURITY FAIL en src/domain/care).
+- Firmas: F1 sin especie en validateCareRoutine, F2 id en planRoutineUpdate, F3 pureza, F4 created 200/201. Reservas R-1 (reloj hacia atras vs CHECK), R-2 (A-04), R-3 (tope 60 vs 100 filas), R-4 (PG sin sharing).
+- Acta: .specify/memory/audits/oracle-012-BlocC-rojas-T1653-T1654-2026-11-27.md
+
+## 2026-11-27 — T1661 b1016b1
+Auditoría CUMPLE CON RESERVAS; ver acta oracle-012-T1661-retencion-b1016b1-2026-11-27.md. Reserva 3 pendiente de Neo.
+
+## 2026-11-27 T1656 f52a0a4 — veredicto CUMPLE CON RESERVAS; ver acta .specify/memory/audits/oracle-012-T1656-f52a0a4-2026-11-27.md
+
+## 2026-11-27 oracle T1656 c4afc1f
+Veredicto CUMPLE; ver acta oracle-012-T1656-c4afc1f-2026-11-27.md.
+
+## 2026-11-27 T1658 árbol
+Acta oracle-012-T1658-arbol: CUMPLE CON RESERVAS; gates rc0; ver audits.
+
+## 2026-11-27 T1658 b037dd1+6c860b5 revalidación
+Acta oracle-012-T1658-b037dd1-6c860b5: CUMPLE CON RESERVAS. Gates tsc/oracles/traceability rc0; vitest 101 archivos 1087 tests verdes (PG real). Puntos 1-3 cumplen; H-T1658-1 MEDIO: CHECK dose_unit de 0035/0039 aún acepta IU; propuesta migración 0036 PG (DROP/ADD CONSTRAINT) y triggers SQLite 0040; t1652 :46/:167 a cambiar.
+
+## 2026-11-27 — Bloque D #32 DRAFT 0.3.0 verificacion puntual
+- Veredicto: CUMPLE CON RESERVAS; 12 puntos de Neo y re-auditorias verificados en disco (git diff HEAD + lectura de archivos nuevos).
+- Gates rc=0: tsc, compile-contracts --feature 012 (generated sin deriva), verify-oracles (667/0 debiles), verify-traceability 012 (309/309).
+- Hallazgos: H-A MEDIA (SC-122/127 sin tarea de codigo), H-C MEDIA (SC-086 y T1680 sin ampliar), H-B/D/E/F BAJA.
+- Acta: .specify/memory/audits/oracle-012-QR-0.3.0-puntual-2026-11-27.md
+
+## 2026-11-27 oracle Bloque D T1672-T1674
+CUMPLE x3; gates rc=0; acta audits/oracle-012-bloqueD-T1672-T1673-T1674-2026-11-27.md
+
+## 2026-11-27 oracle Bloque D fase verde
+CUMPLE CON RESERVAS; H-D1..H-D7; gates rc=0; acta oracle-012-bloqueD-verde-3861257-1ffbad9-2026-11-27.md
+
+## 2026-11-27 oracle Bloque D lote final backend
+CUMPLE CON RESERVAS; gates rc=0 (tsc, oracles 687/0 debiles, traz 012, vitest 18 archivos/352); H-BD-F1 purga audit EMERGENCY_* 90 d ausente; T1674 a/b/c CORRECTAS; acta oracle-012-bloqueD-backend-final-2026-11-27.md
+
+## 2026-11-27 /oracle — T1676 UI QR + T1681/82/85 (23008cc..755f130)
+Veredicto CUMPLE CON RESERVAS; D-1 literal ARGOS vs REQ-TIP10-001/t1404, D-2 alergias por rol, D-3 alcance withoutAnnexFields, R-3 guarda sin handler real. tsc/oraculos/trazabilidad rc=0; presentation 1027/1027. Acta: .specify/memory/audits/oracle-012-T1676-755f130-2026-11-27.md
+
+## 2026-11-28 — Auditoría 012 D-1/D-2/D-3 (4937203)
+- Veredicto CUMPLE CON RESERVAS. tsc, oráculos (0 débiles) y trazabilidad 012 rc=0; vitest dirigido 44+12 verdes; v38 sin deriva; 0 "ARGOS no verifica".
+- Reservas: commit trae 6 archivos (tasks.md con T1681/T1685 en [x] sin firma de Neo en disco); schema/annex/legal-texts 010 con Tipi sin commitear.
+- Acta: .specify/memory/audits/oracle-012-D1-D2-D3-4937203-2026-11-28.md. T1676/T1682 no marcadas.
+
+## 2026-11-28 — Revalidación H-2 (commit 6581ea2)
+- 6581ea2 toca solo legal-texts.md (010), emergency-additive-annex.md y emergency-card.schema.json; sin staged pendientes.
+- allergiesEditorHelp en schema == emergency-texts.ts (domain y web) en HEAD, literal "Tipi no verifica…"; 0 "ARGOS no verifica" en src/, tests/, contratos 012.
+- Gates sobre HEAD: verify-traceability --feature 012 rc=0 (CUMPLE), verify-oracles rc=0 (691 archivos, 0 débiles).
+- Veredicto: H-2 CERRADO. Observación menor: spec.md:112 (REQ-QR12-002) aún dice «ARGOS no verifica»; fuera del alcance de H-2, para /architect.
+
+## 2026-11-28 — Auditoría lote T1678/T1683 (13a5537..f4f9ed1, base 6581ea2)
+- Veredicto CUMPLE CON RESERVAS: 0 ALTA/MEDIA, 2 BAJA, 3 INFO. tsc rc=0; verify-oracles 693/0 débiles rc=0; traceability 012 309/309 rc=0; vitest dirigido 6 archivos 116 verdes (27 PG omitidos).
+- H-T1678-01 CERRADO CON NOTA (inject normaliza %2e%2e vía new URL; prueba por socket real lo confirma; sin cambio de enrutador, no requiere Neo). Resto de hallazgos (MEDIA-1, BAJA-2, H-T1678-02, B-01, S-1..3) CERRADOS.
+- Ningún commit toca contratos/generated/spec/data-model/annex/legal-texts/tasks/H-01/005/logos.
+- Acta: .specify/memory/audits/oracle-012-lote-T1678-T1683-2026-11-28.md
+
+## 2026-11-28 — Cierre Bloque D (211a5b6..9b642b6)
+- CUMPLE CON RESERVAS: 0 ALTA/MEDIA, 2 BAJA, 3 INFO. tsc rc=0; verify-oracles 693/0 débiles; traceability 012 CUMPLE; vitest dirigido 6 archivos 100 verdes/31 omitidos (PG).
+- RAMA-01 y RAMA-02 conformes a annex §7/§10; actorUserId coherente con §10.4(b) (texto §10.2 desfasado, BAJA-1). Importación de respaldo no llama al hook pero CASCADE borra ficha y consentimientos (BAJA-2, no bloquea).
+- Commits aislados: sin Bloque E, H-01, 005 ni logos; server.ts de 957fac0 sin originVerifySecret.
+- Acta: .specify/memory/audits/oracle-012-bloqueD-cierre-211a5b6-9b642b6-2026-11-28.md
+
+## 2026-11-28 — Validación ENM-005-E DRAFT 0.2.2 (Bloque E, #81, solo lectura)
+- Veredicto CUMPLE CON RESERVAS: 0 CRITICA/ALTA/MEDIA, 3 BAJA, 4 INFO. Las 5 decisiones de Neo (MEDIA-6, R2-04 B, R2-03, filtro de logs Fase 1, EDGE-077) aplicadas sin contradicción; correcciones r3 cerradas.
+- Gates: compile-contracts --feature 012 rc=0; verify-oracles 693/0 débiles rc=0; tsc rc=0; traceability 012 rc=0 (317/317).
+- BAJA-1 residuos 0.2.1 (annex §10.2, catálogo); BAJA-2 spec REQ-VET12-007/T1701 sin la regla owner/ADMIN no titular = 404; BAJA-3 matriz de retención de data-model sin R2-04.
+- Acta: .specify/memory/audits/oracle-012-ENM-005-E-0.2.2-2026-11-28.md
+
+## 2026-11-28 — Auditoría cadena 13bf24f..4857c3a (T1692, T1693, T1694; Bloque E, #81, solo lectura)
+- Veredicto CUMPLE CON RESERVAS: 0 ALTA/MEDIA, 3 BAJA, 5 INFO. Bump 005 conforme a ENM-005-E §1/§10.2; 0042 SQLite y 0038 PG conformes a annex §2/§8 (PG solo estático).
+- Gates: tsc rc=0; verify-oracles 700/0 débiles; traceability 012 rc=0 (317/317); compile-contracts 012 rc=0 sin deriva. Rojas: 50 rojas por falta de implementación, 9 verdes deliberadas, 5 omitidas (PG).
+- BAJA-1 annex §10.2 dice firma pendiente; BAJA-2 denied() acepta cualquier excepción; BAJA-3 emergency-migration relajado a toContain. 4 fallos heredados «última migración» no son de esta cadena.
+- Acta: .specify/memory/audits/oracle-012-T1692-T1694-13bf24f-4857c3a-2026-11-28.md
+
+## 2026-11-28 — Auditoría fase verde Bloque E (0d92275..9e8a48d, #81, solo lectura)
+- Veredicto CUMPLE CON RESERVAS: 1 ALTA, 1 MEDIA, 3 BAJA, 6 INFO. tsc rc=0; verify-oracles 704/0 débiles rc=0; traceability 012 317/317 rc=0; compile-contracts 012 rc=0 sin deriva; vitest dirigido 13 archivos, 125 verdes/9 omitidos.
+- Backend conforme: default-deny exhaustivo (4 funciones), bandera exacta al arrancar y 404 uniforme, autoridad y revocación entera con R2-04 (B), hooks en todos los caminos, idempotencia, activeCount. Staging selectivo limpio (sin H-01, logos, 005/tasks).
+- ALTA-1 aviso previo al actor solo en la confirmación de revocar (annex §5.1, D-1); MEDIA-1 selector solo con ownerUserId = usuario (co-poseídas fuera). Límite de vista previa 30/10 min: aceptable (BAJA-2, contrato calla el valor).
+- Acta: .specify/memory/audits/oracle-012-faseverde-E-0d92275-9e8a48d-2026-11-28.md
+
+## 2026-11-28 — Revalidación lote corrección fase verde Bloque E (25b5e58..223fdcb, #81, solo lectura)
+- Veredicto CUMPLE CON RESERVAS: 0 ALTA, 1 MEDIA, 3 BAJA, 4 INFO. tsc rc=0; verify-oracles 707/0 débiles; traceability 012 rc=0; vitest dirigido 9 archivos 99 verdes/3 omitidos.
+- MEDIA-1 previa (selector co-poseídas) y BAJA-1 previa (precheck) cerradas; t1517 P-3 por nombre OK. ALTA-1 cerrada en parte: falta aviso en el flujo TRANSFER (TransferOwnership.tsx); CHANGE_PRINCIPAL es sobre-aviso inocuo; fail-open aceptable.
+- Staging sin H-01/logos/tasks. Acta: .specify/memory/audits/oracle-012-faseverde-lote2-25b5e58-223fdcb-2026-11-28.md
+
+## 2026-11-28 — Revalidación MEDIA-1 transferencia (2ade05c, solo lectura)
+- Veredicto CUMPLE: 0 ALTA/0 MEDIA/1 BAJA/1 INFO. tsc rc=0; verify-oracles 707/0 débiles; traceability 012 rc=0; vitest dirigido 4 archivos 28 verdes.
+- Guard antes del POST, fail-open, texto único reutilizado, prueba roja real (0 símbolos en 2ade05c^), solo 2 archivos tocados. Desbloquea firma T1695..T1702 por Neo.
+- Acta: .specify/memory/audits/oracle-012-MEDIA1-transferencia-2ade05c-2026-11-28.md

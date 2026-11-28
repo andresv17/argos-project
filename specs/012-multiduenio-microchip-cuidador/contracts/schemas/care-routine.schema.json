@@ -1,0 +1,521 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/care-routine.schema.json",
+  "title": "CareRoutineSchema",
+  "description": "Rutinas de cuidado y dosis de una mascota [REQ-CAR12-001, REQ-CAR12-007, REQ-CAR12-008, D12-11, D12-12, D12-13]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Sin ordenes clinicas: Tipi registra la indicacion que escribe el propietario; no calcula ni verifica dosis ni interacciones.",
+  "x-sdd-metadata": {
+    "version": "0.1.3",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "change_note": "0.1.3 (enmienda MINOR, decision de Neo 2026-11-27, REQ-CAR12-001 / D12-11): se RETIRA la unidad IU (insulina) del catalogo; DoseUnit queda estrictamente cerrado en MG|MCG|ML|TABLET|DROP; se elimina IU de DOSE_CONFIRM_THRESHOLDS; estado APPROVED sin re-firma. Historial: 0.1.2 + aclaracion Neo 2026-11-27 sin cambio de forma (D-B mapeo especie a grupo de dosis CANINE y FELINE -> CANINE_FELINE, resto y desconocidas -> OTHER_SPECIES; Reserva 1 de T1661 rutinas inactivas 365 dias desde su desactivacion; D-A orden 403 -> 404 -> 422 -> 409 en crear y editar): 0.1.2 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; NO APPROVED; resoluciones de Neo): H-C2 expectedVersion obsoleta o fila sustituida = 409 ERR-CAR12-ROUTINE-STALE (enmienda MINOR 0.3.0 del catalogo, entrada DRAFT pendiente de Neo); H-C3 y M-01 solo titulares definen rutinas, incluida MEDICATION (no ADMIN del hogar). Historial: 0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, B-01 y hallazgos de contrato de /trinity): +IU en DoseUnit (A-01); DOSE_CONFIRM_THRESHOLDS por grupo de especie, ya no regla universal, cifras fuera de CANINE_FELINE e IU PENDIENTES de veterinario humano (A-02); +seriesId (clave logica de la rutina, A-05); effectiveFrom/effectiveTo pasan de date a date-time (vigencia por instante, A-04); CareRoutineList.maxItems 100 (B-01).  Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CareKind, +DoseUnit (MG|MCG|ML|TABLET|DROP; UNIT retirada, D12-11), +DoseAmount, +TimesOfDay, +DaysOfWeek, +CareRoutine (una fila por version, M-7), +CreateCareRoutineRequest (confirmHighDose anti-tecleo), +UpdateCareRoutineRequest (expectedVersion), +RoutineWriteResult (versioned), +CareRoutineList, +DeactivateCareRoutineRequest. Umbrales de captura = valores de trabajo (DEUDA-012-VALIDACION-VET-UMBRALES).",
+    "traceability": [
+      "REQ-CAR12-001",
+      "REQ-CAR12-007",
+      "REQ-CAR12-008",
+      "SC-012-025",
+      "SC-012-026",
+      "SC-012-037",
+      "SC-012-088",
+      "SC-012-089",
+      "EDGE-012-014"
+    ]
+  },
+  "x-sdd-constants": {
+    "MAX_ROUTINES_PER_PET": {
+      "value": 20,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "rutinas ACTIVAS por mascota; las versiones sustituidas e inactivas no cuentan (m-1); excederlo: 409 ERR-CAR12-ROUTINE-LIMIT"
+    },
+    "MAX_ROUTINE_ROWS_PER_PET": {
+      "value": 100,
+      "where": "feature-012-limits.ts",
+      "rule": "techo absoluto de filas (versiones incluidas) por mascota (m-1); mismo 409; es tambien el maxItems de CareRoutineList (B-01)"
+    },
+    "TABLET_DOSE_STEP": {
+      "value": 0.25,
+      "where": "feature-012-limits.ts",
+      "rule": "TABLET: multiplos de 0,25, minimo 0,25 (EDGE-012-014)"
+    },
+    "DOSE_CONFIRM_THRESHOLDS": {
+      "value": {
+        "CANINE_FELINE": {
+          "MG": 500,
+          "MCG": 500,
+          "ML": 20,
+          "TABLET": 4,
+          "DROP": 10
+        },
+        "OTHER_SPECIES": {
+          "MG": null,
+          "MCG": null,
+          "ML": null,
+          "TABLET": null,
+          "DROP": null
+        }
+      },
+      "where": "feature-012-limits.ts",
+      "rule": "MAPEO ESPECIE -> GRUPO (D-B, Neo 2026-11-27): CANINE y FELINE -> CANINE_FELINE; todas las demas especies y cualquier especie desconocida o no mapeada -> OTHER_SPECIES. Guarda de TECLEO por grupo de especie de la mascota (CANINE_FELINE frente a OTHER_SPECIES: conejo, hurón, ave, reptil, pequeño mamifero, otras); ya NO es una regla universal (A-02). Confirmacion explicita (confirmHighDose = true) si la dosis por toma SUPERA el umbral del grupo y la unidad. Cifras de CANINE_FELINE: valores de trabajo heredados de 0.1.0; null = SIN CIFRA, PENDIENTE de un veterinario colegiado humano (DEUDA-012-VALIDACION-VET-UMBRALES, T1660; incluye todo OTHER_SPECIES). Con umbral null el dominio no aplica guarda numerica y la interfaz NO afirma que la dosis sea segura. Alternativa de guarda relativa (confirmar si la dosis nueva difiere de la version anterior mas de un factor) queda como opcion pendiente. No son limite de dosis clinica ni consejo clinico"
+    },
+    "CARE_LOG_RETENTION_DAYS_MEDICATION": {
+      "value": 1095,
+      "where": "feature-012-limits.ts",
+      "rule": "registros de MEDICATION, desde occurrence_date"
+    },
+    "CARE_LOG_RETENTION_DAYS": {
+      "value": 365,
+      "where": "feature-012-limits.ts",
+      "rule": "registros de MEAL/WALK/OTHER desde occurrence_date; rutinas inactivas 365 dias desde su desactivacion (la desactivacion fija effective_to y updated_at = now, invariante R-1, incluido el hook de fallecimiento de 007; Reserva 1 de T1661, Neo 2026-11-27), no desde la ultima ocurrencia"
+    },
+    "CARE_TIMEZONE": {
+      "value": "America/Bogota",
+      "where": "feature-012-limits.ts",
+      "rule": "dia civil fijo (D12-12 = B); DEUDA-012-TZ"
+    }
+  },
+  "$defs": {
+    "CareKind": {
+      "type": "string",
+      "enum": [
+        "MEDICATION",
+        "MEAL",
+        "WALK",
+        "OTHER"
+      ]
+    },
+    "DoseUnit": {
+      "type": "string",
+      "enum": [
+        "MG",
+        "MCG",
+        "ML",
+        "TABLET",
+        "DROP"
+      ],
+      "description": "Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales, insulina) queda retirada del catalogo por decision de Neo (0.1.3). Valores exactos: MG, MCG, ML, TABLET, DROP."
+    },
+    "DoseAmount": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100000,
+      "description": "Decimal > 0 con 3 decimales como maximo; las reglas por unidad (paso, minimo, umbral de confirmacion) son de dominio"
+    },
+    "TimesOfDay": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+        "minLength": 5,
+        "maxLength": 5,
+        "description": "HH:MM, 24 h, hora de Bogota (America/Bogota fija, D12-12 = B, DEUDA-012-TZ)"
+      },
+      "description": "1..6 horas HH:MM, ordenadas y sin repetidos"
+    },
+    "DaysOfWeek": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 7,
+        "description": "ISO 8601: 1 = lunes ... 7 = domingo"
+      },
+      "description": "1..7 dias, sin repetidos"
+    },
+    "CareRoutine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "seriesId",
+        "petId",
+        "kind",
+        "title",
+        "instructions",
+        "doseAmount",
+        "doseUnit",
+        "timesOfDay",
+        "daysOfWeek",
+        "startDate",
+        "endDate",
+        "ongoing",
+        "active",
+        "effectiveFrom",
+        "effectiveTo",
+        "supersedesRoutineId",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "seriesId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "Identificador de la rutina LOGICA, comun a todas sus versiones (filas); la primera version lo toma de su propio id. La unicidad del registro de cumplimiento se define sobre (seriesId, fecha, hora), no sobre la fila-version (A-05)."
+        },
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "kind": {
+          "$ref": "#/$defs/CareKind"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)"
+        },
+        "doseAmount": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseAmount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doseUnit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseUnit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timesOfDay": {
+          "$ref": "#/$defs/TimesOfDay"
+        },
+        "daysOfWeek": {
+          "$ref": "#/$defs/DaysOfWeek"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "endDate": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ongoing": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "effectiveFrom": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32,
+          "description": "Instante (reloj del servidor, hora de Bogota) desde el que rige esta version; una ocurrencia pertenece a la version cuyo [effectiveFrom, effectiveTo) cubre su instante fecha+hora de Bogota (A-04)"
+        },
+        "effectiveTo": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32,
+              "description": "Instante (exclusivo) en que la version se cierra por sustitucion o desactivacion; las ocurrencias anteriores a el siguen vigentes y registrables (A-04)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedesRoutineId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        }
+      },
+      "description": "Version vigente o historica de una rutina. Una rutina MEDICATION es una fila por version: cambiar dosis, unidad u horarios inserta una fila nueva (supersedesRoutineId, mismo seriesId, effectiveFrom = instante de la escritura) y cierra la anterior (active = false, effectiveTo = ese instante), de modo que un registro conserve la dosis de la version que cubria su OCURRENCIA, no la vigente al registrar (M-7, A-04). No expone el id del autor (created_by_user_id queda interno; REQ-CAR12-009)."
+    },
+    "CreateCareRoutineRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "title",
+        "timesOfDay",
+        "daysOfWeek",
+        "startDate"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/CareKind"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)"
+        },
+        "doseAmount": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseAmount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doseUnit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseUnit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timesOfDay": {
+          "$ref": "#/$defs/TimesOfDay"
+        },
+        "daysOfWeek": {
+          "$ref": "#/$defs/DaysOfWeek"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "endDate": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ongoing": {
+          "type": "boolean"
+        },
+        "confirmHighDose": {
+          "type": "boolean",
+          "description": "Confirmacion explicita de una dosis sobre el umbral de captura de la especie de la mascota (REQ-CAR12-001, A-02); sin ella y con dosis sobre el umbral: 422 ERR-SCHEMA-VALIDATION-FAILED. Es guarda anti-tecleo, NO validacion clinica ni promesa de seguridad; sin umbral definido para la combinacion especie/unidad no se aplica."
+        }
+      },
+      "description": "Crea una rutina. Orden de comprobaciones (D-A): 403 potestad -> 404 existencia de la mascota -> 422 esquema/dominio -> 409 ERR-CAR12-ROUTINE-LIMIT. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU NO existe en el catalogo (retirada, 0.1.3); timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT)."
+    },
+    "UpdateCareRoutineRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectedVersion"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)"
+        },
+        "doseAmount": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseAmount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doseUnit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DoseUnit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timesOfDay": {
+          "$ref": "#/$defs/TimesOfDay"
+        },
+        "daysOfWeek": {
+          "$ref": "#/$defs/DaysOfWeek"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "endDate": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ongoing": {
+          "type": "boolean"
+        },
+        "confirmHighDose": {
+          "type": "boolean",
+          "description": "Confirmacion explicita de una dosis sobre el umbral de captura de la especie de la mascota (REQ-CAR12-001, A-02); sin ella y con dosis sobre el umbral: 422 ERR-SCHEMA-VALIDATION-FAILED. Es guarda anti-tecleo, NO validacion clinica ni promesa de seguridad; sin umbral definido para la combinacion especie/unidad no se aplica."
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Version de la fila que el cliente vio; si no coincide con la fila vigente (por ejemplo, otra edicion ya la sustituyo), 409 ERR-CAR12-ROUTINE-STALE (H-C2, Neo; cuerpo sin datos de la fila sustituida; la interfaz recarga la rutina y avisa de revisar dosis y horario)"
+        }
+      },
+      "description": "Orden de comprobaciones en crear y editar (D-A): 403 potestad -> 404 existencia -> 422 esquema/dominio -> 409 STALE/LIMIT. Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo titulares (propietario principal o co-propietario ACTIVE; H-C3, M-01); el ADMIN del hogar, un CAREGIVER, MEMBER y READER reciben 403 ERR-ACC-FORBIDDEN (SC-012-026)."
+    },
+    "RoutineWriteResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "routine",
+        "versioned",
+        "supersededRoutineId"
+      ],
+      "properties": {
+        "routine": {
+          "$ref": "#/$defs/CareRoutine"
+        },
+        "versioned": {
+          "type": "boolean"
+        },
+        "supersededRoutineId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "Resultado de editar: la fila vigente tras la escritura y, si hubo version nueva, el id de la fila sustituida"
+    },
+    "DeactivateCareRoutineRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectedVersion"
+      ],
+      "properties": {
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "description": "Desactiva (active = false, effectiveTo = instante de la desactivacion, hora de Bogota; las ocurrencias anteriores siguen registrables, A-04); no borra: los registros pasados se conservan hasta su retencion"
+    },
+    "CareRoutineList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/CareRoutine"
+          },
+          "description": "Por defecto solo vigentes; includeInactive = true agrega las versiones sustituidas e inactivas (a lo sumo MAX_ROUTINE_ROWS_PER_PET = 100)"
+        }
+      }
+    }
+  }
+}

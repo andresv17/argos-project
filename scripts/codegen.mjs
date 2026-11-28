@@ -302,14 +302,37 @@ const typesBody = await compileTypes(bundle, 'ArgosContractsIndex', {
   },
 });
 
+// T1635: json-schema-to-typescript no declara los $defs que son un simple alias ({ "$ref": ... }) de otro tipo
+// (p. ej. DisputeId -> OpaqueId) y nombra el tipo compartido con UNO solo de los alias. Se emite un alias
+// explícito por cada nombre público del contrato hacia el nombre que sí se declaró.
+const isDeclared = (name) => new RegExp(`export (interface|type) ${name}\\b`).test(typesBody);
+const aliasTarget = (name) => {
+  const entry = typeRegistry.get(name);
+  const def = schemas.find(({ file }) => file === entry.file)?.doc?.$defs?.[name];
+  return def && typeof def.$ref === 'string' ? def.$ref.split('/').pop() : undefined;
+};
+const aliasRoot = (name) => {
+  let current = name;
+  const seen = new Set();
+  for (let next = aliasTarget(current); next && typeRegistry.has(next) && !seen.has(next); next = aliasTarget(current)) {
+    seen.add(current);
+    current = next;
+  }
+  return current;
+};
+const aliasLines = [];
 for (const name of typeNames) {
-  const declared = new RegExp(`export (interface|type) ${name}\\b`).test(typesBody);
-  if (!declared) fail(`json-schema-to-typescript no declaró el tipo "${name}"`);
+  if (isDeclared(name)) continue;
+  const root = aliasRoot(name);
+  const declaredName = typeNames.find((other) => isDeclared(other) && aliasRoot(other) === root);
+  if (declaredName) aliasLines.push(`export type ${name} = ${declaredName};`);
+  else fail(`json-schema-to-typescript no declaró el tipo "${name}"`);
 }
+const typesBodyFinal = aliasLines.length ? `${typesBody.trimEnd()}\n\n${aliasLines.join('\n')}\n` : typesBody;
 
 emit(
   'schemas/types.ts',
-  `${banner({ sources: schemaSources, implementsIds: allTraceability })}\n\n${typesBody
+  `${banner({ sources: schemaSources, implementsIds: allTraceability })}\n\n${typesBodyFinal
     .replace(/export interface ArgosContractsIndex \{\s*\}\s*/g, '')
     .trimEnd()}`,
 );
@@ -522,6 +545,8 @@ try {
     const stem = basename(file, '.json');
     const text = JSON.stringify(doc)
       .replace(/("\$ref":")https:\/\/argos\.local\/contracts\/schemas\//g, '$1./')
+      // T1635: referencias relativas entre esquemas hermanos sin "./" (p. ej. "owner-request.schema.json#/...").
+      .replace(/("\$ref":")([\w-]+\.schema\.json#)/g, '$1./$2')
       .replace(/("\$ref":"\.\/[\w.-]+?)\.json#\/\$defs\//g, '$1.defs.json#/$defs/')
       .replace(/("\$ref":")#\/\$defs\//g, `$1./${stem}.defs.json#/$defs/`);
     const { $defs, ...root } = JSON.parse(text);

@@ -1,0 +1,532 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 012 (co-propiedad, #22)
+  version: 0.1.0
+  description: >
+    Documento INCREMENTAL de la feature 012 (T1610, Bloque A, #22). Archivo NUEVO: no altera lo compilado de 002..011. Una mascota tiene un propietario principal y de cero a dos
+    co-propietarios (tope MAX_CO_OWNERS_PER_PET = 3 en feature-012-limits.ts). Nadie despoja a nadie (INV-OWN12-002): solo existe la salida voluntaria, la supresion de la propia cuenta y la
+    resolucion documentada de una disputa en /admin (cola de T1632, fuera de este documento). Anti-enumeracion: todo recurso ajeno responde el 404 uniforme de ERR-PET-NOT-FOUND (INV-OWN12-004).
+    Toda transicion de propiedad toma el bloqueo por mascota y revalida dentro de la transaccion (REQ-OWN12-011). Errores en application/problem+json (RFC 9457).
+
+    ORDEN AUTORIZACION -> BLOQUEO (H-03 de T1612): la autorizacion (lectura SIN bloqueo, 404 uniforme) precede SIEMPRE al SELECT ... FOR UPDATE por mascota; un no propietario recibe el 404 inmediato sin esperar lock_timeout y nunca puede mantener ocupada una mascota ajena. ERR-OWN12-RETRYABLE (503) solo puede alcanzar a un propietario ACTIVE de la mascota o al destinatario de la fila; su Retry-After es constante y no depende de la mascota.
+
+    POLITICA UNICA DE 403 (H-05): 403 solo por (i) ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request) y (ii) rutas de datos cotidianos de otras features para quien lee la mascota por hogar sin potestad de escritura (INV-ACC2-002; ninguna de este documento). En TODA ruta de co-propiedad y de solicitudes quien no sea propietario ACTIVE, destinatario o aprobador recibe ERR-PET-NOT-FOUND (404 uniforme), miembros de hogar incluidos; no existe 403 por «no eres el destinatario/aprobador». Par {petId}/{coOwnerId} que no se pertenece: 404 uniforme.
+
+    LIMITES (H-10): 429 ERR-RATE-LIMITED en inviteCoOwner, createOwnerRequest, approveOwnerRequest, rejectOwnerRequest y openAbsenceDispute; las constantes de feature-012-limits.ts (OWNER_REQUESTS_PER_USER_PER_DAY (10, por usuario y no por mascota; errata RES1), cooldown de re-invitacion tras DECLINED por (pet, user), MAX_PENDING_INVITES_PER_RECIPIENT con descarte silencioso del mismo 202) son valores PROPUESTOS a Neo si resultan de Nivel 2.
+
+    DESENLACE DISTINTO DEL PEDIDO (H-06): cancelar o rechazar una fila que ya terminó en otro estado responde 409 ERR-OWN12-STALE (detalle generico, solo a quien tenga derecho a ver la fila; al resto 404); 204 solo si el estado final es el pedido. Las tres escrituras usan UPDATE ... WHERE status = esperado AND now < expires_at y comprueban filas afectadas (EDGE-012-031).
+
+    TEXTOS (H-11): username, message y response se normalizan NFC y rechazan control y bidi (422 ERR-SCHEMA-VALIDATION-FAILED); salida escapada en la interfaz del invitado y en /admin.
+  x-sdd-status: APPROVED
+  x-sdd-metadata:
+    version: 0.1.0
+    status: APPROVED
+    supersedes: null
+    change_type: MINOR
+    change_note: "0.1.0 (feature 012, T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): +rutas de co-propiedad (invitar, aceptar, rechazar, cancelar, salir con designacion opcional de sucesor), +solicitudes de aprobacion conjunta, +listado autenticado 'mis solicitudes', +apertura de disputa por ausencia y respuesta unica del target (P-3 y P-5 aplicados), +estado derivado de co-propiedad con avisos (sin tabla de notificaciones). La cola de /admin, la reclamacion de chip y la disputa por apropiacion NO estan aqui (T1630, T1632). P-1: la disputa por ausencia vence a los 60 dias (EXPIRED, sin cooldown)."
+    traceability: [REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-006, INV-OWN12-007, STATE-COOWN12-001, EDGE-012-001, EDGE-012-030, EDGE-012-042, EDGE-012-059, SC-012-075, SC-012-091, SC-012-103, SC-012-115]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: co-ownership
+  - name: owner-requests
+  - name: absence-disputes
+
+paths:
+  /pets/{petId}/ownership:
+    get:
+      tags: [co-ownership]
+      operationId: getPetOwnership
+      summary: "Estado de propiedad de la mascota: principal, co-propietarios y avisos derivados [REQ-OWN12-001, REQ-OWN12-006, REQ-OWN12-009]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-001, REQ-OWN12-006, REQ-OWN12-009, INV-OWN12-004]
+      description: >
+        Solo el principal y los co-propietarios ACTIVE. Politica unica de 404 (H-05): cualquier otro usuario (incluido un INVITED, un LEFT o un miembro de hogar sin condicion de propietario) recibe el 404 uniforme ERR-PET-NOT-FOUND
+        (la condicion se evalua en cada peticion, sin cache de rol, EDGE-012-015). Los avisos (promocion pendiente, disputa por ausencia abierta como target) son estado derivado, sin tabla de
+        notificaciones y sin identidad del solicitante ni evidencia (Neo-K). Cache-Control: private, no-store.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+      responses:
+        '200':
+          description: "Estado de propiedad"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/OwnershipState' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/co-owners:
+    post:
+      tags: [co-ownership]
+      operationId: inviteCoOwner
+      summary: "Invita a un co-propietario por username [REQ-OWN12-002, INV-OWN12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, INV-OWN12-004]
+      description: >
+        Respuesta UNICA 202 para username inexistente, no elegible (PENDING_APPROVAL, cuenta eliminada) o existente: mismo cuerpo, misma latencia observable y mismas llamadas a puertos. Con un unico
+        propietario ACTIVE la invitacion se ejecuta directo; con mas de uno crea una solicitud INVITE_CO_OWNER y el username digitado se SELLA (borrado al decidir, trinity R-09); un destino no
+        resuelto termina con el mismo exito aparente. ERR-OWN12-ALREADY-OWNER solo se devuelve cuando el destinatario ya es principal o co-propietario INVITED/ACTIVE de ESA mascota. Limite
+        CO_OWNER_INVITES_PER_USER_PER_DAY = 5 por invitador mas el limitador de busqueda de invitados (429 ERR-RATE-LIMITED). Las invitaciones pendientes cuentan para el tope. Todo intento cuenta para CO_OWNER_INVITES_PER_USER_PER_DAY de forma atomica antes de resolver el username (incluido ALREADY-OWNER, destino inexistente y 429), sin filas ficticias; residual aceptado por Neo (H-02). Congelacion de
+        disputa: 409 ERR-CHP12-CHIP-FROZEN.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/InviteCoOwnerRequest' }
+      responses:
+        '202':
+          description: "Recibida (cuerpo uniforme)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/InviteCoOwnerAccepted' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-CO-OWNER-LIMIT, ERR-OWN12-ALREADY-OWNER, ERR-OWN12-APPROVAL-PENDING, ERR-CHP12-CHIP-FROZEN"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE (lock_timeout o invariante; Retry-After)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /pets/{petId}/co-owners/{coOwnerId}/cancel:
+    post:
+      tags: [co-ownership]
+      operationId: cancelCoOwnerInvitation
+      summary: "Cancela una invitacion INVITED (quien invito o cualquier propietario ACTIVE) [REQ-OWN12-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-002, INV-OWN12-002]
+      description: "Solo cancela filas INVITED; NO existe ruta que cambie una fila ACTIVE de otra persona (INV-OWN12-002, SC-012-007). Quien no sea el invitador ni propietario ACTIVE, fila ajena o inexistente, o par {petId}/{coOwnerId} cruzado: 404 uniforme (sin 403). UPDATE ... WHERE status = 'INVITED' AND now < expires_at: 204 solo si el estado final es CANCELLED (esta llamada o una previa propia); si ganó otro desenlace (ACTIVE, DECLINED, EXPIRED) 409 ERR-OWN12-STALE generico (H-06)."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CoOwnerId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204': { description: "Invitacion cancelada (estado final CANCELLED)" }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: "ERR-OWN12-STALE: la fila ya termino en otro estado (p. ej. ACTIVE)", content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } } }
+  /pets/{petId}/co-owners/leave:
+    post:
+      tags: [co-ownership]
+      operationId: leavePet
+      summary: "Sale de la co-propiedad; el principal puede designar sucesor [REQ-OWN12-006, INV-OWN12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-006, REQ-OWN12-011, INV-OWN12-003, INV-OWN12-005]
+      description: >
+        Sin aprobacion de nadie y sin bloqueo por la inaccion de otro ni por una disputa UNDER_REVIEW (la congelacion permite LEAVE). Un co-propietario ACTIVE pasa a LEFT. El principal puede salir si
+        queda al menos un co-propietario ACTIVE: successorUserId (opcional) debe ser un co-propietario ACTIVE de ESA mascota distinto de quien sale, validado dentro de la transaccion; si no es valido
+        se DESCARTA sin error ni efecto y hereda el ACTIVE de menor (joined_at, user_id) (PRINCIPAL_AUTO_PROMOTED). La respuesta devuelve siempre el principal resultante y nunca el motivo de un descarte
+        (trinity C-5). Bajo el bloqueo por mascota; una carrera se reevalua una sola vez; un segundo UPDATE ... WHERE con 0 filas es rollback con ERR-OWN12-RETRYABLE. Sin otro co-propietario ACTIVE el
+        principal es el ultimo propietario: 409 ERR-OWN12-LAST-OWNER (aplica REQ-PET-004: eliminar la mascota).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/LeavePetRequest' }
+      responses:
+        '200':
+          description: "Salida registrada; principal resultante"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/LeavePetResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-LAST-OWNER"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /pets/{petId}/co-owners/promotion-notice/ack:
+    post:
+      tags: [co-ownership]
+      operationId: ackPromotionNotice
+      summary: "Reconoce el aviso derivado de promocion a principal [REQ-OWN12-006, rama R-10]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-006]
+      description: "Fija promotion_notice_ack_at en la fila PROMOTED del usuario. Idempotente y UNIFORME: 204 tambien sin aviso pendiente y para una mascota ajena o inexistente (nunca 403 ni 404; sin oraculo de existencia, H-05)."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204': { description: "Aviso reconocido (o inexistente, ajena o sin aviso: respuesta uniforme)" }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+  /co-owner-invitations:
+    get:
+      tags: [co-ownership]
+      operationId: listMyCoOwnerInvitations
+      summary: "Invitaciones INVITED propias, con solo nombre de la mascota y username del invitador [REQ-OWN12-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-002, INV-OWN12-004]
+      description: "Solo las invitaciones vigentes (now < expires_at) del usuario autenticado. El invitado no ve datos clinicos ni otros propietarios antes de aceptar. Cache-Control: private, no-store."
+      responses:
+        '200':
+          description: "Invitaciones vigentes"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [coOwnerId, petName, invitedByUsername, expiresAt]
+                      properties:
+                        coOwnerId: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+                        petName: { type: string, minLength: 1, maxLength: 50 }
+                        invitedByUsername: { type: string, minLength: 3, maxLength: 32 }
+                        expiresAt: { type: string, format: date-time, minLength: 20, maxLength: 32 }
+        '401': { $ref: '#/components/responses/Problem' }
+  /co-owner-invitations/{coOwnerId}/accept:
+    post:
+      tags: [co-ownership]
+      operationId: acceptCoOwnerInvitation
+      summary: "Acepta una invitacion: INVITED -> ACTIVE [REQ-OWN12-002, REQ-OWN12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-011, EDGE-012-035]
+      description: "Solo el destinatario. Bajo el bloqueo por mascota revalida tope, vigencia y congelacion; fija joined_at y sube ownership_version. Invitacion ajena, vencida o inexistente: 404 uniforme."
+      parameters:
+        - { $ref: '#/components/parameters/CoOwnerId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '200':
+          description: "Co-propiedad activa"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet-co-owner.schema.json#/$defs/PetCoOwner' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-CO-OWNER-LIMIT"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /co-owner-invitations/{coOwnerId}/decline:
+    post:
+      tags: [co-ownership]
+      operationId: declineCoOwnerInvitation
+      summary: "Rechaza una invitacion: INVITED -> DECLINED [REQ-OWN12-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-002]
+      description: "Solo el destinatario; ajena, vencida o inexistente: 404 uniforme (sin 403). UPDATE ... WHERE status = 'INVITED' AND now < expires_at: 204 solo si el estado final es DECLINED (esta llamada o una previa propia); si ya fue aceptada (ACTIVE) o cancelada, 409 ERR-OWN12-STALE generico (H-06)."
+      parameters:
+        - { $ref: '#/components/parameters/CoOwnerId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204': { description: "Invitacion rechazada (estado final DECLINED)" }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: "ERR-OWN12-STALE: la fila ya termino en otro estado (p. ej. ACTIVE)", content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } } }
+  /pets/{petId}/owner-requests:
+    post:
+      tags: [owner-requests]
+      operationId: createOwnerRequest
+      summary: "Crea una solicitud de accion critica (DELETE_PET, TRANSFER_PRINCIPAL, CHANGE_PRINCIPAL) [REQ-OWN12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, REQ-OWN12-011, INV-OWN12-001, EDGE-012-030]
+      description: >
+        Con mas de un propietario ACTIVE la accion exige la aprobacion de TODOS los demas (maximo tope - 1 aprobaciones; el solicitante no vota; INVITED no vota) y vive en la tabla unica
+        owner_requests (STATE-OWNREQ12-001). Con un unico propietario ACTIVE no se crea solicitud: la accion se ejecuta como hoy por las rutas existentes de 002/004 (REQ-OWN12-004 j) y este endpoint responde 422 ERR-SCHEMA-VALIDATION-FAILED. Se sellan (action, target_user_id, pet_version, approver_set). Una sola solicitud viva por (pet, action); el vencimiento perezoso se materializa ANTES de evaluar el UNIQUE (una PENDING vencida no bloquea). Autorizacion antes que conflicto; 429 por OWNER_REQUESTS_PER_USER_PER_DAY (10, por usuario y no por mascota; errata RES1) (H-10).
+        Congelacion de disputa: 409 ERR-CHP12-CHIP-FROZEN. Mascota ajena: 404 uniforme. NO existe accion que elimine o degrade a otro co-propietario (INV-OWN12-002).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/owner-request.schema.json#/$defs/CreateOwnerRequest' }
+      responses:
+        '201':
+          description: "Solicitud creada (PENDING)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OwnerRequestView' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-APPROVAL-PENDING, ERR-CHP12-CHIP-FROZEN, ERR-OWN12-STALE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /owner-requests:
+    get:
+      tags: [owner-requests]
+      operationId: listMyOwnerRequests
+      summary: "Listado autenticado «mis solicitudes»: propias y las que debo decidir [REQ-OWN12-004, REQ-CHP12-003, lock R-11]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, REQ-CHP12-003, INV-OWN12-004]
+      description: >
+        Solo filas REALES donde el usuario es solicitante, aprobador o target; nunca revela la existencia de solicitudes ajenas. Las PENDING con expires_at <= now se devuelven como EXPIRED
+        (expiracion perezosa). Paginado por cursor estable (limit <= 100), cursor ligado al usuario autenticado: cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15). Cada fila sigue la tabla «campos por accion x rol» de OwnerRequestView (H-01): CHIP_DISPUTE nunca lleva requesterUsername, approvers ni targetUsername; CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION con role REQUESTER llevan petId, petName, approvers y targetUsername = null; detalle completo solo a quien HOY es propietario ACTIVE de esa mascota (o destinatario de invitacion vigente), al resto la fila sale REDUCIDA (id, action, status, role, createdAt, expiresAt, decidedAt) (H-07); targetUsername y message = null en todo estado terminal. Cache-Control: private, no-store.
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { name: cursor, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 256 } }
+      responses:
+        '200':
+          description: "Solicitudes del usuario"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OwnerRequestList' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /owner-requests/{requestId}:
+    get:
+      tags: [owner-requests]
+      operationId: getOwnerRequest
+      summary: "Detalle de una solicitud propia o a decidir [REQ-OWN12-004, INV-OWN12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, INV-OWN12-004]
+      description: "Terceros, solicitudes inexistentes o de otra mascota: el mismo 404 uniforme. El username sellado de INVITE_CO_OWNER es visible a los aprobadores ACTIVE aunque no resolviera a una cuenta, y se borra (con message) en todo estado terminal. Misma tabla «campos por accion x rol» que el listado (H-01) y misma vista reducida para quien ya no es propietario ACTIVE de la mascota (H-07). Todo propietario ACTIVE puede leer las solicitudes de su mascota (también el que entró después del sellado; H-14)."
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+      responses:
+        '200':
+          description: "Solicitud"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OwnerRequestView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /owner-requests/{requestId}/approve:
+    post:
+      tags: [owner-requests]
+      operationId: approveOwnerRequest
+      summary: "Vota APPROVE; el ultimo voto ejecuta en la misma transaccion [REQ-OWN12-004, REQ-OWN12-011]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, REQ-OWN12-011, NFR-012-008, EDGE-012-059]
+      description: >
+        Solo un aprobador del conjunto sellado, con now < expires_at (frontera [created_at, expires_at)). Bajo el bloqueo por mascota revalida principal, ownership_version, tope y ausencia de
+        congelacion; si algo cambio, la solicitud pasa a EXPIRED con ERR-OWN12-STALE y no ejecuta. Un voto con now >= expires_at se rechaza con ERR-OWN12-APPROVAL-EXPIRED sin contarse. Aprobar
+        DELETE_PET cancela las demas solicitudes de la mascota. Voto duplicado del mismo aprobador: no cuenta dos veces (UNIQUE por (request, user)). Autorizacion (404) antes del bloqueo (H-03). Solo una accion critica surte efecto por mascota a la vez. Quien no es aprobador recibe el 404 uniforme.
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '200':
+          description: "Voto registrado (PENDING) o solicitud ejecutada (APPROVED)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OwnerRequestView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-APPROVAL-EXPIRED, ERR-OWN12-STALE, ERR-OWN12-CO-OWNER-LIMIT, ERR-CHP12-CHIP-FROZEN"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /owner-requests/{requestId}/reject:
+    post:
+      tags: [owner-requests]
+      operationId: rejectOwnerRequest
+      summary: "Vota REJECT: la solicitud termina REJECTED [REQ-OWN12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, REQ-CHP12-003]
+      description: "Solo un aprobador; un rechazo explicito es un voto legitimo y nunca cuenta como ausencia (REQ-OWN12-009). Idempotente sobre una solicitud ya REJECTED por el mismo aprobador; terceros y quien no es aprobador: 404 uniforme (sin 403). El voto toma el bloqueo por mascota DESPUES de autorizar (503 ERR-OWN12-RETRYABLE solo a un aprobador, H-03/H-15); 429 ERR-RATE-LIMITED (H-10)."
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '200':
+          description: "Solicitud rechazada"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OwnerRequestView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-APPROVAL-EXPIRED, ERR-OWN12-STALE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE (solo a un aprobador del conjunto sellado; Retry-After constante)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /owner-requests/{requestId}/cancel:
+    post:
+      tags: [owner-requests]
+      operationId: cancelOwnerRequest
+      summary: "El solicitante cancela su solicitud PENDING [REQ-OWN12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-004, EDGE-012-033]
+      description: "Solo el solicitante; terceros: 404 uniforme (sin 403). UPDATE ... WHERE status = 'PENDING' AND now < expires_at y se comprueban las filas afectadas: 204 solo si el estado final es CANCELLED (esta llamada o una previa propia); si ganó otro desenlace (APPROVED y ejecutada, REJECTED, EXPIRED) 409 ERR-OWN12-STALE generico, nunca 204 (EDGE-012-031, H-06). No aplica a disputas (UNDER_REVIEW se resuelve en /admin)."
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204': { description: "Solicitud cancelada (estado final CANCELLED)" }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: "ERR-OWN12-STALE: la solicitud ya termino en otro estado (p. ej. ya ejecutada)", content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } } }
+  /pets/{petId}/absence-disputes:
+    post:
+      tags: [absence-disputes]
+      operationId: openAbsenceDispute
+      summary: "Abre una disputa formal por ausencia sobre un co-propietario o el principal [REQ-OWN12-009]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-009, REQ-OWN12-011, INV-OWN12-006, SC-012-091, SC-012-092, SC-012-115]
+      description: >
+        La mascota es SOLO la de la ruta: el cuerpo no lleva petId (H-04 de T1612); un targetUserId que no sea de esa mascota da el mismo 404 uniforme. Solo un co-propietario ACTIVE (principal incluido). Disparador objetivo verificable en BD (N2-R1 + P-5): al menos ABSENCE_MIN_EXPIRED_REQUESTS = 2 solicitudes criticas SECUENCIALES (created_at >= expires_at de la anterior; dos simultaneas no cuentan como dos) y SIN DELETE_PET (se ignora por completo, en cualquier estado; CANCELLED y REJECTED tampoco cuentan) de la mascota creadas en
+        los ultimos ABSENCE_WINDOW_DAYS = 60 y expiradas por TTL con el target en approver_set sin voto ni rechazo suyo, Y el target sin sesion activa durante >= ABSENCE_MIN_INACTIVE_DAYS = 14 dias continuos hasta abrir y desde la primera solicitud expirada (P-5, H-09; aplica la condicion mas estricta). Un REJECTED
+        del target descarta el disparador. El disparador se SELLA al abrir (trigger_request_ids). Variantes: CO_OWNER_ABSENT_OR_BLOCKING (target no principal ni solicitante; unico desenlace de co-propiedad:
+        END_CO_OWNERSHIP) y PRINCIPAL_ABSENT (P-3 ratificada: target es el principal; unico desenlace: REQUEST_CHANGE_PRINCIPAL; el principal pasa a co-propietario ACTIVE y nadie pierde la co-propiedad).
+        Sin disparador o ancla (pet_id, target_user_id) ya abierta: 409 ERR-CHP12-ABSENCE-NOT-ELIGIBLE SOLO a co-propietarios ACTIVE de esa mascota, con cuerpo que no identifica a quien abrio ni el
+        detalle de votos; para cualquier otro solicitante, cualquier petId/targetUserId (existente, ajeno o inexistente) da el mismo 404 uniforme (INV-OWN12-004). Cuenta para MAX_OPEN_DISPUTES_PER_USER = 3
+        y para el cooldown del solicitante (ERR-CHP12-DISPUTE-LIMIT, ERR-CHP12-DISPUTE-COOLDOWN). Congela por pet_id (permite LEAVE). Vence a los 60 dias (DISPUTE_MAX_OPEN_DAYS, P-1) como EXPIRED sin
+        cooldown. Nunca hay efecto automatico: se resuelve en la cola de /admin (T1632).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/owner-request.schema.json#/$defs/OpenAbsenceDisputeRequest' }
+      responses:
+        '201':
+          description: "Disputa UNDER_REVIEW abierta"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/owner-request.schema.json#/$defs/AbsenceDisputeOpened' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-CHP12-ABSENCE-NOT-ELIGIBLE, ERR-CHP12-DISPUTE-LIMIT, ERR-CHP12-DISPUTE-COOLDOWN"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503':
+          description: "ERR-OWN12-RETRYABLE"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /pets/{petId}/absence-disputes/response:
+    put:
+      tags: [absence-disputes]
+      operationId: respondAbsenceDispute
+      summary: "El target deja su unica respuesta (<= 280 puntos de codigo) [REQ-OWN12-009]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-OWN12-009, INV-OWN12-004]
+      description: >
+        Solo el target de una disputa por ausencia UNDER_REVIEW sobre esa mascota. ESCRITURA UNICA: UPDATE ... WHERE target_response IS NULL (una segunda llamada devuelve 409 ERR-OWN12-STALE sin
+        sobrescribir). Texto plano sin marcado, escapado de salida en /admin; se borra al resolver. Sin disputa abierta para ese usuario: 404 uniforme. Salir (LEAVE) es la otra respuesta posible. PUT NO idempotente (H-11): el segundo intento es 409 ERR-OWN12-STALE.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/owner-request.schema.json#/$defs/AbsenceResponseRequest' }
+      responses:
+        '204': { description: "Respuesta registrada" }
+        '422': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-OWN12-STALE (ya respondida o disputa ya resuelta)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 001/002 (nunca la de /admin).
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    CoOwnerId:
+      name: coOwnerId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED (INV-AUTH-007)
+      schema: { type: string, const: '1' }
+  responses:
+    CsrfForbidden:
+      description: "403 SOLO por ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request). Nunca por «no es propietario/destinatario/aprobador»: eso es el 404 uniforme (H-05 de T1612)"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Problem:
+      description: Error tipado del catalogo contracts/errors/error-catalog.json (RFC 9457); ERR-PET-NOT-FOUND es el 404 uniforme
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

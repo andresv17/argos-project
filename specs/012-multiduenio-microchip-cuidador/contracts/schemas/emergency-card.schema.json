@@ -1,0 +1,875 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/emergency-card.schema.json",
+  "title": "EmergencyCardSchema",
+  "description": "Ficha QR de emergencia [REQ-QR12-001..010, D12-14..D12-18, Neo-D, Neo-I, Neo-M, Neo-N]. Esquemas INCREMENTALES de la feature 012 (DRAFT 0.3.0, Bloque D, #32). Objetos cerrados. UNICA superficie publica: EmergencyCardPublicView (GET /api/emergency/{token}); el resto son vistas y cuerpos PRIVADOS del propietario/co-propietario. El token opaco solo existe en EmergencyCardActivationResult (una vez) y en la URL publica; nunca en una vista de lectura (INV-QR12-001, SC-012-085). Incluye los aditivos opcionales de cuenta y mascota (phone, criticalAllergies) como anexo de la 012 (emergency-additive-annex.md), sin editar contratos de 001..011.",
+  "x-sdd-metadata": {
+    "version": "0.3.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "change_note": "0.3.0 (feature 012, T1670 iteracion r2 tras T1671 r2 trinity/rama, Architect 2026-11-27; DRAFT, NO APPROVED; solo Neo aprueba). Decisiones de Neo (Nivel 2) incorporadas: (1) consentimientos de telefono EN ESPERA tras cambio MINOR/MAJOR del aviso: 90 dias desde el cambio (EMERGENCY_NOTICE_WAIT_DAYS), vencidos se BORRAN y se reconcilia la ficha; (2) rotacion de PHONE_HMAC_KEY: re-calcular phone_hmac desde users.phone y, si falla o falta el telefono, BORRAR (nunca en espera) con actor de sistema y reconciliar; (3) retencion de auditoria EMERGENCY_*: 90 dias (PET_CRITICAL_ALLERGIES_UPDATED conserva la politica estandar). Propuestas tecnicas aprobadas: LOG_REDACTION por FORMA sin anclar y de cualquier longitud (trinity N-01); reconciliacion perezosa ORDENADA (LAZY_RECONCILIATION; trinity N-02); EmergencyCardOwnerView.criticalAllergiesChange (trinity N-03); lista blanca de 4 tipos de tarjeta en lastChange (rama N-04); TEXT_POLICY ampliada (trinity N-04, rama N-04); QR_SCAN IPv6 /64 y mapa lleno (trinity N-05); PUBLIC_ROUTE_HARDENING con exposeHeadRoutes false (trinity N-07); PHONE_HMAC_KEY sin 'versionada' (trinity N-06); deactivate comparte cubo (trinity N-09); limpieza completa de campos a los 90 dias (rama N-06) y consented_by_user_id a NULL en todo OFF; higiene de forbidden. SC-012-121..129 nuevos en spec.md. 0.2.0 (feature 012, T1670 iteracion tras T1671 trinity/rama, Architect 2026-11-27; DRAFT, NO APPROVED; solo Neo aprueba tras re-auditoria). Decisiones de Neo (Nivel 2) incorporadas: (a) ADMIN de hogar con la mascota en su hogar activo (REQ-RBAC-001) edita alergias criticas; SUPER_ADMIN y OPERATOR excluidos; ADMIN no activa, regenera, desactiva ni opta telefono; (b) cambio MINOR/MAJOR de noticeVersion deja el telefono EN ESPERA de reconfirmacion sin apagar la ficha mientras subsistan alergias u otro telefono vigente; si no, cae a OFF con statusReason AUTO_NOTICE_CHANGED; (c) historial y statusReason tras OFF: 90 dias; pet_emergency_phone_consents se borra en el acto en TODA transicion a OFF (incluida AUTO_PET_DECEASED); (d) topes por usuario QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20 y QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60. Correcciones de /trinity y /rama: T-01 instance constante /emergency, T-02 cobertura de redactSecrets como criterio bloqueante de T1685, T-06 429 con nosniff y contador en memoria por proceso, T-07 politica de texto NFC sin Cc/Cf/bidi, hueco 5 (SVG), hueco 8 (forbidden con ip y userAgent; seudonimizacion al borrar cuenta), P-01, P-03, P-04, P-05 (EMERGENCY_PHONE_CONSENT_CHANGED en activar y en cuenta). Nuevo: statusReason AUTO_NOTICE_CHANGED; EmergencyCardOwnerView.myPhoneReconfirmRequired. 0.1.0 (T1670, Bloque D, #32): vista publica cerrada, vista privada, resultado de activar/regenerar, opt-in de telefono, editor de alergias (T1662 reubicada) y telefono de cuenta.",
+    "traceability": [
+      "REQ-QR12-001",
+      "REQ-QR12-002",
+      "REQ-QR12-003",
+      "REQ-QR12-004",
+      "REQ-QR12-005",
+      "REQ-QR12-006",
+      "REQ-QR12-007",
+      "REQ-QR12-009",
+      "REQ-QR12-010",
+      "INV-QR12-001",
+      "INV-QR12-002",
+      "INV-QR12-003",
+      "INV-QR12-004",
+      "INV-QR12-005",
+      "INV-QR12-006",
+      "INV-QR12-008",
+      "SC-012-041",
+      "SC-012-042",
+      "SC-012-043",
+      "SC-012-044",
+      "SC-012-045",
+      "SC-012-046",
+      "SC-012-047",
+      "SC-012-048",
+      "SC-012-052",
+      "SC-012-083",
+      "SC-012-085",
+      "SC-012-087",
+      "SC-012-106",
+      "SC-012-109",
+      "SC-012-110",
+      "SC-012-116",
+      "EDGE-012-023",
+      "EDGE-012-024",
+      "EDGE-012-025",
+      "EDGE-012-026",
+      "EDGE-012-027",
+      "EDGE-012-063",
+      "REQ-QR12-008",
+      "SC-012-086",
+      "SC-012-107",
+      "EDGE-012-018",
+      "SC-012-121",
+      "SC-012-122",
+      "SC-012-123",
+      "SC-012-124",
+      "SC-012-125",
+      "SC-012-126",
+      "SC-012-127",
+      "SC-012-128",
+      "SC-012-129"
+    ]
+  },
+  "x-sdd-constants": {
+    "MAX_CRITICAL_ALLERGIES": {
+      "value": 5,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "lista de 0 a 5 textos de 1-60 tras trim; dedupe sin distinguir mayusculas; sin normalizacion de tildes (REQ-QR12-002)"
+    },
+    "MAX_EMERGENCY_PHONES": {
+      "value": 2,
+      "where": "feature-012-limits.ts",
+      "rule": "contactPhones[0..2], de propietarios distintos y deduplicados por valor E.164; principal primero, luego co-propietarios ACTIVE por joined_at ASC y user_id ASC; calculado en cada lectura, nunca guardado (REQ-QR12-004)"
+    },
+    "QR_URL_MAX_BYTES": {
+      "value": 106,
+      "where": "feature-012-limits.ts",
+      "rule": "URL = ARGOS_PUBLIC_BASE_URL + /e/ + token (43); ASCII y <= 106 bytes antes de codificar; si no, ERR-QR12-URL-TOO-LONG (REQ-QR12-005, INV-QR12-005)"
+    },
+    "QR_SCAN_MAX_PER_IP_PER_MINUTE": {
+      "value": 30,
+      "where": "feature-012-limits.ts",
+      "rule": "por IP (HMAC) en la ruta publica; 429 ERR-RATE-LIMITED uniforme con Retry-After, X-Content-Type-Options: nosniff y las cabeceras publicas; contador EN MEMORIA por proceso, acotado: tope efectivo N x 30 por minuto por IP con N instancias (REQ-QR12-007, SC-012-109). Cuenta TODA peticion al prefijo publico (valida o no, GET, HEAD u OPTIONS, antes de consultar la ficha). Si la IP no se resuelve: falla ABIERTA (se atiende), la peticion se cuenta en un contador operativo sin IP ni token y NUNCA se comparte un bucket global. Prueba de arranque que verifica ARGOS_TRUST_PROXY_HOPS (precedente de 005). IPv6 (trinity N-05): la clave del contador es el prefijo /64 de la IPv6 (precedente T1640); IPv4 por direccion completa; ambas por HMAC. MAPA ACOTADO LLENO: primero se descartan las entradas con ventana vencida; si sigue lleno se expulsa la entrada menos reciente (LRU) y se incrementa un contador operativo de expulsiones (sin IP ni token); NO se rechaza la peticion por mapa lleno (indisponibilidad en una emergencia) y la expulsion solo reinicia el contador de una IP, sin efecto sobre el secreto de 256 bits. Alerta operativa documentada para el contador de expulsiones y el contador de IP no resuelta (fail-open). El tamano del mapa lo fija T1684 en feature-012-limits.ts (propuesta del Architect: 10000 entradas)"
+    },
+    "QR_LAST_SCANNED_GRANULARITY_MINUTES": {
+      "value": 60,
+      "where": "feature-012-limits.ts",
+      "rule": "last_scanned_at: una escritura por intervalo y ficha, solo tras token valido, sin IP/UA/referer; NULL al desactivar (INV-QR12-006)"
+    },
+    "QR_TOKEN_PATTERN": {
+      "value": "^[A-Za-z0-9_-]{43}$",
+      "where": "dominio de emergency/",
+      "rule": "256 bits base64url del puerto CSPRNG; solo se guarda SHA-256 (REQ-QR12-003, SC-012-052)"
+    },
+    "EMERGENCY_NOTICE_VERSION": {
+      "value": "0.1.0",
+      "where": "x-sdd-constants.TEXTS de este archivo",
+      "rule": "version del aviso de consentimiento que se registra con fecha y quien consintio; pasa a 1.0.0 solo tras validacion legal externa y aprobacion de Neo (DEUDA-012-LEGAL-DISPUTAS-QR); la fecha de entrada en vigor de la version vigente es EMERGENCY_NOTICE_EFFECTIVE_AT"
+    },
+    "EMERGENCY_NOTICE_EFFECTIVE_AT": {
+      "value": "fecha-hora ISO UTC de entrada en vigor de la version vigente del aviso",
+      "where": "src/domain/platform/feature-012-limits.ts, junto a EMERGENCY_NOTICE_VERSION",
+      "rule": "Ancla del plazo de espera de EMERGENCY_NOTICE_WAIT_DAYS: se actualiza SOLO cuando EMERGENCY_NOTICE_VERSION cambia de MAJOR o MINOR (no con PATCH) y se versiona con la constante; la fija Neo al promover el aviso. Mientras no exista un aviso anterior (0.1.0 es el primero) no hay consentimientos en espera"
+    },
+    "EMERGENCY_NOTICE_WAIT_DAYS": {
+      "value": 90,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "Neo (Nivel 2) 2026-11-27 (1): un consentimiento de telefono EN ESPERA por cambio MINOR/MAJOR del aviso se conserva como maximo 90 dias desde EMERGENCY_NOTICE_EFFECTIVE_AT; vencido se BORRA y se reconcilia la ficha (OFF con AUTO_NOTICE_CHANGED si queda sin requisitos minimos). El vencimiento se aplica en el mantenimiento existente y tambien en la reconciliacion perezosa (misma funcion, misma transaccion). Un consentimiento vencido nunca se publica (ya estaba en espera)"
+    },
+    "AUDIT_EVENTS": {
+      "value": {
+        "PET_CRITICAL_ALLERGIES_UPDATED": {
+          "when": "todo cambio efectivo de pets.critical_allergies, incluido el hecho por ADMIN",
+          "fields": [
+            "petId",
+            "actorUserId",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "contenido de las alergias (ni antes ni despues)",
+            "conteo anterior o posterior",
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "phone_hmac",
+            "url"
+          ],
+          "requirement": "REQ-QR12-002, SC-012-048, T1662",
+          "retention": "politica estandar de auditoria de mascota (audit_log, 002); NO se acorta a 90 dias (decision de Neo 2026-11-27 (3)); el aviso derivado criticalAllergiesChange solo la lee dentro de EMERGENCY_HISTORY_RETENTION_DAYS"
+        },
+        "EMERGENCY_CARD_ACTIVATED": {
+          "when": "activar (OFF a ON) o regenerar desde OFF",
+          "fields": [
+            "petId",
+            "actorUserId",
+            "noticeVersion",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "phone_hmac",
+            "url",
+            "contenido de las alergias"
+          ],
+          "requirement": "REQ-QR12-003, REQ-QR12-006",
+          "retention": "EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (decision de Neo 2026-11-27 (3)); la purga la ejecuta el mantenimiento existente sobre filas de audit_log con action EMERGENCY_*"
+        },
+        "EMERGENCY_CARD_REGENERATED": {
+          "when": "regenerar con la ficha ON",
+          "fields": [
+            "petId",
+            "actorUserId",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "phone_hmac",
+            "url",
+            "contenido de las alergias"
+          ],
+          "requirement": "REQ-QR12-003, INV-QR12-008",
+          "retention": "EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (decision de Neo 2026-11-27 (3)); la purga la ejecuta el mantenimiento existente sobre filas de audit_log con action EMERGENCY_*"
+        },
+        "EMERGENCY_CARD_DEACTIVATED": {
+          "when": "desactivar por un propietario o co-propietario",
+          "fields": [
+            "petId",
+            "actorUserId",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "phone_hmac",
+            "url",
+            "contenido de las alergias"
+          ],
+          "requirement": "REQ-QR12-003",
+          "retention": "EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (decision de Neo 2026-11-27 (3)); la purga la ejecuta el mantenimiento existente sobre filas de audit_log con action EMERGENCY_*"
+        },
+        "EMERGENCY_CARD_AUTO_DEACTIVATED": {
+          "when": "caida automatica a OFF en la misma transaccion (REQ-QR12-010): guarda perdida, fallecimiento de la mascota o aviso cambiado/vencido sin requisitos minimos; se emite UNA sola vez por caida (UPDATE condicional WHERE status = 'ON', LAZY_RECONCILIATION). Con AUTO_NOTICE_CHANGED occurredAt es el instante de la reconciliacion, no el del cambio del aviso",
+          "fields": [
+            "petId",
+            "statusReason",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "cualquier actor (actorUserId)",
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "phone_hmac",
+            "url",
+            "contenido de las alergias"
+          ],
+          "requirement": "REQ-QR12-010, SC-012-083, SC-012-106",
+          "statusReasonValues": [
+            "AUTO_GUARD_LOST",
+            "AUTO_PET_DECEASED",
+            "AUTO_NOTICE_CHANGED"
+          ],
+          "retention": "EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (decision de Neo 2026-11-27 (3)); la purga la ejecuta el mantenimiento existente sobre filas de audit_log con action EMERGENCY_*"
+        },
+        "EMERGENCY_PHONE_CONSENT_CHANGED": {
+          "when": "alta, baja o reconfirmacion del opt-in de telefono por mascota: setEmergencyPhoneConsent, activateEmergencyCard con showMyPhone = true y updateAccountPhone cuando invalida consentimientos (un evento por mascota, visible = false); tambien por vencimiento de EMERGENCY_NOTICE_WAIT_DAYS y por la rotacion de PHONE_HMAC_KEY cuando una fila no se puede recalcular (visible = false)",
+          "fields": [
+            "petId",
+            "actorUserId (NULL solo en los dos eventos de SISTEMA: rotacion de PHONE_HMAC_KEY y vencimiento de EMERGENCY_NOTICE_WAIT_DAYS; sin origin en la auditoria)",
+            "visible",
+            "noticeVersion (solo si visible = true)",
+            "occurredAt"
+          ],
+          "forbidden": [
+            "telefono",
+            "phone_hmac",
+            "ip",
+            "userAgent",
+            "token",
+            "token_hash",
+            "phone",
+            "url",
+            "contenido de las alergias"
+          ],
+          "requirement": "REQ-QR12-006, INV-QR12-003; confirmado por /rama (T1671, hueco 8)",
+          "retention": "EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (decision de Neo 2026-11-27 (3)); la purga la ejecuta el mantenimiento existente sobre filas de audit_log con action EMERGENCY_*"
+        }
+      },
+      "where": "auditoria de la 012 (src/domain/emergency y pets)",
+      "rule": "H-D1 (b), decision de Neo 2026-11-27: todo evento EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED entrega newStateHash = null (sin cuerpo ni hash de metadatos), sin actorRole ni origin (decision 3a, NFR-012-002); eventos de auditoria de la ficha QR y de las alergias criticas; NINGUNO incluye token, hash, URL, telefono, phone_hmac, ip, userAgent ni contenido de alergias (REQ-QR12-002, REQ-QR12-010, T1662, trinity hueco 8). El borrado de consentimientos al pasar a OFF no genera un evento por fila: lo cubre el evento de la transicion. Al eliminar una cuenta, eraseAccountInTransaction SEUDONIMIZA actorUserId y details de los eventos EMERGENCY_* y PET_CRITICAL_ALLERGIES_UPDATED (mismo HMAC de pseudonymizeUser); un actor seudonimizado da lastChange.byMe = false. Retencion (decision de Neo 2026-11-27 (3)): los eventos EMERGENCY_* se conservan EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias desde occurredAt (purga del mantenimiento existente sobre audit_log); PET_CRITICAL_ALLERGIES_UPDATED conserva la politica estandar de auditoria de mascota (730 d provisionales de 002). Como lastChange se deriva de EMERGENCY_*, pasados 90 dias sin evento nuevo es null tambien con la ficha ON"
+    },
+    "TEXTS": {
+      "value": {
+        "version": "0.1.0",
+        "status": "DRAFT",
+        "legalReview": "DEUDA-012-LEGAL-DISPUTAS-QR (ABIERTA; decide Neo). Los textos entran en specs/010-tipi-identidad-legal-borde/legal-texts.md en T1682.",
+        "allergiesEditorHelp": "Anota solo alergias confirmadas o con riesgo. Tipi no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.",
+        "activationNotice": "Cualquier persona que escanee este código verá el nombre de la mascota, sus alergias críticas que tú registraste y, si lo marcaste, tu teléfono. Las alergias se muestran tal cual las escribiste: no incluyas nombres ni datos de otras personas. Verifica que la información sea correcta antes de activarla. Si dejas de cumplir las condiciones, el código se apagará solo.",
+        "phoneOptInLabel": "Mostrar mi teléfono en la ficha QR de {mascota}",
+        "publicHeading": "Ficha de emergencia de {petName}",
+        "publicNoAllergies": "El dueño no registró alergias críticas en esta ficha. Esto no significa que la mascota no tenga alergias.",
+        "publicFooter": "Esta información la registró el dueño de la mascota y puede no estar actualizada. No es un diagnóstico ni una indicación médica. Si la mascota necesita atención, comunícate con su veterinario o con una clínica veterinaria de urgencias.",
+        "printSheetCaption": "Escanea para ver datos de emergencia"
+      },
+      "where": "SPA y legal-texts.md (T1682)",
+      "rule": "textos del editor de alergias (maggie m-6), del aviso de activacion y de la pagina publica; version 0.1.0 en DRAFT; validacion legal externa abierta (DEUDA-012-LEGAL-DISPUTAS-QR)"
+    },
+    "QR_CARD_MUTATIONS_PER_USER_PER_HOUR": {
+      "value": 20,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "Neo (Nivel 2) 2026-11-27: tope por USUARIO, ventana movil de 1 h, sobre activateEmergencyCard + regenerateEmergencyCard + deactivateEmergencyCard sumadas; 429 ERR-RATE-LIMITED con Retry-After; persistente en rate_limit_events (scope QR_CARD_MUTATION, mismo mecanismo que H-10); se evalua tras CSRF y sesion y ANTES de consultar la mascota; cuenta tambien las peticiones que acaban en 404; un intento bloqueado no se registra ni prolonga la ventana (REQ-QR12-007). deactivateEmergencyCard COMPARTE este cubo con activar y regenerar (trinity N-09, decision del Architect): se acepta que quien tenga la sesion pueda agotarlo y bloquear la desactivacion hasta Retry-After; el mismo titular conserva una via para apagar la ficha con el OTRO cubo (QR_PRIVATE_WRITES_PER_USER_PER_HOUR: retirar el opt-in de telefono y vaciar las alergias lleva la ficha a OFF por AUTO_GUARD_LOST) y quien tiene la sesion podria hacer todo lo demas; separar el cubo exigiria reabrir la decision (d) de Neo. Las filas rate_limit_events QR_* se borran con la cuenta (rama N-08)"
+    },
+    "QR_PRIVATE_WRITES_PER_USER_PER_HOUR": {
+      "value": 60,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "Neo (Nivel 2) 2026-11-27: tope por USUARIO, ventana movil de 1 h, sobre setEmergencyPhoneConsent + updateCriticalAllergies + updateAccountPhone sumadas (cubre tambien las ediciones de ADMIN de hogar); 429 ERR-RATE-LIMITED con Retry-After; persistente en rate_limit_events (scope QR_PRIVATE_WRITE); mismo orden y reglas que QR_CARD_MUTATIONS_PER_USER_PER_HOUR (REQ-QR12-007). Las filas rate_limit_events QR_* se borran con la cuenta del usuario (subject_user_id; rama N-08)"
+    },
+    "EMERGENCY_HISTORY_RETENTION_DAYS": {
+      "value": 90,
+      "where": "src/domain/platform/feature-012-limits.ts",
+      "rule": "Neo (Nivel 2) 2026-11-27 (c) y (3): tras pasar a OFF, status_reason y status_changed_at se conservan 90 dias solo para el aviso derivado; al cumplirse, status_reason, status_changed_at, consented_by_user_id, activated_at, token_rotated_at y consent_notice_version pasan a NULL (rama N-06; la fila vuelve a OFF sin historial) y getEmergencyCardStatus devuelve statusReason y lastChange null desde el dia 91 aunque la purga no haya corrido. consented_by_user_id pasa a NULL ademas en el acto en TODA transicion a OFF (alineado con data-model.md). Los consentimientos de telefono NO esperan: se borran en el acto al pasar a OFF (REQ-QR12-006, D-R1). Misma ventana de 90 dias para la auditoria EMERGENCY_* (ver AUDIT_EVENTS.rule) y para la lectura de lastChange y criticalAllergiesChange"
+    },
+    "PUBLIC_PROBLEM_INSTANCE": {
+      "value": "/emergency",
+      "where": "ruta publica GET /api/emergency/{token} y su prefijo",
+      "rule": "ProblemDetails.instance de TODO 404 y 429 publico es la constante '/emergency' (precedente SHARED_INSTANCE, shared.routes.ts:26). Prohibido token, URL, ruta real o plantilla de ruta en cuerpo, cabeceras o registros (INV-QR12-002, trinity T-01)"
+    },
+    "PUBLIC_ROUTE_HARDENING": {
+      "value": {
+        "exposeHeadRoutes": false,
+        "methods": "solo GET /api/emergency/{token de 43 caracteres validos} y GET /e/{token}; HEAD, OPTIONS y cualquier otro metodo = el MISMO 404 uniforme del prefijo",
+        "cors": "sin plugin CORS global en el prefijo: sin Access-Control-* en ninguna respuesta, tampoco en OPTIONS",
+        "tests": [
+          "HEAD con token valido y con token invalido: 404 uniforme y cuenta para QR_SCAN_MAX_PER_IP_PER_MINUTE",
+          "OPTIONS: 404 uniforme sin Access-Control-Allow-*",
+          "GET con Origin cruzado: respuesta sin Access-Control-*"
+        ]
+      },
+      "where": "registro de rutas del prefijo publico en T1675 (exposeHeadRoutes: false en la ruta publica; el registro en app.ts lo coordina /morpheus, H-01)",
+      "rule": "trinity N-07: Fastify expone por defecto rutas HEAD para cada GET; con exposeHeadRoutes true un HEAD con token valido daria 200 en vez del 404 uniforme. Criterio de aceptacion de T1675 (SC-012-126)"
+    },
+    "NOTICE_COMPATIBILITY": {
+      "value": "MAJOR.MINOR",
+      "where": "dominio de emergency/",
+      "rule": "Dos noticeVersion son compatibles si coinciden MAJOR y MINOR; PATCH es editorial y no exige reconfirmar. Un consentimiento de telefono con notice_version NO compatible con la vigente queda EN ESPERA: la fila se conserva, el telefono NO sale en contactPhones ni en visiblePhonesCount, myPhoneVisible = false y myPhoneReconfirmRequired = true; se reconfirma con setEmergencyPhoneConsent visible = true y la version vigente. PLAZO (Neo 2026-11-27 (1)): la espera dura como maximo EMERGENCY_NOTICE_WAIT_DAYS = 90 desde EMERGENCY_NOTICE_EFFECTIVE_AT; vencida, la fila se BORRA (evento de sistema EMERGENCY_PHONE_CONSENT_CHANGED visible = false, origin NOTICE_WAIT_EXPIRED) y se reconcilia la ficha. La ficha ON NO se apaga por esto mientras haya alergias criticas u otro telefono vigente (no en espera). Si la suspension o el vencimiento dejan la ficha sin requisitos minimos, la lectura publica falla cerrada (404) y la caida persistida a OFF (statusReason AUTO_NOTICE_CHANGED, borrado de consentimientos) sigue LAZY_RECONCILIATION. Decision de Neo 2026-11-27 (b)"
+    },
+    "LAZY_RECONCILIATION": {
+      "value": {
+        "order": [
+          "1. CSRF y sesion",
+          "2. tope por usuario",
+          "3. AUTORIZACION (404 uniforme si no es titular o no puede leer la mascota): la reconciliacion NUNCA ocurre antes de autorizar",
+          "4. en una MUTACION: se aplica primero la mutacion pedida",
+          "5. se reconcilia al final, en la misma transaccion"
+        ],
+        "atomicity": "UPDATE pet_emergency_cards SET status = 'OFF', ... WHERE pet_id = ? AND status = 'ON'; solo si afecta 1 fila se borran los consentimientos, se fija status_reason y se emite UN solo EMERGENCY_CARD_AUTO_DEACTIVATED (dos lecturas concurrentes no duplican la auditoria; 0 filas = otro proceso ya reconcilio)",
+        "reconfirmation": "en setEmergencyPhoneConsent visible = true sobre un consentimiento en espera: primero se actualiza la fila (notice_version, consented_at) y despues se reconcilia; asi la reconciliacion no apaga la ficha ni borra el consentimiento que se reconfirmaba",
+        "triggers": [
+          "getEmergencyCardStatus",
+          "setEmergencyPhoneConsent (visible true o false)",
+          "activateEmergencyCard y regenerateEmergencyCard (con la ficha ON)",
+          "updateCriticalAllergies",
+          "updateAccountPhone (por cada mascota afectada)",
+          "barrido de mantenimiento de la 012 (consentimientos en espera vencidos y fichas ON sin requisitos)"
+        ],
+        "notTriggers": "cualquier otra mutacion sobre la mascota de otros modulos (004..011) NO reconcilia; la ruta publica NUNCA escribe (solo falla cerrada)"
+      },
+      "where": "dominio de emergency/ (una sola funcion reconcileCard(petId) llamada por todos los disparadores)",
+      "rule": "trinity N-02 y rama N-03. La lectura publica falla cerrada en cada peticion, asi que no hay exposicion durante el desfase; la persistencia es perezosa y la completa el mantenimiento. El mismo mecanismo cubre la invalidacion por rotacion de PHONE_HMAC_KEY (PHONE_HMAC_KEY.rule) y el vencimiento de EMERGENCY_NOTICE_WAIT_DAYS. Un GET que reconcilia es idempotente, determinista y sin entrada controlada por el atacante"
+    },
+    "TEXT_POLICY": {
+      "value": {
+        "normalization": "NFC",
+        "trim": true,
+        "rejectCategories": [
+          "Cc",
+          "Cf",
+          "Zl (U+2028)",
+          "Zp (U+2029)",
+          "Co",
+          "Cn",
+          "Cs",
+          "bidi (U+202A..U+202E, U+2066..U+2069, U+200E, U+200F, U+061C)"
+        ],
+        "appliesTo": [
+          "criticalAllergies[*] (entrada)",
+          "petName (emision publica)"
+        ],
+        "errorOnReject": "422 ERR-SCHEMA-VALIDATION-FAILED sin eco del valor (como H-11 de T1612)",
+        "dedupe": "sin distinguir mayusculas, DESPUES de NFC, con plegado INDEPENDIENTE DE LOCALE (toLowerCase() sin locale o case folding Unicode simple; nunca toLocaleLowerCase ni la region del proceso: la 'I' turca no cambia el resultado); se conserva la primera aparicion y su grafia",
+        "lengthUnit": "puntos de codigo tras NFC y trim",
+        "rejectInvisibleFillers": [
+          "U+3164 (Hangul Filler)",
+          "U+115F",
+          "U+1160",
+          "U+FFA0",
+          "U+2800 (Braille blank)",
+          "U+17B4",
+          "U+17B5",
+          "U+180B..U+180F",
+          "U+034F"
+        ],
+        "requireVisible": "al menos un caracter visible: categoria L, N, P o S que no sea uno de rejectInvisibleFillers; Zs (espacios) y M no cuentan. Un elemento que tras NFC y trim no tenga ninguno se rechaza aunque supere minLength",
+        "maxConsecutiveCombining": "3 marcas combinantes (categoria M) consecutivas como maximo; mas = rechazo (apilado tipo Zalgo)",
+        "knownLimitation": "Cf incluye U+200D (ZWJ) y los selectores de tag: las secuencias emoji con ZWJ se rechazan; limitacion aceptada y documentada en la UI de T1676 (trinity N-04)"
+      },
+      "where": "dominio de emergency/ y puerto de normalizacion de texto",
+      "rule": "trinity T-07 y N-04, rama N-04. La politica NO se expresa con pattern \\p{..} (portabilidad de validadores en los tres motores): la aplica el dominio con una funcion unica, la MISMA para criticalAllergies (entrada) y petName (emision publica). petName viene de 004: la vista publica lo emite SIN caracteres rechazados tras NFC, con el mismo requisito de caracter visible; si queda vacio o sin caracter visible, 404 uniforme (falla cerrada). Auditar que el validador de 004 rechace las mismas categorias"
+    },
+    "SVG_DELIVERY": {
+      "value": {
+        "allowedElements": [
+          "svg",
+          "rect",
+          "path"
+        ],
+        "forbidden": [
+          "text",
+          "script",
+          "foreignObject",
+          "image",
+          "style",
+          "a",
+          "atributos on*",
+          "href externo",
+          "texto de usuario"
+        ],
+        "client": "Blob o <img src=blob:> con atributo download; jamas innerHTML ni dangerouslySetInnerHTML"
+      },
+      "where": "respuesta 201 de activar/regenerar y SPA",
+      "rule": "trinity hueco 5 (aceptado por Neo): el SVG viaja dentro del JSON. Content-Disposition: attachment, X-Content-Type-Options: nosniff y Content-Security-Policy: sandbox de REQ-QR12-005 aplican a CUALQUIER ruta futura que sirva SVG; hoy ninguna lo sirve (enmienda de redaccion MINOR)"
+    },
+    "LOG_REDACTION": {
+      "value": {
+        "patterns": [
+          "/e/<segmento> y /api/emergency/<segmento>: el SEGMENTO es todo lo que sigue al prefijo hasta '/', '?', '#', espacio, comilla o fin de cadena, de CUALQUIER longitud (no solo 43 base64url); regex orientativa: (?:/e/|/api/emergency/)[^/?#\\s\"']*"
+        ],
+        "mode": "por FORMA y SIN ANCLAR (busca el prefijo en cualquier posicion de la cadena, sin ^ ni $); prefijo sin distinguir mayusculas y tambien con separador codificado (%2f)",
+        "alsoRedact": [
+          "req.url del registro de peticion",
+          "mensaje de Fastify 'Route GET:/... not found' y de cualquier otro error del enrutador (URL truncada, con sufijo, barra final o de 200 caracteres)",
+          "cuerpo y mensajes de error de PUT /account/phone y PUT /pets/{petId}/emergency-card/phone-consent"
+        ],
+        "proof": "SC-012-086: tokens de 43, 42, 44 y 200 caracteres, con sufijo y con barra final, en registro de aplicacion, auditoria y cabeceras"
+      },
+      "where": "cloud-logging.ts redactSecrets (codigo, T1675/T1685)",
+      "rule": "CRITERIO BLOQUEANTE de T1685 (en CODIGO: redactSecrets en cloud-logging.ts, ademas de terraform) y de SC-012-086 (codigo) y SC-012-107 (terraform, DEUDA-012-TERRAFORM-LOGS-QR). Patron por FORMA y sin anclar, de cualquier longitud (trinity N-01): un token truncado, con sufijo, barra final o typo en la URL tambien queda oculto, porque son los 404 por URL mal pegada los que mas se registran. El telefono no aparece en registros, auditoria, cabeceras ni mensajes de error (rama P-06, D-R3). Sin esto la ficha no se activa en produccion (trinity T-02)"
+    },
+    "ADMIN_SCOPE": {
+      "value": "ADMIN de hogar con la mascota en su hogar activo (rol efectivo de REQ-RBAC-001)",
+      "where": "updateCriticalAllergies",
+      "rule": "Decision de Neo 2026-11-27 (a): puede EDITAR criticalAllergies (auditoria PET_CRITICAL_ALLERGIES_UPDATED sin contenido y sin actorRole). SUPER_ADMIN y OPERATOR de plataforma (cookie de /admin) quedan EXCLUIDOS de lectura y escritura de alergias. Un ADMIN no titular NO activa, regenera, desactiva ni opta por telefono, y no lee getEmergencyCardStatus (404 uniforme). ADMIN de otro hogar: 404 uniforme (rama P-02)"
+    },
+    "PHONE_HMAC_KEY": {
+      "value": "clave dedicada del Secret Manager (version unica vigente)",
+      "where": "configuracion de despliegue (terraform fuera de la 012: DEUDA) y puerto de HMAC de emergency/",
+      "rule": "trinity T-05 y N-06, rama P-18 y N-01: phone_hmac = HMAC-SHA-256 del E.164 con una clave PROPIA (distinta de la de sesion y de la de IP); el telefono tiene baja entropia, por lo que SHA-256 simple o una clave debil no se aceptan. No hay verificacion con una version anterior ni columna de version: la clave vigente es unica. ROTACION (decision de Neo 2026-11-27 (2)): un barrido de rotacion RE-CALCULA phone_hmac de cada fila de pet_emergency_phone_consents desde users.phone con la clave nueva (el telefono no cambio, el consentimiento se mantiene; una fila viva siempre corresponde al telefono vigente porque cambiar o borrar users.phone la borra en la misma transaccion). Si el recalculo falla o el usuario no tiene telefono, la fila se BORRA (nunca queda en espera) con un EMERGENCY_PHONE_CONSENT_CHANGED de SISTEMA (actorUserId NULL, origin PHONE_HMAC_KEY_ROTATION, visible = false) y se reconcilia la ficha segun LAZY_RECONCILIATION (AUTO_GUARD_LOST si queda sin requisitos). La rotacion NUNCA deja filas en espera. Mientras el barrido no termine, una fila cuyo phone_hmac no coincida con la clave vigente NO se publica (falla cerrada). RUNBOOK (quickstart.md, criterio de T1685): 1) aprovisionar la clave nueva en Secret Manager; 2) desplegar y ejecutar el barrido ANTES de reabrir trafico a la ficha o inmediatamente tras el despliegue (rotacion en ventana de mantenimiento, runbook annex §9) (idempotente; se puede repetir); 3) verificar 0 filas con phone_hmac distinto del recalculo; 4) retirar la clave anterior solo tras el barrido; 5) registrar en claude/ la fecha y cuantas fichas cayeron a OFF. Coste: las fichas ON cuyo unico requisito era un telefono no recalculable caen a OFF. Si la clave falta en arranque en produccion, la activacion de la ficha QR falla cerrada. El telefono no se verifica por OTP (un titular podria publicar el numero de un tercero): riesgo aceptado e INFO de /trinity N-06; el aviso de activacion lo cubre solo en parte"
+    }
+  },
+  "$defs": {
+    "PetIdUuid": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "IsoInstant": {
+      "type": "string",
+      "format": "date-time",
+      "minLength": 20,
+      "maxLength": 35
+    },
+    "PhoneE164": {
+      "type": "string",
+      "pattern": "^\\+[1-9][0-9]{7,14}$",
+      "minLength": 9,
+      "maxLength": 16,
+      "description": "E.164 normalizado (REQ-QR12-001). La validacion y normalizacion son de DOMINIO e identicas en SQLite, PostgreSQL y Memoria; no hay CHECK regex en BD. Entrada con espacios, guiones o parentesis se normaliza antes de validar; el patron describe la forma almacenada y emitida."
+    },
+    "CriticalAllergyText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "description": "Texto plano de 1-60 puntos de codigo tras NFC y trim (REQ-QR12-002, TEXT_POLICY). Se rechazan las categorias Cc, Cf, Zl, Zp, Co, Cn y Cs, los controles bidi, los caracteres invisibles que sobreviven al trim (U+3164, U+115F, U+1160, U+FFA0, U+2800 y afines), mas de 3 marcas combinantes consecutivas y los elementos sin ningun caracter visible (L, N, P o S): 422 ERR-SCHEMA-VALIDATION-FAILED SIN eco del valor (trinity T-07, N-04). Sin HTML ni enlazado automatico al mostrarse (REQ-QR12-009). Las tildes no se normalizan (NFC compone, no elimina diacriticos). Las secuencias emoji con ZWJ (Cf) se rechazan: limitacion aceptada."
+    },
+    "CriticalAllergyList": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/CriticalAllergyText"
+      },
+      "description": "0 a MAX_CRITICAL_ALLERGIES = 5 elementos. En la entrada se aplican NFC, trim y deduplicacion sin distinguir mayusculas DESPUES de NFC con plegado independiente de locale (se conserva la primera aparicion y su grafia); si tras normalizar un elemento queda vacio o sin caracter visible, supera 60 o incumple TEXT_POLICY, o la lista supera 5 elementos, 422 ERR-SCHEMA-VALIDATION-FAILED sin eco del valor."
+    },
+    "EmergencyCardStatus": {
+      "type": "string",
+      "enum": [
+        "OFF",
+        "ON"
+      ],
+      "description": "Defecto OFF (REQ-QR12-003). OFF prevalece sobre ON ante escrituras simultaneas (EDGE-012-018)."
+    },
+    "EmergencyCardStatusReason": {
+      "type": "string",
+      "enum": [
+        "USER_DEACTIVATED",
+        "AUTO_GUARD_LOST",
+        "AUTO_PET_DECEASED",
+        "AUTO_NOTICE_CHANGED"
+      ],
+      "description": "Motivo del ultimo paso a OFF (columna status_reason; el CHECK de data-model.md usa exactamente estos cuatro valores). USER_DEACTIVATED: lo desactivo un propietario o co-propietario. AUTO_GUARD_LOST: dejo de cumplirse la guarda de D12-14 (opt-in retirado, telefono borrado o invalidado, alergias vaciadas, salida LEFT/ENDED o cuenta eliminada del titular del telefono). AUTO_PET_DECEASED: fallecimiento de la mascota (007). AUTO_NOTICE_CHANGED: un cambio MINOR/MAJOR del aviso dejo en espera los telefonos, o su espera de EMERGENCY_NOTICE_WAIT_DAYS = 90 dias vencio, y la ficha quedo sin requisitos minimos (decision de Neo 2026-11-27 (b) y (1)). No se agrega granularidad por causa interna ni por persona: la vista no revela QUIEN causo la caida (trinity decision 1, rama decision 1). statusReason vuelve a null al pasar a ON; un cambio posterior estando OFF no pisa el motivo original (EDGE-012-018); tras EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias en OFF vuelve a null. Cualquier paso a OFF borra ademas los consentimientos de telefono."
+    },
+    "EmergencyCardLastChangeKind": {
+      "type": "string",
+      "enum": [
+        "ACTIVATED",
+        "REGENERATED",
+        "DEACTIVATED",
+        "AUTO_DEACTIVATED"
+      ],
+      "description": "Lista blanca de 4 tipos derivados SOLO de estos eventos de auditoria: EMERGENCY_CARD_ACTIVATED (ACTIVATED), EMERGENCY_CARD_REGENERATED (REGENERATED), EMERGENCY_CARD_DEACTIVATED (DEACTIVATED) y EMERGENCY_CARD_AUTO_DEACTIVATED (AUTO_DEACTIVATED). EMERGENCY_PHONE_CONSENT_CHANGED y PET_CRITICAL_ALLERGIES_UPDATED NUNCA producen lastChange (rama N-04): el cambio de consentimiento de otro titular no se expone; las alergias tienen su propio aviso criticalAllergiesChange."
+    },
+    "EmergencyCardLastChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "at",
+        "byMe"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EmergencyCardLastChangeKind"
+        },
+        "at": {
+          "$ref": "#/$defs/IsoInstant"
+        },
+        "byMe": {
+          "type": "boolean",
+          "description": "true si lo hizo quien consulta. No se expone la identidad de otro propietario (aviso derivado a los demas co-propietarios sin cruce de identidad, INV-QR12-008)."
+        }
+      },
+      "description": "Aviso derivado sin columna propia: ultima fila de la lista blanca de EmergencyCardLastChangeKind dentro de EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias (la auditoria EMERGENCY_* se purga a 90 dias); null si no hay. at es occurredAt del evento (con AUTO_NOTICE_CHANGED, el instante de la reconciliacion, no el del cambio del aviso)."
+    },
+    "EmergencyContactPhone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phone"
+      ],
+      "properties": {
+        "phone": {
+          "$ref": "#/$defs/PhoneE164"
+        }
+      },
+      "description": "Solo el numero. Sin nombre, sin rol, sin identificador del propietario (REQ-QR12-004)."
+    },
+    "EmergencyCardPublicView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petName",
+        "criticalAllergies",
+        "contactPhones"
+      ],
+      "properties": {
+        "petName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Texto plano; escape al mostrar, sin enlazado automatico (REQ-QR12-009). maxLength 50 como pet.schema.json de 004. Se emite tras NFC y SIN caracteres Cc/Cf/bidi (TEXT_POLICY, trinity T-07); si queda vacio, 404 uniforme."
+        },
+        "criticalAllergies": {
+          "$ref": "#/$defs/CriticalAllergyList"
+        },
+        "contactPhones": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/EmergencyContactPhone"
+          },
+          "description": "0-2 telefonos de propietarios DISTINTOS con opt-in vigente para ESTA mascota, deduplicados por valor E.164; principal primero, luego co-propietarios ACTIVE por joined_at ASC y user_id ASC (Neo-I, INV-QR12-003). Un consentimiento EN ESPERA por cambio MINOR/MAJOR del aviso (NOTICE_COMPATIBILITY) NO se publica. Calculada en cada lectura."
+        }
+      },
+      "description": "UNICA vista publica (GET /api/emergency/{token}); contiene unicamente estos tres campos. Sin ID, especie, raza, foto, microchip, hogar, correo, fecha de nacimiento ni estado de la ficha (REQ-QR12-004, SC-012-043). Los textos de cabecera, 'sin alergias' y pie los pone la SPA desde x-sdd-constants.TEXTS."
+    },
+    "EmergencyCardOwnerView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "status",
+        "statusReason",
+        "guardSatisfied",
+        "myPhoneVisible",
+        "myPhoneReconfirmRequired",
+        "visiblePhonesCount",
+        "criticalAllergiesCount",
+        "lastScannedAt",
+        "lastChange",
+        "criticalAllergiesChange",
+        "noticeVersion"
+      ],
+      "properties": {
+        "petId": {
+          "$ref": "#/$defs/PetIdUuid"
+        },
+        "status": {
+          "$ref": "#/$defs/EmergencyCardStatus"
+        },
+        "statusReason": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EmergencyCardStatusReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null si nunca estuvo OFF por una caida o desactivacion, mientras esta ON, o pasados EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias en OFF."
+        },
+        "guardSatisfied": {
+          "type": "boolean",
+          "description": "Hay al menos un telefono visible (opt-in vigente y NO en espera) o una alergia critica (D12-14). La guarda se reevalua ademas al leer la ruta publica (falla cerrada, INV-QR12-004)."
+        },
+        "myPhoneVisible": {
+          "type": "boolean",
+          "description": "true si MI telefono tiene opt-in vigente (compatible con el aviso actual) para esta mascota (consentimiento ligado a phone_hmac y a la pertenencia ACTIVE). false si esta en espera (ver myPhoneReconfirmRequired)."
+        },
+        "myPhoneReconfirmRequired": {
+          "type": "boolean",
+          "description": "true si MI consentimiento de telefono existe pero esta EN ESPERA por un cambio MINOR/MAJOR del aviso (NOTICE_COMPATIBILITY): el telefono no se publica hasta reconfirmar con setEmergencyPhoneConsent. false en cualquier otro caso (incluido sin consentimiento)."
+        },
+        "visiblePhonesCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Cuantos telefonos mostraria la ficha ahora (sin contar los consentimientos en espera). Solo el conteo: nunca el numero ni la identidad de otros propietarios."
+        },
+        "criticalAllergiesCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "lastScannedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IsoInstant"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Marca con granularidad de 60 minutos; null si nunca o si esta OFF (INV-QR12-006). Sin IP ni agente."
+        },
+        "lastChange": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EmergencyCardLastChange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "criticalAllergiesChange": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EmergencyCriticalAllergiesChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Ultima edicion efectiva de las alergias criticas dentro de 90 dias (null si no hay). Independiente de lastChange."
+        },
+        "noticeVersion": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$",
+              "minLength": 5,
+              "maxLength": 11
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Version del aviso aceptado al activar; null si la ficha nunca se activo."
+        }
+      },
+      "description": "Vista privada del estado de la ficha (propietario principal y co-propietario ACTIVE; un ADMIN de hogar no titular recibe 404 uniforme). NUNCA contiene el token ni su hash (INV-QR12-001). Reconcilia perezosamente (LAZY_RECONCILIATION: despues de autorizar, UPDATE condicional WHERE status = 'ON', un solo evento) la caida a OFF por AUTO_NOTICE_CHANGED en la misma transaccion antes de responder."
+    },
+    "ActivateEmergencyCardRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consentAccepted",
+        "noticeVersion"
+      ],
+      "properties": {
+        "consentAccepted": {
+          "type": "boolean",
+          "description": "true = el usuario confirmo el aviso de activacion. false: 422 ERR-QR12-CONSENT-REQUIRED (no es un error de esquema)."
+        },
+        "noticeVersion": {
+          "type": "string",
+          "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$",
+          "minLength": 5,
+          "maxLength": 11,
+          "description": "Version del aviso mostrado; si no coincide con la vigente en el servidor, 422 ERR-QR12-CONSENT-REQUIRED (se reconfirma con el texto actual)."
+        },
+        "showMyPhone": {
+          "type": "boolean",
+          "description": "Opcional. true registra tambien MI opt-in de telefono para esta mascota en la misma transaccion (equivale a setEmergencyPhoneConsent con visible = true) y audita EMERGENCY_PHONE_CONSENT_CHANGED. Omitido o false: no cambia el opt-in existente. Activar desde OFF parte SIN consentimientos de telefono (se borraron al pasar a OFF): sin showMyPhone = true no hay telefono visible."
+        }
+      }
+    },
+    "EmergencyCardActivationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "status",
+        "token",
+        "url",
+        "qrSvg",
+        "noticeVersion",
+        "activatedAt",
+        "shownOnce"
+      ],
+      "properties": {
+        "petId": {
+          "$ref": "#/$defs/PetIdUuid"
+        },
+        "status": {
+          "type": "string",
+          "const": "ON"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "minLength": 43,
+          "maxLength": 43,
+          "description": "Se devuelve UNA sola vez (Neo-N). La respuesta lleva Cache-Control: no-store y no pasa por almacen de repeticion ni de idempotencia, ni por registros, ni por el almacen de medios (SC-012-109). Si se pierde, solo queda regenerar."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://[\\x21-\\x7E]+/e/[A-Za-z0-9_-]{43}$",
+          "minLength": 50,
+          "maxLength": 106,
+          "description": "ARGOS_PUBLIC_BASE_URL + /e/ + token; ASCII; <= QR_URL_MAX_BYTES = 106 (INV-QR12-005). Nunca se forma con Host ni X-Forwarded-*."
+        },
+        "qrSvg": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536,
+          "description": "SVG generado en servidor desde la matriz 6-M (41x41), sin texto de usuario. Solo elementos svg, rect y path; prohibidos text, script, foreignObject, image, style, atributos on* y href externos (SVG_DELIVERY). El cliente lo usa unicamente como Blob o <img src=blob:> con atributo download, jamas innerHTML. El PNG lo genera el cliente desde este SVG (REQ-QR12-005)."
+        },
+        "noticeVersion": {
+          "type": "string",
+          "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$",
+          "minLength": 5,
+          "maxLength": 11
+        },
+        "activatedAt": {
+          "$ref": "#/$defs/IsoInstant"
+        },
+        "shownOnce": {
+          "type": "boolean",
+          "const": true,
+          "description": "Recordatorio de contrato: la lectura posterior (getEmergencyCardStatus) no devuelve token, url ni qrSvg (SC-012-085)."
+        }
+      }
+    },
+    "SetEmergencyPhoneConsentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visible"
+      ],
+      "properties": {
+        "visible": {
+          "type": "boolean",
+          "description": "true: opt-in o RECONFIRMACION de MI telefono para ESTA mascota (texto 'Mostrar mi telefono en la ficha QR de {mascota}'); requiere telefono en la cuenta (si no, 422 ERR-QR12-PHONE-INVALID con detail generico) y noticeVersion vigente. false: retira el opt-in (borra la fila); si la ficha ON pierde la guarda, cae a OFF en la misma transaccion (REQ-QR12-010)."
+        },
+        "noticeVersion": {
+          "type": "string",
+          "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$",
+          "minLength": 5,
+          "maxLength": 11,
+          "description": "Obligatorio cuando visible = true (se registra con fecha y quien consintio); si falta o no coincide con la vigente, 422 ERR-QR12-CONSENT-REQUIRED."
+        }
+      }
+    },
+    "UpdateCriticalAllergiesRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criticalAllergies"
+      ],
+      "properties": {
+        "criticalAllergies": {
+          "$ref": "#/$defs/CriticalAllergyList"
+        }
+      },
+      "description": "Reemplazo total de la lista (idempotente por contenido). Lista vacia = vaciar. Si la ficha esta ON y deja de cumplir la guarda, cae a OFF en la misma transaccion (AUTO_GUARD_LOST). Editable por propietario principal, co-propietario ACTIVE y ADMIN de hogar (ADMIN_SCOPE)."
+    },
+    "CriticalAllergiesView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "criticalAllergies"
+      ],
+      "properties": {
+        "petId": {
+          "$ref": "#/$defs/PetIdUuid"
+        },
+        "criticalAllergies": {
+          "$ref": "#/$defs/CriticalAllergyList"
+        },
+        "cardAutoDeactivated": {
+          "type": "boolean",
+          "description": "true si este cambio hizo caer la ficha a OFF (aviso en la UI). Omitido si no."
+        }
+      }
+    },
+    "UpdateAccountPhoneRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phone"
+      ],
+      "properties": {
+        "phone": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Entrada libre (espacios, guiones, parentesis) hasta 32 caracteres; el dominio normaliza a E.164 o responde 422 ERR-QR12-PHONE-INVALID. null borra el telefono."
+        }
+      }
+    },
+    "AccountPhoneView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phone"
+      ],
+      "properties": {
+        "phone": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PhoneE164"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "emergencyCardsAutoDeactivated": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Cuantas fichas ON pasaron a OFF por este cambio (guarda perdida). Omitido si 0."
+        }
+      },
+      "description": "Solo la cuenta propia ve su telefono; no aparece en ninguna otra respuesta salvo la ficha publica con opt-in vigente por mascota (REQ-QR12-001, REQ-QR12-006). Cambiar o borrar el telefono invalida (borra) los consentimientos ligados a phone_hmac hasta reconfirmar y audita EMERGENCY_PHONE_CONSENT_CHANGED por cada mascota afectada. El cuerpo de la peticion y los errores NO se registran (LOG_REDACTION)."
+    },
+    "AdditiveOptionalFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phone": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PhoneE164"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "OPCIONAL en la vista de cuenta propia (anexo de 002/004). Ausente = el cliente existente no cambia."
+        },
+        "criticalAllergies": {
+          "$ref": "#/$defs/CriticalAllergyList"
+        }
+      },
+      "description": "ANEXO ADITIVO OPCIONAL (emergency-additive-annex.md): campos que se AGREGAN, como opcionales, a la vista de cuenta propia (phone) y a la vista de mascota (criticalAllergies). No son requeridos, no cambian respuestas existentes y no editan ningun contrato de 001..011. Solo documental: la forma operativa de lectura/escritura son AccountPhoneView, CriticalAllergiesView y sus rutas de emergency.openapi.yaml."
+    },
+    "EmergencyCriticalAllergiesChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "byMe"
+      ],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/IsoInstant"
+        },
+        "byMe": {
+          "type": "boolean",
+          "description": "true si la edicion la hizo quien consulta; no se expone la identidad ni el rol de otra persona (tampoco si fue un ADMIN de hogar)."
+        }
+      },
+      "description": "Aviso derivado de la ultima edicion efectiva de las alergias criticas (trinity N-03): se deriva del evento PET_CRITICAL_ALLERGIES_UPDATED mas reciente de la mascota, solo si ocurrio dentro de EMERGENCY_HISTORY_RETENTION_DAYS = 90 dias; sin contenido, sin conteo, sin identidad. Permite a los titulares enterarse de que cambio lo que ve el publico, tambien cuando edita un ADMIN de hogar no titular."
+    }
+  }
+}

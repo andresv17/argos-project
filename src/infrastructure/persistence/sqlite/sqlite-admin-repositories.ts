@@ -43,13 +43,24 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
   const byId = db.prepare<[string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE admin_id = ?`);
   const bySubject = db.prepare<[string, string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE provider = ? AND provider_subject = ?`);
   const byEmail = db.prepare<[string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE email = ?`);
-  const insert = db.prepare(`INSERT INTO admin_identities (${columns}) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
+  const personById = db.prepare<[string], { person_id: string | null }>('SELECT person_id FROM admin_identities WHERE admin_id = ?');
+  const insert = db.prepare(`INSERT INTO admin_identities (${columns}, person_id) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
   const remove = db.prepare('DELETE FROM admin_identities WHERE admin_id = ?');
+  // D8 (012): la identidad con expedientes se anonimiza y se conserva (FK RESTRICT de owner_requests.*_admin_id); marcador derivado del `admin_id`, sin PII.
+  const anonymize = db.prepare("UPDATE admin_identities SET email = 'anon-' || admin_id || '@anonimizado.invalid', provider_subject = 'anon-' || admin_id WHERE admin_id = ?");
+  const removeSessions = db.prepare('DELETE FROM admin_sessions WHERE admin_id = ?');
+  const anonymizedWithPerson = db.prepare<[], { admin_id: string }>(
+    "SELECT admin_id FROM admin_identities WHERE person_id IS NOT NULL AND email = 'anon-' || admin_id || '@anonimizado.invalid' ORDER BY admin_id",
+  );
+  const clearPerson = db.prepare('UPDATE admin_identities SET person_id = NULL WHERE admin_id = ? AND person_id IS NOT NULL');
   const toIdentity = (row: IdentityRow): AdminIdentityRecord => ({ adminId: row.admin_id, provider: row.provider, providerSubject: row.provider_subject, email: row.email, createdAt: row.created_at });
   return {
     async findById(adminId) {
       const row = byId.get(adminId);
       return row === undefined ? null : toIdentity(row);
+    },
+    async findPersonId(adminId) {
+      return personById.get(adminId)?.person_id ?? null;
     },
     async findBySubject(provider, providerSubject) {
       const row = bySubject.get(provider, providerSubject);
@@ -60,11 +71,21 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
       return row === undefined ? null : toIdentity(row);
     },
     async insertIfAbsent(identity) {
-      return insert.run(identity.adminId, identity.provider, identity.providerSubject, identity.email, identity.createdAt).changes === 1;
+      return insert.run(identity.adminId, identity.provider, identity.providerSubject, identity.email, identity.createdAt, identity.personId ?? null).changes === 1;
     },
     async deleteById(adminId) {
       // `admin_sessions.admin_id` tiene ON DELETE CASCADE: las sesiones de la identidad retirada se borran con ella.
       return remove.run(adminId).changes === 1;
+    },
+    async anonymizeIdentity(adminId) {
+      removeSessions.run(adminId);
+      return anonymize.run(adminId).changes === 1;
+    },
+    async listAnonymizedWithPersonId() {
+      return anonymizedWithPerson.all().map((row) => row.admin_id);
+    },
+    async clearPersonId(adminId) {
+      return clearPerson.run(adminId).changes === 1;
     },
   };
 }
@@ -153,18 +174,19 @@ interface AuditRow {
   readonly action: string;
   readonly object_ref: string | null;
   readonly occurred_at: string;
+  readonly metadata: string | null;
 }
 
 export function adminAuditRepository(db: SqliteDatabase): AdminAuditRepositoryPort {
-  const columns = 'id, admin_id, action, object_ref, occurred_at';
-  const insert = db.prepare(`INSERT INTO admin_audit_entries (${columns}) VALUES (?, ?, ?, ?, ?)`);
+  const columns = 'id, admin_id, action, object_ref, occurred_at, metadata';
+  const insert = db.prepare(`INSERT INTO admin_audit_entries (${columns}) VALUES (?, ?, ?, ?, ?, ?)`);
   const byAdmin = db.prepare<[string], AuditRow>(`SELECT ${columns} FROM admin_audit_entries WHERE admin_id = ? ORDER BY occurred_at, id`);
   return {
     async insert(r: AdminAuditRecord) {
-      insert.run(r.id, r.adminId, r.action, r.objectRef, r.occurredAt);
+      insert.run(r.id, r.adminId, r.action, r.objectRef, r.occurredAt, r.metadata ?? null);
     },
     async listByAdmin(adminId) {
-      return byAdmin.all(adminId).map((row) => ({ id: row.id, adminId: row.admin_id, action: row.action, objectRef: row.object_ref, occurredAt: row.occurred_at }));
+      return byAdmin.all(adminId).map((row) => ({ id: row.id, adminId: row.admin_id, action: row.action, objectRef: row.object_ref, occurredAt: row.occurred_at, ...(row.metadata === null ? {} : { metadata: row.metadata }) }));
     },
   };
 }

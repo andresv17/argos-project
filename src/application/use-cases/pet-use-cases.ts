@@ -21,6 +21,9 @@
 
 import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
 import { DomainError, type components, type Species } from '../../generated/index.ts';
+import { DomainError as DomainErrorV38 } from '../../generated/v38/index.ts';
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { RepositorySet } from '../ports/repositories.port.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
@@ -30,6 +33,10 @@ import { assertMicrochipWithinLimit, withDuplicateRecording } from './microchip-
 import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
+import { assertPetNotFrozen } from './co-ownership-support.ts';
+import { countChipAttempt, type ChipRequestContext } from './chip-ip-rate-limit.ts';
+import { PetsLinkRevocation } from '../sharing/pets-link-revocation.ts';
+import { assertMicrochipAvailable } from './chip-uniqueness.ts';
 import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import {
@@ -89,7 +96,9 @@ function baseHouseholdIdOf(input: unknown): string | undefined {
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, input: unknown): Promise<PetProfileView> {
+  async execute(userId: string, input: unknown, context: ChipRequestContext = {}): Promise<PetProfileView> {
+    // REQ-CHP12-005: TODO intento con `microchipId` cuenta (usuario, IP, global) ANTES de resolver y fuera de la transacción de negocio; el 429 es uniforme.
+    await countChipAttempt(this.deps, userId, input, context);
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         const pet = createPetProfile({
@@ -101,6 +110,8 @@ export class RegisterPetUseCase {
         });
         // REQ-PET4-002: chequeo previo del límite de duplicados (429 sin guardar), tras validar la entrada y antes de guardar.
         await assertMicrochipWithinLimit(this.deps, repositories, userId, pet.microchipId !== null);
+        // REQ-CHP12-001/006: comprobador ÚNICO de unicidad y reserva (split de error); el índice global queda como red de seguridad ante carreras.
+        if (pet.microchipId !== null) await assertMicrochipAvailable(this.deps, repositories, userId, pet.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(pet));
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: auditPetView(pet) });
         const baseHouseholdId = baseHouseholdIdOf(input);
@@ -120,7 +131,8 @@ export class UpdatePetUseCase {
    * Orden: candado de mascota, acceso (404 antes que 403), `If-Match` presente, comparación de la versión BAJO EL CANDADO (distinta: 412 sin cambios ni
    * auditoría), esquema y dominio sobre el estado resultante.
    */
-  async execute(userId: string, petId: string, input: unknown, ifMatch: number | null): Promise<PetProfileView> {
+  async execute(userId: string, petId: string, input: unknown, ifMatch: number | null, context: ChipRequestContext = {}): Promise<PetProfileView> {
+    await countChipAttempt(this.deps, userId, input, context); // REQ-CHP12-005 (antes de resolver, fuera de la transacción de negocio)
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         await lockPet(repositories, petId); // REQ-FAL7-011, EDGE-007-010: candado de mascota antes de leer la mascota y los registros
@@ -136,9 +148,15 @@ export class UpdatePetUseCase {
           recordEventDates: collectRecordEventDates(petId, records),
           records,
         });
+        // REQ-CHP12-004 (INV-CHP12-005): con una disputa abierta no se marca fallecida la mascota ni se cambia su chip (la reserva conserva el chip anterior).
+        const chipChanged = updated.microchipId !== pet.microchipId;
+        if (chipChanged || (updated.lifeStatus === 'DECEASED' && pet.lifeStatus !== 'DECEASED')) await assertPetNotFrozen(repositories, petId, this.deps.clock.nowIsoTimestamp());
         // REQ-PET4-002: solo si cambia el microchip (repetir el propio valor no puede violar `pets_microchip_global`).
-        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && chipChanged);
+        if (updated.microchipId !== null && chipChanged) await assertMicrochipAvailable(this.deps, repositories, userId, updated.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(updated));
+        // 012 annex §10 (RAMA-T1683-02): solo la transición a DECEASED apaga la ficha QR, en esta misma transacción (si el hook lanza, el fallecimiento revierte). Volver a ALIVE no reactiva nada.
+        if (updated.lifeStatus === 'DECEASED' && pet.lifeStatus !== 'DECEASED') await this.deps.emergencyLifecycle?.onPetDeceased(petId, repositories, userId);
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(updated) });
         // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
         return { ...updated, biography: updated.biography ?? null, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
@@ -148,6 +166,24 @@ export class UpdatePetUseCase {
 }
 
 /** @implements REQ-PET-004, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND, INV-ARCH-005 */
+/**
+ * Baja de la mascota dentro de la transacción en curso (REQ-PET-004, REQ-GCS-004, REQ-ESC6-029): escena, cola de medios, registros, mascota y auditoría `DELETE`. Devuelve las claves de objetos que
+ * deben borrarse DESPUÉS del COMMIT. La usan `DeletePetUseCase` y la ejecución de una solicitud `DELETE_PET` aprobada (feature 012, REQ-OWN12-004).
+ * @implements REQ-PET-004, INV-PET-005, REQ-GCS-004
+ */
+export async function deletePetInTransaction(deps: ApplicationDeps, repositories: RepositorySet, executorUserId: string, pet: PetProfile): Promise<string[]> {
+  // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
+  await deps.sceneHooks?.onPetRemoved(repositories, { petId: pet.id, cause: 'PET_DELETED', now: deps.clock.nowIsoTimestamp() });
+  // ENM-005-E §5.1 (EDGE-012-072): los `PETS` activos que contienen la mascota se revocan ENTEROS ANTES de la cascada: nunca queda un `PETS` activo con cero filas.
+  await PetsLinkRevocation.revokeForPetDeleted(deps, repositories, { petId: pet.id, actorUserId: executorUserId, now: deps.clock.nowIsoTimestamp() });
+  // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
+  const keys = await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, deps.clock.nowIsoTimestamp());
+  await repositories.records.deleteForPet(pet.id);
+  await repositories.pets.delete(pet.id);
+  await recordAudit(deps, repositories, { executorUserId, mutationType: 'DELETE', entityType: 'PET', entityId: pet.id, previous: auditPetView(pet), next: null });
+  return keys;
+}
+
 export class DeletePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -155,14 +191,10 @@ export class DeletePetUseCase {
     const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
-      // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
-      await this.deps.sceneHooks?.onPetRemoved(repositories, { petId, cause: 'PET_DELETED', now: this.deps.clock.nowIsoTimestamp() });
-      // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
-      const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
-      await repositories.records.deleteForPet(petId);
-      await repositories.pets.delete(petId);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: null });
-      return keys;
+      await assertPetNotFrozen(repositories, petId, this.deps.clock.nowIsoTimestamp()); // REQ-CHP12-004: la disputa abierta congela la baja
+      // REQ-OWN12-004 (j): con más de un propietario ACTIVE la baja exige la aprobación conjunta (`POST /pets/{petId}/owner-requests`), nunca la ruta directa.
+      if ((await repositories.coOwners.listByPet(petId)).some((row) => row.status === 'ACTIVE')) throw new DomainErrorV38('ERR-OWN12-APPROVAL-PENDING');
+      return deletePetInTransaction(this.deps, repositories, userId, pet);
     });
     // Tras el COMMIT: borrado inmediato e idempotente de cada objeto, refuerzo por `list` del prefijo; lo que falle lo reintenta el mantenimiento.
     await purgeObjects(this.deps, objectKeys);
@@ -171,7 +203,6 @@ export class DeletePetUseCase {
   }
 }
 
-/** @implements REQ-PET2-002, REQ-PET-005, REQ-PET-002 */
 export class ListMyPetsUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -205,12 +236,13 @@ export class GetPetDashboardUseCase {
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
       const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
+      const criticalAllergies = await repositories.emergencyCards.findAllergies(petId); // 012 (anexo §1): aditivo, solo a quien ya lee la ficha de la mascota
       const deceased = pet.lifeStatus === 'DECEASED';
       const vaccinations = silenceAlertsOfDeceased(deceased, evaluateVaccinationAlerts(records.vaccinations, today));
       const dewormings = silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today));
       return {
         // REQ-BIO8-002: la ficha expone la biografía (null si no hay); la tarjeta del listado, el resumen veterinario y la escena no la llevan.
-        profile: { ...normalizePetProfile(pet), biography: pet.biography ?? null, avatarVersion },
+        profile: { ...normalizePetProfile(pet), biography: pet.biography ?? null, avatarVersion, criticalAllergies },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),

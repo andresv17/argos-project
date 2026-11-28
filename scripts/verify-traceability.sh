@@ -34,6 +34,7 @@
 # Feature 010: mismo patrón que la 006 (prefijos NFR/SC/EDGE, rangos y segmento numérico `010` o alfanumérico `TIP10|EDG10|LEG10|MEN10|ACE10`);
 # sus IDs propios son REQ|INV|NFR|EDGE-(TIP10|EDG10|LEG10|MEN10|ACE10|010)-NNN y SC-010-NNN. Las decisiones `D10-NN` NO son REQ: no
 # casan con el patrón de IDs y no exigen evidencia de código. Evidencia de código INFORMATIVA hasta implementar (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante).
+# Feature 012 (T1609): igual que la 011 con sus prefijos (ver OWNED_012); exige contracts/errors/error-catalog.json.
 # Feature 011: mismo patrón que la 006/010 (prefijos NFR/SC/EDGE, rangos y segmento numérico `011` o alfanumérico `ADM11|HOG11|IA11|VET11|ALB11|PRF11`);
 # sus IDs propios son REQ|INV-(ADM11|HOG11|IA11|VET11|ALB11|PRF11)-NNN, (NFR|EDGE|SC)-011-NNN, STATE-ADM11-NNN y ERR-(ADM11|HOG11|IA11|VET11|ALB11|PRF11)-*.
 # Las decisiones `D11-NN` NO son REQ. Evidencia de código INFORMATIVA hasta implementar (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante).
@@ -107,9 +108,14 @@ const FEAT5 = feature === '005';
 // Feature 010 y 011: reutilizan la rama de la 006 (patrón de IDs con EDGE/SC/rangos, 1:1 spec→tasks, evidencia informativa) con sus propios IDs.
 const FEAT10 = feature === '010';
 const FEAT11 = feature === '011';
-const FEAT6 = feature === '006' || FEAT10 || FEAT11;
+const FEAT12 = feature === '012';
+const FEAT6 = feature === '006' || FEAT10 || FEAT11 || FEAT12;
 const OWNED_011 =
   /^(?:(?:REQ|INV)-(?:ADM11|HOG11|IA11|VET11|ALB11|PRF11)|(?:NFR|EDGE|SC)-011|STATE-ADM11)-\d{3}$|^ERR-(?:ADM11|HOG11|IA11|VET11|ALB11|PRF11)-[A-Z0-9]+(?:-[A-Z0-9]+)*$/;
+// Feature 012 (T1609): mismo patrón que la 011; IDs propios REQ|INV-(OWN12|CAR12|QR12|CHP12|VET12)-NNN, (NFR|EDGE|SC)-012-NNN,
+// STATE-(CHIPCLAIM12|OWNAPR12|COOWN12)-NNN y ERR-(OWN12|CAR12|QR12|CHP12|VET12)-*.
+const OWNED_012 =
+  /^(?:(?:REQ|INV)-(?:OWN12|CAR12|QR12|CHP12|VET12)|(?:NFR|EDGE|SC)-012|STATE-(?:CHIPCLAIM12|OWNAPR12|COOWN12))-\d{3}$|^ERR-(?:OWN12|CAR12|QR12|CHP12|VET12)-[A-Z0-9]+(?:-[A-Z0-9]+)*$/;
 const OWNED_010 = /^(?:(?:REQ|INV|NFR)-(?:TIP10|EDG10|LEG10|MEN10|ACE10)|(?:EDGE|SC)-010)-\d{3}$/;
 const OWNED_006 = /^(?:(?:REQ|INV|NFR|SC|EDGE)-ESC6-\d{3}|STATE-SCENE-\d{3}|ERR-SCENE-[A-Z0-9]+(?:-[A-Z0-9]+)*)$/;
 const OWNED_005 =
@@ -128,6 +134,7 @@ const NUM_ID = FEAT6
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
 // 011 (T1524): ERR_ID exige letras puras en el primer segmento y por eso no reconoce ERR-ADM11-* (el segmento lleva dígitos); este patrón solo se usa en la rama 1:1 de la 011 (OWNED_011 ya declara esos prefijos).
 const ERR_ID_011 = /\bERR-(?:ADM11|HOG11|IA11|VET11|ALB11|PRF11)(?:-[A-Z0-9]+)+\b/g;
+const ERR_ID_012 = /\bERR-(?:OWN12|CAR12|QR12|CHP12|VET12)(?:-[A-Z0-9]+)+\b/g;
 const taskId = process.env.SDD_TASK_ID ?? '';
 
 const out = (line) => console.log(line);
@@ -388,9 +395,9 @@ if (FEAT5) {
 if (FEAT6) {
   // Spec→tasks.md 1:1 de los IDs propios de 006, 010 y 011 (spec y catálogo incremental); los rangos de tasks.md cuentan expandidos.
   const tasksText = readFileSync(TASKS, 'utf8');
-  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText), ...(tasksText.match(ERR_ID) ?? []), ...(FEAT11 ? (tasksText.match(ERR_ID_011) ?? []) : [])]);
+  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText), ...(tasksText.match(ERR_ID) ?? []), ...(FEAT11 ? (tasksText.match(ERR_ID_011) ?? []) : []), ...(FEAT12 ? (tasksText.match(ERR_ID_012) ?? []) : [])]);
   const specText = readFileSync(SPEC, 'utf8');
-  const ownedPattern = FEAT11 ? OWNED_011 : FEAT10 ? OWNED_010 : OWNED_006;
+  const ownedPattern = FEAT12 ? OWNED_012 : FEAT11 ? OWNED_011 : FEAT10 ? OWNED_010 : OWNED_006;
   const ownedIds = [...new Set([...(specText.match(NUM_ID) ?? []), ...rangeIds(specText), ...catalogCodes])].filter((id) => ownedPattern.test(id) && !retired.has(id));
   const orphans = ownedIds.filter((id) => !inTasks.has(id));
   for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);

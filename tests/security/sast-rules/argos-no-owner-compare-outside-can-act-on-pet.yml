@@ -1,0 +1,26 @@
+# SAST (feature 012, REQ-OWN12-010, INV-ACC2-002, T1621): la autoridad sobre una mascota se decide SOLO con `canActOnPet` (src/domain/access/can-act-on-pet.ts) y su primitiva
+# `isPrincipalOfPet`/`isOwnerOfPet` (src/domain/access/pet-ownership.ts). Comparar `ownerUserId` con un usuario en la capa de dominio o de aplicación reintroduce el supuesto
+# «un solo propietario» que la co-propiedad deroga. Justifica un caso legítimo (p. ej. consistencia entre dos filas, no autoridad) con `// nosemgrep: <regla> — motivo`.
+# El alcance es src/domain/ y src/application/: los adaptadores de persistencia validan que la columna coincida con `data` y la SPA solo pinta lo que el servidor ya decidió.
+rules:
+  - id: argos-no-owner-compare-outside-can-act-on-pet
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Comparación de `ownerUserId` con un usuario fuera de canActOnPet. Usa canActOnPet(user, pet, action, households), isPrincipalOfPet o isOwnerOfPet
+      (REQ-OWN12-010): un co-propietario ACTIVE también es Propietario Legal.
+    paths:
+      include:
+        - /src/domain/
+        - /src/application/
+      exclude:
+        - /src/domain/access/can-act-on-pet.ts
+        - /src/domain/access/pet-ownership.ts
+        - /src/generated/
+    pattern-either:
+      - pattern: $X.ownerUserId === $Y
+      - pattern: $X.ownerUserId !== $Y
+      - pattern: $Y === $X.ownerUserId
+      - pattern: $Y !== $X.ownerUserId
+      - pattern: $X.ownerUserId == $Y
+      - pattern: $X.ownerUserId != $Y

@@ -16,6 +16,7 @@ import { RecordActions } from './RecordActions.tsx';
 import { RecordForm } from './RecordForm.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
 import { symptomSummary, type SymptomSeverity, type SymptomType } from '../symptoms.ts';
+import { MULTI_OWNER_LINK_TEXT, MULTI_OWNER_NOTICE_TEXT } from '../co-ownership-gating.ts';
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
@@ -275,17 +276,21 @@ function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JS
 }
 
 /** Pestaña activa de la ficha: un módulo de registros o el historial de archivos (`[GH:#12]`, ADR-007-02; `RECORD_MODULES` no cambia). */
-export type ActiveTab = RecordModule | 'history' | 'album' | 'share';
+export type ActiveTab = RecordModule | 'history' | 'album' | 'share' | 'owners' | 'care';
 
 const HISTORY_TAB = { id: 'history', label: 'Historial / Archivos' } as const;
 /** REQ-PET11-002 / SC-011-064: pestaña «Álbum», la última (tras «Historial / Archivos» y «Compartir»); solo existe con `albumSlot` y fuera de la edición. */
 const ALBUM_TAB = { id: 'album', label: 'Álbum' } as const;
 /** REQ-PET11-001 / SC-011-063: pestaña «Compartir», entre «Historial / Archivos» y «Álbum»; solo existe con `shareSlot` (propietario o administrador de la mascota) y fuera de la edición. */
 const SHARE_TAB = { id: 'share', label: 'Compartir' } as const;
+/** REQ-OWN12-002 / T1617: pestaña «Propietarios», entre «Compartir» y «Álbum»; solo existe con `ownersSlot` (propietario principal o co-propietario ACTIVE) y fuera de la edición. */
+const OWNERS_TAB = { id: 'owners', label: 'Propietarios' } as const;
+/** REQ-CAR12-005 / T1656: pestaña «Modo Cuidador», entre «Propietarios» y «Álbum»; solo existe con `careSlot` (titular o cuidador de la mascota) y fuera de la edición. */
+const CARE_TAB = { id: 'care', label: 'Modo Cuidador' } as const;
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot, albumSlot, shareSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, multiOwner = false, editSlot, deleteSlot, transferSlot, mediaSlot, albumSlot, shareSlot, ownersSlot, careSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: ActiveTab;
   readonly onTabChange: (tab: ActiveTab) => void;
@@ -298,6 +303,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly onDelete: () => void;
   /** REQ-OWN-001: abre el panel de transferencia; el botón solo existe si lo pasa la página y `transferPetOwnership` es cierto. */
   readonly onTransfer?: () => void;
+  /** H-K1 (opción A): con más de un propietario ACTIVE no se ofrecen «Eliminar» ni «Transferir»; en su lugar un enlace a la pestaña «Propietarios». El servidor conserva el 409. */
+  readonly multiOwner?: boolean;
   /** Modo EDIT: formulario que sustituye al hero y al bento mientras dura. */
   readonly editSlot?: ReactNode;
   /** Modo DELETE: diálogo en línea bajo el hero. */
@@ -310,6 +317,10 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly albumSlot?: ReactNode;
   /** REQ-PET11-001: panel de enlaces para el veterinario (`ShareLinksPanel`); la página lo pasa solo al propietario o administrador de la mascota. Sin él no hay pestaña «Compartir». */
   readonly shareSlot?: ReactNode;
+  /** REQ-OWN12-002: panel «Propietarios» (`OwnersPanel`); la página lo pasa solo a quien es propietario de la mascota. Sin él no hay pestaña «Propietarios». */
+  readonly ownersSlot?: ReactNode;
+  /** REQ-CAR12-005 / T1656: panel «Modo Cuidador»; la página lo pasa al titular y al rol CAREGIVER de la mascota. Sin él no hay pestaña «Modo Cuidador». */
+  readonly careSlot?: ReactNode;
 }): JSX.Element {
   const { profile, permissions } = dashboard;
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -319,10 +330,14 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   const showHistory = editSlot === undefined && mediaSlot !== undefined;
   const showAlbum = editSlot === undefined && albumSlot !== undefined;
   const showShare = editSlot === undefined && shareSlot !== undefined;
+  const showOwners = editSlot === undefined && ownersSlot !== undefined;
+  const showCare = editSlot === undefined && careSlot !== undefined;
   const tabs: ReadonlyArray<{ readonly id: ActiveTab; readonly label: string }> = [
     ...RECORD_MODULES.map((m) => ({ id: m.id, label: m.tabLabel })),
     ...(showHistory ? [HISTORY_TAB] : []),
     ...(showShare ? [SHARE_TAB] : []),
+    ...(showOwners ? [OWNERS_TAB] : []),
+    ...(showCare ? [CARE_TAB] : []),
     ...(showAlbum ? [ALBUM_TAB] : []),
   ];
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === activeTab));
@@ -337,6 +352,13 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
     const el = tabRefs.current[activeIndex];
     if (el !== null && el !== undefined && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeIndex]);
+  // WCAG 2.4.3 / 4.1.3: «Ir a Propietarios» cambia de pestaña y mueve el foco al encabezado del panel (tabIndex=-1), que anuncia el cambio.
+  const focusOwnersPending = useRef(false);
+  useEffect(() => {
+    if (!focusOwnersPending.current || activeId !== 'owners') return;
+    focusOwnersPending.current = false;
+    document.getElementById('owners-title')?.focus();
+  }, [activeId]);
   const activeSpec = RECORD_MODULES.find((m) => m.id === activeId) ?? null;
   const canWrite = activeSpec === null ? false : permissions[RECORD_WRITE_PERMISSION[activeSpec.id]];
   const recordCounts = {
@@ -396,21 +418,33 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>
                 )}
                 {permissions.editPetBasics || permissions.deletePet || (permissions.transferPetOwnership && onTransfer !== undefined) ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {permissions.editPetBasics ? (
                       <Button variant="secondary" onClick={onEdit}>
                         Editar
                       </Button>
                     ) : null}
-                    {permissions.transferPetOwnership && onTransfer !== undefined ? (
+                    {!multiOwner && permissions.transferPetOwnership && onTransfer !== undefined ? (
                       <Button variant="secondary" onClick={onTransfer}>
                         Transferir propiedad
                       </Button>
                     ) : null}
-                    {permissions.deletePet ? (
+                    {!multiOwner && permissions.deletePet ? (
                       <Button variant="danger" onClick={onDelete}>
                         Eliminar
                       </Button>
+                    ) : null}
+                    {multiOwner && (permissions.deletePet || permissions.transferPetOwnership) ? (
+                      <p className="min-w-0 text-sm text-slate-700" data-testid="multi-owner-notice">
+                        {MULTI_OWNER_NOTICE_TEXT}{' '}
+                        {showOwners ? (
+                          <button type="button" onClick={() => { focusOwnersPending.current = true; onTabChange('owners'); }} className="min-h-11 rounded font-semibold text-slate-900 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                            {MULTI_OWNER_LINK_TEXT}
+                          </button>
+                        ) : (
+                          MULTI_OWNER_LINK_TEXT
+                        )}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
@@ -470,7 +504,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
       </div>
       <section id={`module-panel-${activeId}`} role="tabpanel" aria-labelledby={`module-tab-${activeId}`} tabIndex={0} className={`grid min-w-0 gap-3 rounded-2xl ${RING}`}>
         {activeSpec === null ? (
-          activeId === 'share' ? shareSlot : activeId === 'album' ? albumSlot : mediaSlot
+          activeId === 'share' ? shareSlot : activeId === 'owners' ? ownersSlot : activeId === 'care' ? careSlot : activeId === 'album' ? albumSlot : mediaSlot
         ) : (
           <>
             {showsBareForm(activeSpec.id, records, canWrite) ? (

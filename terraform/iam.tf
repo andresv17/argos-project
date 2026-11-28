@@ -228,3 +228,19 @@ resource "google_secret_manager_secret_iam_member" "run_gemini_api_key" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.run.email}"
 }
+
+# Ficha QR de emergencia (Feature 012, Bloque D, PHONE_HMAC_KEY): argos-run lee la clave, solo a nivel de secreto. Sin roles de proyecto.
+resource "google_secret_manager_secret_iam_member" "run_phone_hmac_key" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.phone_hmac_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-deployer: metadatos de versiones de la clave del teléfono (resolución de la versión numérica en CI). Sin secretAccessor.
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_phone_hmac_key" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.phone_hmac_key.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}

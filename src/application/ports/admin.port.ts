@@ -17,10 +17,14 @@ export interface AdminIdentityRecord {
   /** Correo en minúsculas del acceso que ancló la identidad; solo sirve para revalidar la lista cerrada en cada petición (EDGE-009-047). */
   readonly email: string;
   readonly createdAt: string;
+  /** `person_id` opaco de persona física verificada (012, T1648); solo lo asigna SUPER_ADMIN. Ausente o `null` = sin asignar (el control dual falla cerrado). */
+  readonly personId?: string | null;
 }
 
 export interface AdminIdentityRepositoryPort {
   findById(adminId: string): Promise<AdminIdentityRecord | null>;
+  /** `person_id` del administrador o `null` (sin asignar o identidad inexistente). */
+  findPersonId(adminId: string): Promise<string | null>;
   findBySubject(provider: AdminProvider, providerSubject: string): Promise<AdminIdentityRecord | null>;
   findByEmail(email: string): Promise<AdminIdentityRecord | null>;
   /** Inserta si no existe ni el `(provider, sub)` ni el correo (`ON CONFLICT DO NOTHING`): `true` si insertó, `false` si ya existía alguno de los dos (la existente no cambia). */
@@ -30,6 +34,15 @@ export interface AdminIdentityRepositoryPort {
    * (`ON DELETE CASCADE`). La auditoría conserva el `admin_id` (sin clave foránea). `true` si existía.
    */
   deleteById(adminId: string): Promise<boolean>;
+  /**
+   * Baja con expedientes (feature 012, decisión D8 de Neo): conserva la fila (el vínculo `admin_id` de `owner_requests`, FK RESTRICT) y anonimiza la identidad: correo `anon-<admin_id>@anonimizado.invalid` y
+   * `provider_subject` `anon-<admin_id>` (liberan el correo y el `sub`); borra sus sesiones. Idempotente. `true` si la fila existía.
+   */
+  anonymizeIdentity(adminId: string): Promise<boolean>;
+  /** `admin_id` de las identidades ya anonimizadas (correo marcador) que conservan `person_id` (D8: se anula al vencer el plazo del último expediente). */
+  listAnonymizedWithPersonId(): Promise<string[]>;
+  /** Pone `person_id = NULL`; `true` si lo cambió. */
+  clearPersonId(adminId: string): Promise<boolean>;
 }
 
 export interface AdminSessionRecord {
@@ -82,6 +95,8 @@ export interface AdminAuditRecord {
   readonly action: string;
   readonly objectRef: string | null;
   readonly occurredAt: string;
+  /** Metadatos opcionales (JSON de texto, <= 4096); ausente (clave omitida al leer) en filas sin motivo y previas a la migración 0038 (SQLite) / 0034 (PostgreSQL). Hoy solo el motivo de decisión del arbitraje de disputas (feature 012). */
+  readonly metadata?: string | null;
 }
 
 export interface AdminAuditRepositoryPort {

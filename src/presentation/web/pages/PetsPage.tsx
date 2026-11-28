@@ -4,7 +4,7 @@
  *
  * @implements REQ-UI-001, REQ-UI-002, REQ-UI-007, REQ-PET-004, REQ-CLI5-001
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebouncedValue } from '../use-debounced-value.ts';
 import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx';
 import { Button, FormError } from '../components/Field.tsx';
@@ -16,10 +16,19 @@ import { AvatarEditor } from '../components/AvatarCropper.tsx';
 import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
 import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
+import { OwnersPanel, OwnershipInbox } from '../components/CoOwners.tsx';
+import { createCoOwnershipApi, type OwnershipView } from '../co-ownership-api.ts';
+import { eligibleSharePets, loadCoOwnedPetIds } from '../share-eligible-pets.ts';
+import { createChipApi } from '../chip-api.ts';
+import { ChipRegisteredDialog, MyChipRequests } from '../components/ChipRegisteredDialog.tsx';
+import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
+import { CarePanel } from '../components/CarePanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
+import { EmergencyCardPanel } from '../components/EmergencyCard.tsx';
+import { CriticalAllergiesEditor } from '../components/EmergencyAllergies.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
-import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
+import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isMicrochipRegistered, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
@@ -48,12 +57,15 @@ export function PetsPage(): JSX.Element {
   const [species, setSpecies] = useState<PetFilterValue | ''>('');
   const searchText = useDebouncedValue(q);
   const [cards, setCards] = useState<PetCardView[]>([]);
+  const [coOwnedPetIds, setCoOwnedPetIds] = useState<ReadonlySet<string>>(new Set());
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PetDashboardView | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('weights');
   const [mode, setMode] = useState<Mode>('VIEW');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // H-K1: número de propietarios ACTIVE de la mascota abierta (solo se consulta al propietario); `null` mientras se desconoce.
+  const [ownerInfo, setOwnerInfo] = useState<{ readonly petId: string; readonly count: number } | null>(null);
   const cardsRequest = useRef(0);
   const dashboardRequest = useRef(0);
 
@@ -105,6 +117,37 @@ export function PetsPage(): JSX.Element {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+  // MEDIA-1 (annex §4, §5.3): en el contexto de un hogar, las mascotas que co-poseo como ACTIVE también entran en el selector del subconjunto.
+  useEffect(() => {
+    if (user === null || contextId === MINE_CONTEXT_ID) {
+      setCoOwnedPetIds(new Set());
+      return;
+    }
+    let alive = true;
+    const mineIds = new Set(cards.filter((c) => c.profile.ownerUserId === user.id).map((c) => c.profile.id));
+    void loadCoOwnedPetIds(createCoOwnershipApi(), user.id, cards.map((c) => c.profile.id), mineIds).then((ids) => {
+      if (alive) setCoOwnedPetIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [cards, contextId, user]);
+
+  // H-K1: la ficha del propietario consulta cuántos propietarios ACTIVE hay para decidir si ofrece Eliminar/Transferir; si falla, conserva el comportamiento previo (el servidor rechaza con 409).
+  useEffect(() => {
+    if (dashboard === null || dashboard.myRole !== 'OWNER') return;
+    let cancelled = false;
+    const petId = dashboard.profile.id;
+    createCoOwnershipApi()
+      .getOwnership(petId)
+      .then((view) => {
+        if (!cancelled) setOwnerInfo({ petId, count: activeOwnerCount(view) });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboard]);
 
   const refreshAll = async (): Promise<void> => {
     await loadCards();
@@ -117,8 +160,21 @@ export function PetsPage(): JSX.Element {
     setError(null);
   };
 
+  // 012 (T1636): el 409 «microchip registrado» no se muestra como error del formulario: abre el diálogo de tres salidas (corregir, co-propiedad, es mía). El chip se guarda solo para enviarlo.
+  const chipApi = useMemo(() => createChipApi(), []);
+  const [chipDialog, setChipDialog] = useState<string | null>(null);
+  const askAboutChip = (body: PetFormBody): void => {
+    const value = (body as Record<string, unknown>)['microchipId'];
+    setChipDialog(typeof value === 'string' ? value : '');
+  };
+
   const createPet = async (body: PetFormBody): Promise<void> => {
-    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] }));
+    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] })).catch((e: unknown) => {
+      if (!isMicrochipRegistered(e)) throw e;
+      askAboutChip(body);
+      return null;
+    });
+    if (pet === null) return;
     setMode('VIEW');
     setContextId(MINE_CONTEXT_ID);
     setActivePetId(pet.id);
@@ -132,6 +188,10 @@ export function PetsPage(): JSX.Element {
     try {
       await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
     } catch (e) {
+      if (isMicrochipRegistered(e)) {
+        askAboutChip(body);
+        return;
+      }
       // 412: la ficha cambió; se recarga y el formulario (con `key` por versión) vuelve a montarse con lo vigente, junto al mensaje fijo del catálogo.
       if (isPetVersionConflict(e)) {
         setError(messageOf(e));
@@ -185,12 +245,17 @@ export function PetsPage(): JSX.Element {
   const filtered = q.trim() !== '' || species !== '';
   const emptyHint = filtered ? undefined : isMine ? 'Usa «Nueva mascota» para añadir la primera.' : 'Quien sea dueño puede asignar mascotas al hogar desde Editar.';
   // «Compartir con mi veterinario» (REQ-VET-001, D5-19): el alcance hogar se ofrece solo si el contexto activo es un hogar donde soy propietario o ADMIN y poseo mascotas en él.
-  const ownedInContext = isMine || user === null ? 0 : cards.filter((c) => c.profile.ownerUserId === user.id).length;
+  // MEDIA-1 (annex §4, §5.3): elegibles = principales propias + co-poseídas ACTIVE (mismo criterio que el servidor).
+  const sharePets = user === null ? [] : eligibleSharePets(cards, user.id, coOwnedPetIds);
+  const ownedInContext = isMine || user === null ? 0 : sharePets.length;
   const shareHousehold = !isMine && ownedInContext > 0 && households.some((h) => h.household.id === contextId && h.myRole === 'ADMIN') ? { id: contextId, petCount: ownedInContext } : null;
+  // 012 (T1696, D12-19): en el contexto de un hogar la ficha ofrece el MISMO selector de subconjunto que Hogares; en «Mis mascotas» no hay hogar ni selector (REQ-PET11-001).
   const householdChoices = options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []));
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <h1 className="sr-only">Mascotas</h1>
+      <OwnershipInbox onChanged={() => void refreshAll()} />
+      <MyChipRequests api={chipApi} />
       <ContextSelector options={options} activeId={contextId} onSelect={onSelectContext} />
       <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid min-w-0 grid-cols-1 gap-4">
         <PetFilter
@@ -222,6 +287,17 @@ export function PetsPage(): JSX.Element {
           </section>
           <section aria-label="Ficha de la mascota" className="grid min-w-0 grid-cols-1 content-start gap-3">
             <FormError message={error} />
+            {chipDialog === null ? null : (
+              <ChipRegisteredDialog
+                chip={chipDialog}
+                api={chipApi}
+                onCorrect={() => {
+                  setChipDialog(null);
+                  document.querySelector<HTMLInputElement>('input[name="microchipId"]')?.focus();
+                }}
+                onClose={() => setChipDialog(null)}
+              />
+            )}
             {notice === null ? null : (
               <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                 {notice}
@@ -242,6 +318,7 @@ export function PetsPage(): JSX.Element {
                 onDeleteRecord={onDeleteRecord}
                 onEdit={() => setMode('EDIT')}
                 onDelete={() => setMode('DELETE')}
+                multiOwner={dashboard.myRole === 'OWNER' && ownerInfo?.petId === dashboard.profile.id && hasMultipleActiveOwners(ownerInfo.count)}
                 onTransfer={() => {
                   setNotice(null);
                   setMode('TRANSFER');
@@ -290,9 +367,22 @@ export function PetsPage(): JSX.Element {
                 {...(dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN'
                   ? {
                       shareSlot: (
-                        <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                        <>
+                          <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} householdPets={shareHousehold === null ? undefined : sharePets} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                          {/* 012, T1676: alergias críticas (titular o ADMIN de hogar) y ficha QR (solo titulares; el servidor decide con 404 uniforme). */}
+                          <CriticalAllergiesEditor key={`allergies-${dashboard.profile.id}`} petId={dashboard.profile.id} initial={(dashboard.profile as { readonly criticalAllergies?: readonly string[] }).criticalAllergies} />
+                          {dashboard.myRole === 'OWNER' ? (
+                            <EmergencyCardPanel key={`qr-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} hasPhone={typeof (user as { readonly phone?: string | null } | null)?.phone === 'string'} />
+                          ) : null}
+                        </>
                       ),
                     }
+                  : {})}
+                {...(user !== null && dashboard.myRole === 'OWNER'
+                  ? { ownersSlot: <OwnersPanel key={`owners-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} currentUserId={user.id} onChanged={() => void refreshAll()} onOwnershipLoaded={(view: OwnershipView) => setOwnerInfo({ petId: dashboard.profile.id, count: activeOwnerCount(view) })} /> }
+                  : {})}
+                {...(dashboard.myRole === 'OWNER' || dashboard.myRole === 'CAREGIVER'
+                  ? { careSlot: <CarePanel key={`care-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} /> }
                   : {})}
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {

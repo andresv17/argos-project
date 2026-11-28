@@ -28,6 +28,7 @@ import {
 } from '../../../generated/index.ts';
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
+import { orderPetsForSummary } from '../../../domain/summary/clinical-summary.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
 import { aboutContentRepository, adminAuditRepository, adminDelegateRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
@@ -52,7 +53,7 @@ import type {
   PetMediaRecord,
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAuditEventType, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAuditEventType, type ShareLinkAuditRepositoryPort, type ShareLinkPetRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import type { ShareLinkRecord, ShareScope } from '../../../domain/sharing/share-link.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
@@ -70,6 +71,10 @@ import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } fr
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import { parseAccountStatus, type AccountStatus } from '../../../domain/account/account-status.ts';
+import { sqliteDisputeEvidenceRepository, sqliteIpRateEventRepository } from './sqlite-chip-repositories.ts';
+import { sqliteCareLogRepository, sqliteCareRoutineRepository, sqliteCaregiverAccessRepository } from './sqlite-care-repositories.ts';
+import { sqliteEmergencyCardRepository, sqliteEmergencyConsentRepository } from './sqlite-emergency-repositories.ts';
+import { sqliteCoOwnerRepository, sqliteOwnerRequestRepository, sqliteOwnershipOps } from './sqlite-ownership-repositories.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
 
@@ -176,6 +181,8 @@ interface UserRow {
   readonly adult_declared_at: string | null;
   readonly adult_notice_version: string | null;
   readonly account_status: string;
+  /** Teléfono E.164 (012 #32, columna propia; no vive en `data`). */
+  readonly phone: string | null;
   readonly data: string;
 }
 interface SessionRow {
@@ -199,7 +206,7 @@ interface InvitationRow {
 interface AssignmentRow {
   readonly pet_id: string;
   readonly household_id: string;
-  readonly assigned_by_user_id: string;
+  readonly assigned_by_user_id: string | null;
   readonly assigned_at: string;
 }
 interface KeyedRow {
@@ -246,7 +253,7 @@ interface MembershipRow {
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, phone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
   // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
@@ -263,6 +270,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const avatarOf = db.prepare<[string], UserAvatarRow>('SELECT avatar_version, avatar_object_id FROM users WHERE id = ?');
   const bumpAvatar = db.prepare<[string, string], UserAvatarRow>('UPDATE users SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
   const dropAvatar = db.prepare('UPDATE users SET avatar_object_id = NULL WHERE id = ?');
+  const writePhone = db.prepare('UPDATE users SET phone = ? WHERE id = ?');
   const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
     `SELECT (SELECT COUNT(*) FROM users WHERE id = ?)
           + (SELECT COUNT(*) FROM pets WHERE owner_user_id = ?)
@@ -290,10 +298,11 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       ...(row.account_status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(row.account_status, row.id) }),
       ...(row.adult_declared_at === null ? {} : { adultDeclaredAt: row.adult_declared_at }),
       ...(row.adult_notice_version === null ? {} : { adultNoticeVersion: row.adult_notice_version }),
+      ...(row.phone === null || row.phone === undefined ? {} : { phone: row.phone }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, phone: _phone, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -353,6 +362,9 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     async clearAvatar(userId) {
       dropAvatar.run(userId);
     },
+    async setPhone(userId, phone) {
+      if (writePhone.run(phone, userId).changes !== 1) throw new Error('FOREIGN KEY constraint failed: users');
+    },
     async countReferences(userId) {
       return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
     },
@@ -370,6 +382,7 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
   const ofUser = db.prepare<[string], { readonly token_hash: string; readonly data: string }>('SELECT token_hash, data FROM sessions WHERE user_id = ? AND revoked_at IS NULL');
   const revoke = db.prepare('UPDATE sessions SET revoked_at = ?, data = ? WHERE token_hash = ?');
   const removeByUser = db.prepare('DELETE FROM sessions WHERE user_id = ?');
+  const lastActivity = db.prepare<[string], { last: string | null }>('SELECT MAX(last_activity_at) AS last FROM sessions WHERE user_id = ?');
   const ownerStatus = db.prepare<[string], { readonly account_status: string }>('SELECT account_status FROM users WHERE id = ?');
   return {
     async findByToken(token) {
@@ -401,6 +414,9 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       removeByUser.run(userId);
+    },
+    async findLastActivityOfUser(userId) {
+      return lastActivity.get(userId)?.last ?? null;
     },
     async findOwnerAccountStatus(userId) {
       const row = ownerStatus.get(userId);
@@ -535,6 +551,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     async raiseAvatarVersion(petId, version) {
       raiseAvatar.run(version, petId, version);
     },
+    ...sqliteOwnershipOps(db),
   };
 }
 
@@ -653,13 +670,30 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
     `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
   );
   const activePet = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'PET' AND pet_id = ? AND revoked_at IS NULL AND expires_at > ?`);
-  const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  // ENM-005-E §5.5 (D12-21): el tope del hogar cuenta HOUSEHOLD y PETS de todos los creadores.
+  const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope IN ('HOUSEHOLD', 'PETS') AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  const petsOfHousehold = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
+  );
+  const activePetsOfCreator = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = ? AND created_by_user_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY id`,
+  );
   const revoke = db.prepare('UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM share_links WHERE expires_at < ? OR revoked_at < ?');
+  const pseudonymizeSnapshot = db.prepare('UPDATE share_links SET pet_owner_user_id_at_creation = ? WHERE pet_owner_user_id_at_creation = ?');
   const all = db.prepare<[], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links ORDER BY id`);
   return {
     async lockScope() {
       // BEGIN IMMEDIATE de la unidad de trabajo: un solo escritor a la vez
+    },
+    async lockLink() {
+      // BEGIN IMMEDIATE de la unidad de trabajo
+    },
+    async listPetsByHousehold(householdId, retainedSince) {
+      return petsOfHousehold.all(householdId, retainedSince, retainedSince).map(toShareLink);
+    },
+    async listActivePetsByCreator(householdId, createdByUserId, now) {
+      return activePetsOfCreator.all(householdId, createdByUserId, now).map(toShareLink);
     },
     async insert(link) {
       try {
@@ -698,6 +732,7 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
       return row === undefined ? null : toShareLink(row);
     },
     async listByScope(scope, scopeId, retainedSince) {
+      if (scope === 'PETS') return []; // los `PETS` viven en `listPetsByHousehold` (annex §5.5)
       return (scope === 'PET' ? ofPet : ofHousehold).all(scopeId, retainedSince, retainedSince).map(toShareLink);
     },
     async countActive(scope, scopeId, now) {
@@ -709,8 +744,71 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
     async purge(cutoffExclusive) {
       return purge.run(cutoffExclusive, cutoffExclusive).changes;
     },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      return pseudonymizeSnapshot.run(pseudonym, userId).changes;
+    },
     async listAll() {
       return all.all().map(toShareLink);
+    },
+  };
+}
+
+/**
+ * `share_link_pets` (ENM-005-E, feature 012): filas del subconjunto estático. La elegibilidad (creación) y la revalidación (cada acceso) son UNA sentencia acotada a 20 ids; la carga de los perfiles
+ * es interna a la operación (un solo puerto), y el orden `(name ASC, id ASC)` es el de `REQ-PET-005`.
+ * @implements REQ-VET12-001, REQ-VET12-003, INV-VET12-001, INV-VET12-002
+ */
+function shareLinkPetRepository(db: SqliteDatabase, pets: PetRepositoryPort): ShareLinkPetRepositoryPort {
+  const insertRow = db.prepare('INSERT INTO share_link_pets (share_link_id, pet_id) VALUES (?, ?)');
+  const ofLink = db.prepare<[string], { pet_id: string }>('SELECT pet_id FROM share_link_pets WHERE share_link_id = ? ORDER BY pet_id');
+  const ofLinks = db.prepare<[string], { share_link_id: string; pet_id: string }>('SELECT share_link_id, pet_id FROM share_link_pets WHERE share_link_id IN (SELECT value FROM json_each(?)) ORDER BY share_link_id, pet_id');
+  const ofPet = db.prepare<[string], { share_link_id: string }>('SELECT share_link_id FROM share_link_pets WHERE pet_id = ? ORDER BY share_link_id');
+  const removeRow = db.prepare('DELETE FROM share_link_pets WHERE share_link_id = ? AND pet_id = ?');
+  const OWNED = `(p.owner_user_id = @user OR EXISTS (SELECT 1 FROM pet_co_owners c WHERE c.pet_id = p.id AND c.user_id = @user AND c.status = 'ACTIVE'))`;
+  const eligible = db.prepare<{ user: string; household: string; ids: string }, { id: string; requested: number }>(
+    `SELECT p.id AS id, (p.id IN (SELECT value FROM json_each(@ids))) AS requested
+       FROM pets p JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = @household
+      WHERE ${OWNED}`,
+  );
+  const survivors = db.prepare<{ link: string; household: string; user: string }, { id: string }>(
+    `SELECT p.id AS id
+       FROM share_link_pets sp
+       JOIN pets p ON p.id = sp.pet_id
+       JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = @household
+      WHERE sp.share_link_id = @link AND ${OWNED}`,
+  );
+  const load = async (ids: readonly string[]): Promise<PetProfile[]> => {
+    const found: PetProfile[] = [];
+    for (const id of ids) {
+      const pet = await pets.findById(id);
+      if (pet !== null) found.push(pet);
+    }
+    return orderPetsForSummary(found);
+  };
+  return {
+    async insertMany(shareLinkId, petIds) {
+      for (const petId of petIds) insertRow.run(shareLinkId, petId);
+    },
+    async listPetIds(shareLinkId) {
+      return ofLink.all(shareLinkId).map((r) => r.pet_id);
+    },
+    async listPetIdsOfLinks(shareLinkIds) {
+      const out = new Map<string, string[]>();
+      for (const row of ofLinks.all(JSON.stringify(shareLinkIds))) out.set(row.share_link_id, [...(out.get(row.share_link_id) ?? []), row.pet_id]);
+      return out;
+    },
+    async listLinkIdsByPet(petId) {
+      return ofPet.all(petId).map((r) => r.share_link_id);
+    },
+    async deleteRow(shareLinkId, petId) {
+      return removeRow.run(shareLinkId, petId).changes === 1;
+    },
+    async resolveEligible({ userId, householdId, petIds }) {
+      const rows = eligible.all({ user: userId, household: householdId, ids: JSON.stringify(petIds) });
+      return { eligible: await load(rows.filter((r) => r.requested === 1).map((r) => r.id)), hasAnyEligibleInHousehold: rows.length > 0 };
+    },
+    async revalidateEligible({ shareLinkId, householdId, creatorUserId }) {
+      return load(survivors.all({ link: shareLinkId, household: householdId, user: creatorUserId }).map((r) => r.id));
     },
   };
 }
@@ -1003,6 +1101,7 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
     'SELECT COUNT(*) AS n FROM rate_limit_events WHERE scope = ? AND subject_user_id = ? AND occurred_at > ?',
   );
   const remove = db.prepare('DELETE FROM rate_limit_events WHERE subject_user_id = ?');
+  const purge = db.prepare('DELETE FROM rate_limit_events WHERE scope IN (SELECT value FROM json_each(?)) AND occurred_at < ?');
   return {
     async record(event) {
       insert.run(event.id, event.scope, event.userId, event.occurredAt);
@@ -1012,6 +1111,9 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
     },
     async deleteForUser(userId) {
       remove.run(userId);
+    },
+    async purgeScopesBefore(scopes, cutoffExclusive) {
+      return purge.run(list(scopes), cutoffExclusive).changes;
     },
   };
 }
@@ -1084,6 +1186,10 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
   const insert = db.prepare(
     'INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
+  const events = db.prepare<[string, string, string, string], { readonly mutation_type: string; readonly executor_user_id: string; readonly timestamp: string }>(
+    'SELECT mutation_type, executor_user_id, timestamp FROM audit_log WHERE entity_type = ? AND entity_id = ? AND mutation_type IN (SELECT value FROM json_each(?)) AND timestamp > ?',
+  );
+  const purgeTypes = db.prepare('DELETE FROM audit_log WHERE mutation_type IN (SELECT value FROM json_each(?)) AND timestamp < ?');
   const pseudonymize = db.prepare(
     'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = @userId THEN @hmac ELSE executor_user_id END, entity_id = CASE WHEN entity_id = @userId THEN @hmac ELSE entity_id END WHERE executor_user_id = @userId OR entity_id = @userId',
   );
@@ -1093,6 +1199,14 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
     },
     async pseudonymizeUser(userId, hmac) {
       pseudonymize.run({ userId, hmac });
+    },
+    async listEvents(entityType, entityId, mutationTypes, sinceExclusive) {
+      return events
+        .all(entityType, entityId, list(mutationTypes), sinceExclusive)
+        .map((row) => ({ mutationType: row.mutation_type, executorUserId: row.executor_user_id, timestamp: row.timestamp }));
+    },
+    async purgeMutationTypesBefore(mutationTypes, cutoffExclusive) {
+      return purgeTypes.run(list(mutationTypes), cutoffExclusive).changes;
     },
   };
 }
@@ -1210,11 +1324,12 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
  * @implements INV-ARCH-005
  */
 export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
+  const pets = petRepository(db);
   return {
     users: userRepository(db),
     sessions: sessionRepository(db),
     loginAttempts: loginAttemptRepository(db),
-    pets: petRepository(db),
+    pets,
     records: recordRepository(db),
     households: householdRepository(db),
     confirmationTokens: confirmationTokenRepository(db),
@@ -1226,6 +1341,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     auditLog: auditLogRepository(db),
     shareLinks: shareLinkRepository(db),
     shareAudit: shareAuditRepository(db),
+    shareLinkPets: shareLinkPetRepository(db, pets),
     scenes: sqliteSceneRepository(db),
     sceneConsents: sqliteSceneConsentRepository(db),
     authIdentities: authIdentityRepository(db),
@@ -1238,5 +1354,14 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     registrations: registrationRepository(db),
     adminParameters: adminParameterRepository(db),
     aboutContent: aboutContentRepository(db),
+    coOwners: sqliteCoOwnerRepository(db),
+    ownerRequests: sqliteOwnerRequestRepository(db),
+    ipRateEvents: sqliteIpRateEventRepository(db),
+    disputeEvidence: sqliteDisputeEvidenceRepository(db),
+    careRoutines: sqliteCareRoutineRepository(db),
+    careLog: sqliteCareLogRepository(db),
+    caregiverAccess: sqliteCaregiverAccessRepository(db),
+    emergencyCards: sqliteEmergencyCardRepository(db),
+    emergencyConsents: sqliteEmergencyConsentRepository(db),
   };
 }

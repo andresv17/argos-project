@@ -1,0 +1,9 @@
+# Acta /oracle — Bloque B DRAFT 0.5 (T1630..T1632), validación forense en disco (2026-11-27)
+Veredicto: CUMPLE CON RESERVAS (solo consistencia; NO es aprobación; APPROVED/LOCKED solo Neo).
+Gates: verify-traceability.sh --feature 012 rc=0 (295/295 IDs, pureza 0); verify-oracles.sh rc=0 (642 archivos, 0 débiles). compile-contracts NO ejecutado.
+Verificado: alcance en specs/012 = 8 archivos modificados + errata-MINOR-bloqueB-v04.md (nuevo); v03 inexistente, referencias vivas solo a v04 (v03 solo citado en el propio encabezado de la errata como "antes" y en actas históricas); tasks.md: solo frases de T1641 y T1646, 0 marcas [x] nuevas; JSON (schema, catálogo) y YAML (OpenAPI) parsean; OpenAPI info.version 0.2.0 / x-sdd-status DRAFT; schema 0.2.0 DRAFT; catálogo x-sdd-metadata 0.2.0 DRAFT, raíz 0.1.0 APPROVED explicado en change_note (iter. 0.5); compile-contracts.sh solo lee x-sdd-metadata.status del catálogo 012 (grep); DISPUTE_EVIDENCE_STAGING_TTL_HOURS value null + PENDIENTE T1646; data-model.md separa APPROVED (Fase 0/Bloque A) de DRAFT 0.5 (Bloque B).
+Incidencias:
+1 (BAJA) chip-claim.schema.json x-sdd-metadata.change_type = "MAJOR" con version 0.2.0 (convención MINOR/0.x); aclarar o alinear.
+2 (INFO, fuera de esta iteración) git diff muestra specs/005-album-archivos-clinicos/tasks.md T797 [ ]→[x] sin atribución a architect v0.5; confirmar que es firma de Neo (techo de agentes: REVIEW).
+3 (INFO, fuera de esta iteración) cambios H-01 en el árbol (app-config.ts, server.ts, app.ts, deploy-argos.yml, terraform/*, .env.example, scripts/gh-project-sync.mjs, scripts/logos.py, tests/unit/origin-verify-guard.spec.ts sin trackear): no atribuibles a v0.5 por contenido; no se verificó autor por no existir commit.
+4 (INFO) Actas históricas (rama/trinity/architect/oracle v03/v04) citan el nombre antiguo errata-MINOR-bloqueB-v03.md; son registros, no referencias vivas.

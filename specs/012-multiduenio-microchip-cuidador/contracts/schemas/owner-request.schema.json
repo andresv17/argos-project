@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/owner-request.schema.json",
+  "title": "OwnerRequestSchema",
+  "description": "Solicitud unica de propiedad (aprobacion conjunta, reclamacion y disputa) [REQ-OWN12-004, REQ-OWN12-009, REQ-CHP12-003/004, STATE-OWNREQ12-001]. Vista de API: nunca expone approver_set ni approvals en bruto, chip_hmac, evidencia, target_response ajena ni la identidad del arbitro. Objetos cerrados.",
+  "x-sdd-metadata": {
+    "version": "0.1.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "0.1.0 (feature 012, T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): +OwnerRequestStatus (STATE-OWNREQ12-001, 7 estados), +CreateOwnerRequest (acciones criticas no-disputa), +OwnerRequestView, +OwnerRequestList («mis solicitudes»), +OpenAbsenceDisputeRequest (P-3 PRINCIPAL_ABSENT ratificado), +AbsenceResponseRequest (<= 280 puntos de codigo). P-1: una disputa vencida a los 60 dias pasa a EXPIRED sin cooldown; P-5: el disparador exige ademas que el target no tuviera sesion activa desde la primera solicitud expirada. El chip no aparece aqui: CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION se detallan en chip-claim.schema.json (T1630). 0.1.0 (alineacion H-09 tras re-verificacion T1612 /trinity, 2026-11-26, DRAFT): +ABSENCE_MIN_INACTIVE_DAYS = 14; ABSENCE_MIN_EXPIRED_REQUESTS.rule con secuencialidad, TTL y sin DELETE_PET; OpenAbsenceDisputeRequest.description completada. 0.1.0 (cierre de T1612 /trinity, 2026-11-26, DRAFT): H-01 matriz campos por accion x rol con allOf condicional en OwnerRequestView; H-07 targetUsername y message nulos en todo estado terminal y vista reducida para quien ya no es propietario ACTIVE; H-04 OpenAbsenceDisputeRequest sin petId (solo ruta); H-11 pattern y NFC en textos libres; H-15 approvers solo de la solicitud viva.",
+    "traceability": [
+      "STATE-OWNREQ12-001",
+      "REQ-OWN12-004",
+      "REQ-OWN12-009",
+      "REQ-OWN12-011",
+      "REQ-CHP12-003",
+      "REQ-CHP12-004",
+      "INV-OWN12-001",
+      "INV-OWN12-002",
+      "INV-OWN12-006",
+      "EDGE-012-030",
+      "EDGE-012-056",
+      "EDGE-012-057",
+      "EDGE-012-059",
+      "SC-012-073",
+      "SC-012-091",
+      "SC-012-092",
+      "SC-012-093",
+      "SC-012-103",
+      "SC-012-115",
+      "INV-OWN12-004",
+      "INV-OWN12-005",
+      "NFR-012-009"
+    ]
+  },
+  "x-sdd-constants": {
+    "OWNER_APPROVAL_TTL_DAYS": {
+      "value": 7,
+      "where": "feature-012-limits.ts",
+      "rule": "vigencia [created_at, expires_at); un voto con now >= expires_at se rechaza"
+    },
+    "CHIP_CLAIM_TTL_DAYS": {
+      "value": 14,
+      "where": "feature-012-limits.ts",
+      "rule": "TTL de CLAIM_CO_OWNERSHIP"
+    },
+    "ABSENCE_MIN_EXPIRED_REQUESTS": {
+      "value": 2,
+      "where": "feature-012-limits.ts",
+      "rule": "disparador N2-R1: solicitudes secuenciales (created_at de cada una >= expires_at de la anterior), expiradas por TTL, sin DELETE_PET (H-09)"
+    },
+    "ABSENCE_MIN_INACTIVE_DAYS": {
+      "value": 14,
+      "where": "feature-012-limits.ts",
+      "rule": "el target sin sesion activa >= 14 dias continuos hasta abrir; aplica la mas estricta con \"desde la mas antigua\" (H-09)"
+    },
+    "ABSENCE_WINDOW_DAYS": {
+      "value": 60,
+      "where": "feature-012-limits.ts",
+      "rule": "ventana del disparador, evaluada solo al abrir (sellada en trigger_request_ids)"
+    },
+    "ABSENCE_RESPONSE_MAX_CHARS": {
+      "value": 280,
+      "where": "feature-012-limits.ts",
+      "rule": "puntos de codigo, texto plano sin marcado"
+    },
+    "DISPUTE_MAX_OPEN_DAYS": {
+      "value": 60,
+      "where": "feature-012-limits.ts",
+      "rule": "P-1: vencida sin resolucion pasa a EXPIRED, sin cooldown"
+    }
+  },
+  "$defs": {
+    "OwnerRequestStatus": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "EXPIRED",
+        "CANCELLED",
+        "UNDER_REVIEW",
+        "RESOLVED"
+      ]
+    },
+    "OwnerRequestAction": {
+      "type": "string",
+      "enum": [
+        "DELETE_PET",
+        "TRANSFER_PRINCIPAL",
+        "CHANGE_PRINCIPAL",
+        "INVITE_CO_OWNER",
+        "CLAIM_CO_OWNERSHIP",
+        "CHIP_DISPUTE"
+      ]
+    },
+    "CriticalAction": {
+      "type": "string",
+      "enum": [
+        "DELETE_PET",
+        "TRANSFER_PRINCIPAL",
+        "CHANGE_PRINCIPAL"
+      ],
+      "description": "Acciones que se crean con POST /pets/{petId}/owner-requests. INVITE_CO_OWNER nace de POST /pets/{petId}/co-owners (con mas de un propietario ACTIVE crea la solicitud sellada); CLAIM_CO_OWNERSHIP y CHIP_DISPUTE(CHIP_APPROPRIATION) nacen de chip-claim (T1630)."
+    },
+    "DisputeReason": {
+      "type": "string",
+      "enum": [
+        "CHIP_APPROPRIATION",
+        "CO_OWNER_ABSENT_OR_BLOCKING",
+        "PRINCIPAL_ABSENT"
+      ]
+    },
+    "AbsenceDisputeReason": {
+      "type": "string",
+      "enum": [
+        "CO_OWNER_ABSENT_OR_BLOCKING",
+        "PRINCIPAL_ABSENT"
+      ],
+      "description": "PRINCIPAL_ABSENT ratificada por Neo (P-3), solo con expediente completo ante /admin"
+    },
+    "MootReason": {
+      "type": "string",
+      "enum": [
+        "TARGET_LEFT",
+        "TARGET_NOT_ACTIVE",
+        "REQUESTER_NOT_ACTIVE",
+        "TRIGGER_LOST",
+        "PET_GONE"
+      ],
+      "description": "Cierre sin efecto (resolution = REJECT); no activa el cooldown de 90 dias. El vencimiento por DISPUTE_MAX_OPEN_DAYS NO es un moot_reason: es status = EXPIRED (P-1)."
+    },
+    "StaleReason": {
+      "type": "string",
+      "enum": [
+        "OWNERSHIP_VERSION_CHANGED",
+        "APPROVER_SET_CHANGED",
+        "APPROVER_SET_EMPTY",
+        "PRINCIPAL_CHANGED",
+        "FROZEN"
+      ],
+      "description": "Valores de stale_reason; el detalle publico nunca revela quien entro o salio"
+    },
+    "ApproverVote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "vote"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32,
+          "description": "username publico; longitud maxima = la de username de 002"
+        },
+        "vote": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED"
+          ]
+        }
+      }
+    },
+    "CreateOwnerRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/CriticalAction"
+        },
+        "targetUserId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "Destinatario: co-propietario ACTIVE para TRANSFER_PRINCIPAL y CHANGE_PRINCIPAL; no se admite en DELETE_PET"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 280,
+          "description": "Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 422 ERR-SCHEMA-VALIDATION-FAILED; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612)",
+          "pattern": "^[^\\u0000-\\u001F\\u007F\\u202A-\\u202E\\u2066-\\u2069]*$",
+          "x-sdd-normalization": "NFC"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "DELETE_PET"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "targetUserId": true
+              },
+              "required": [
+                "targetUserId"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "TRANSFER_PRINCIPAL",
+                  "CHANGE_PRINCIPAL"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "targetUserId": true
+            },
+            "required": [
+              "targetUserId"
+            ]
+          }
+        }
+      ]
+    },
+    "OwnerRequestView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "action",
+        "status",
+        "role",
+        "createdAt",
+        "expiresAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "action": {
+          "$ref": "#/$defs/OwnerRequestAction"
+        },
+        "status": {
+          "$ref": "#/$defs/OwnerRequestStatus"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "REQUESTER",
+            "APPROVER",
+            "TARGET"
+          ],
+          "description": "Papel del usuario autenticado; los terceros no ven la solicitud (404 uniforme, INV-OWN12-004)"
+        },
+        "petId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "petName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "requesterUsername": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3,
+          "maxLength": 32
+        },
+        "targetUsername": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3,
+          "maxLength": 32,
+          "description": "Incluye el username sellado de INVITE_CO_OWNER aunque no resolviera a una cuenta (trinity R-09), solo a propietarios ACTIVE; null en todo estado terminal y segun la tabla normativa"
+        },
+        "approvers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/ApproverVote"
+          },
+          "description": "null segun la tabla normativa; maximo MAX_CO_OWNERS_PER_PET - 1 = 2 aprobadores"
+        },
+        "canVote": {
+          "type": "boolean",
+          "description": "true solo si el usuario es aprobador, no ha votado y now < expires_at"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 280,
+          "description": "null en todo estado terminal y para CHIP_DISPUTE"
+        },
+        "staleReason": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StaleReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "decidedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disputeReason": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DisputeReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frozenUntil": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Solo disputas; sin datos de la disputa para los propietarios (Neo-K)"
+        },
+        "mootReason": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/MootReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "Vista por accion x rol (H-01 de T1612). TABLA NORMATIVA «campos por accion x rol»: (1) CHIP_DISPUTE (CHIP_APPROPRIATION y disputas por ausencia), cualquier rol: requesterUsername, approvers y targetUsername = null (nunca al target ni al propietario; Neo-K, EDGE-012-028); message = null; frozenUntil solo sin motivo. (2) CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION con role = REQUESTER: petId, petName, approvers y targetUsername = null (el solicitante aun no es propietario; N2-R4). (3) Detalle completo (petId, petName, usernames, approvers, message) SOLO a quien hoy es propietario ACTIVE de esa mascota o destinatario de una invitacion vigente; a quien ya no lo es (LEFT, ENDED, PROMOTED fuera, perdida de condicion) la fila se devuelve REDUCIDA (id, action, status, role, createdAt, expiresAt, decidedAt) con el resto null, evaluado en cada peticion sin cache (INV-OWN12-005, H-07). (4) En todo estado terminal (APPROVED, REJECTED, EXPIRED incluido STALE, CANCELLED, RESOLVED) targetUsername = null y message = null. (5) approvers solo muestra los votos de la solicitud viva (usernames y vote; nunca ids, approver_set ni approvals en bruto). Un voto duplicado del mismo aprobador no cuenta dos veces (UNIQUE por (request, user)).",
+      "x-sdd-field-matrix": {
+        "CHIP_DISPUTE:any": {
+          "requesterUsername": null,
+          "approvers": null,
+          "targetUsername": null,
+          "message": null
+        },
+        "CLAIM_CO_OWNERSHIP|CHIP_APPROPRIATION:REQUESTER": {
+          "petId": null,
+          "petName": null,
+          "approvers": null,
+          "targetUsername": null
+        },
+        "any:terminal": {
+          "targetUsername": null,
+          "message": null
+        },
+        "any:no-longer-ACTIVE-owner": "reducida a id, action, status, role, createdAt, expiresAt, decidedAt"
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "CHIP_DISPUTE"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "requesterUsername": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              },
+              "message": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "REQUESTER"
+              },
+              "action": {
+                "const": "CLAIM_CO_OWNERSHIP"
+              }
+            },
+            "required": [
+              "role",
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "petId": {
+                "type": "null"
+              },
+              "petName": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "REQUESTER"
+              },
+              "action": {
+                "const": "CHIP_DISPUTE"
+              },
+              "disputeReason": {
+                "const": "CHIP_APPROPRIATION"
+              }
+            },
+            "required": [
+              "role",
+              "action",
+              "disputeReason"
+            ]
+          },
+          "then": {
+            "properties": {
+              "petId": {
+                "type": "null"
+              },
+              "petName": {
+                "type": "null"
+              },
+              "approvers": {
+                "type": "null"
+              },
+              "targetUsername": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "APPROVED",
+                  "REJECTED",
+                  "EXPIRED",
+                  "CANCELLED",
+                  "RESOLVED"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "targetUsername": {
+                "type": "null"
+              },
+              "message": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OwnerRequestList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/OwnerRequestView"
+          }
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "description": "Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15)"
+    },
+    "OpenAbsenceDisputeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetUserId",
+        "disputeReason"
+      ],
+      "properties": {
+        "targetUserId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "disputeReason": {
+          "$ref": "#/$defs/AbsenceDisputeReason"
+        }
+      },
+      "description": "La mascota es SOLO la de la ruta /pets/{petId}/absence-disputes: el cuerpo no lleva petId (H-04 de T1612). Una mascota inexistente o ajena y un targetUserId que no pertenezca a esa mascota dan el mismo 404 uniforme. El disparador se evalua en servidor al abrir y se sella (trigger_request_ids); no viaja en el cuerpo. El disparador exige (H-09) >= 2 solicitudes criticas secuenciales (created_at >= expires_at de la anterior; dos simultaneas no cuentan como dos), expiradas por TTL en 60 dias, con DELETE_PET excluida por completo y CANCELLED/REJECTED sin contar, el target en approver_set sin voto ni rechazo, y el target sin sesion activa durante >= ABSENCE_MIN_INACTIVE_DAYS = 14 dias continuos (aplica la condicion mas estricta frente a \"desde la primera expirada\"). Sin disparador: 409 ERR-CHP12-ABSENCE-NOT-ELIGIBLE solo a co-propietarios ACTIVE; a cualquier otro, 404 uniforme."
+    },
+    "AbsenceDisputeOpened": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "UNDER_REVIEW"
+        },
+        "frozenUntil": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "slaDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        }
+      }
+    },
+    "AbsenceResponseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "response"
+      ],
+      "properties": {
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "description": "<= 280 puntos de codigo, texto plano sin marcado, normalizado NFC; rechaza control y bidi como message; escapado de salida en /admin; escritura unica (la segunda llamada es 409 ERR-OWN12-STALE: PUT NO idempotente)",
+          "pattern": "^[^\\u0000-\\u001F\\u007F\\u202A-\\u202E\\u2066-\\u2069]*$",
+          "x-sdd-normalization": "NFC"
+        }
+      }
+    }
+  }
+}

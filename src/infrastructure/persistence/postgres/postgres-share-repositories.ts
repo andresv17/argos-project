@@ -6,8 +6,11 @@
  *
  * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005, SC-005-024, SC-005-038, SC-005-042
  */
-import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import type { PetRepositoryPort } from '../../../application/ports/repositories.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkPetRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type { ShareLinkRecord } from '../../../domain/sharing/share-link.ts';
+import { orderPetsForSummary } from '../../../domain/summary/clinical-summary.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 
 type Row = Record<string, unknown>;
@@ -41,6 +44,23 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
   return {
     async lockScope(scope, scopeId) {
       await client.query(scope === 'PET' ? 'SELECT id FROM pets WHERE id = $1 FOR UPDATE' : 'SELECT id FROM households WHERE id = $1 FOR UPDATE', [scopeId]);
+    },
+    async lockLink(shareLinkId) {
+      await client.query('SELECT id FROM share_links WHERE id = $1 FOR UPDATE', [shareLinkId]);
+    },
+    async listPetsByHousehold(householdId, retainedSince) {
+      const { rows } = await client.query(
+        `SELECT ${LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = $1 AND expires_at >= $2 AND (revoked_at IS NULL OR revoked_at >= $2) ORDER BY created_at DESC, id DESC`,
+        [householdId, retainedSince],
+      );
+      return rows.map(toLink);
+    },
+    async listActivePetsByCreator(householdId, createdByUserId, now) {
+      const { rows } = await client.query(
+        `SELECT ${LINK_COLUMNS} FROM share_links WHERE scope = 'PETS' AND household_id = $1 AND created_by_user_id = $2 AND revoked_at IS NULL AND expires_at > $3 ORDER BY id`,
+        [householdId, createdByUserId, now],
+      );
+      return rows.map(toLink);
     },
     async insert(link) {
       await client
@@ -80,6 +100,7 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
       return rows[0] === undefined ? null : toLink(rows[0]);
     },
     async listByScope(scope, scopeId, retainedSince) {
+      if (scope === 'PETS') return []; // los `PETS` viven en `listPetsByHousehold` (annex §5.5)
       const { rows } = await client.query(
         `SELECT ${LINK_COLUMNS} FROM share_links WHERE scope = $1 AND ${scopeColumn(scope)} = $2 AND expires_at >= $3 AND (revoked_at IS NULL OR revoked_at >= $3) ORDER BY created_at DESC, id DESC`,
         [scope, scopeId, retainedSince],
@@ -87,7 +108,9 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
       return rows.map(toLink);
     },
     async countActive(scope, scopeId, now) {
-      const { rows } = await client.query(`SELECT COUNT(*) AS n FROM share_links WHERE scope = $1 AND ${scopeColumn(scope)} = $2 AND revoked_at IS NULL AND expires_at > $3`, [scope, scopeId, now]);
+      // ENM-005-E §5.5 (D12-21): el tope del hogar cuenta HOUSEHOLD y PETS de todos los creadores.
+      const scopes = scope === 'PET' ? ['PET'] : ['HOUSEHOLD', 'PETS'];
+      const { rows } = await client.query(`SELECT COUNT(*) AS n FROM share_links WHERE scope = ANY($1::text[]) AND ${scopeColumn(scope)} = $2 AND revoked_at IS NULL AND expires_at > $3`, [scopes, scopeId, now]);
       return Number(rows[0]!['n']);
     },
     async revoke(id, now) {
@@ -98,9 +121,75 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
       const result = await client.query('DELETE FROM share_links WHERE expires_at < $1 OR revoked_at < $1', [cutoffExclusive]);
       return result.rowCount ?? 0;
     },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      const result = await client.query('UPDATE share_links SET pet_owner_user_id_at_creation = $1 WHERE pet_owner_user_id_at_creation = $2', [pseudonym, userId]);
+      return result.rowCount ?? 0;
+    },
     async listAll() {
       const { rows } = await client.query(`SELECT ${LINK_COLUMNS} FROM share_links ORDER BY id`);
       return rows.map(toLink);
+    },
+  };
+}
+
+const OWNED = `(p.owner_user_id = $USER OR EXISTS (SELECT 1 FROM pet_co_owners c WHERE c.pet_id = p.id AND c.user_id = $USER AND c.status = 'ACTIVE'))`;
+
+/**
+ * `share_link_pets` (ENM-005-E, feature 012), con paridad con SQLite: la elegibilidad y la revalidación son UNA sentencia acotada a 20 ids; los perfiles se cargan con el lector de mascotas de la misma
+ * transacción y se ordenan por `(name ASC, id ASC)` en memoria (el mismo comparador en los tres motores).
+ * @implements REQ-VET12-001, REQ-VET12-003, INV-VET12-001, INV-VET12-002
+ */
+export function shareLinkPetRepository(client: PoolClientLike, pets: PetRepositoryPort): ShareLinkPetRepositoryPort {
+  const load = async (ids: readonly string[]): Promise<PetProfile[]> => {
+    const found: PetProfile[] = [];
+    for (const id of ids) {
+      const pet = await pets.findById(id);
+      if (pet !== null) found.push(pet);
+    }
+    return orderPetsForSummary(found);
+  };
+  return {
+    async insertMany(shareLinkId, petIds) {
+      for (const petId of petIds) await client.query('INSERT INTO share_link_pets (share_link_id, pet_id) VALUES ($1, $2)', [shareLinkId, petId]);
+    },
+    async listPetIds(shareLinkId) {
+      const { rows } = await client.query('SELECT pet_id FROM share_link_pets WHERE share_link_id = $1 ORDER BY pet_id', [shareLinkId]);
+      return rows.map((r) => String(r['pet_id']));
+    },
+    async listPetIdsOfLinks(shareLinkIds) {
+      const out = new Map<string, string[]>();
+      if (shareLinkIds.length === 0) return out;
+      const { rows } = await client.query('SELECT share_link_id, pet_id FROM share_link_pets WHERE share_link_id = ANY($1::text[]) ORDER BY share_link_id, pet_id', [[...shareLinkIds]]);
+      for (const row of rows) out.set(String(row['share_link_id']), [...(out.get(String(row['share_link_id'])) ?? []), String(row['pet_id'])]);
+      return out;
+    },
+    async listLinkIdsByPet(petId) {
+      const { rows } = await client.query('SELECT share_link_id FROM share_link_pets WHERE pet_id = $1 ORDER BY share_link_id', [petId]);
+      return rows.map((r) => String(r['share_link_id']));
+    },
+    async deleteRow(shareLinkId, petId) {
+      const result = await client.query('DELETE FROM share_link_pets WHERE share_link_id = $1 AND pet_id = $2', [shareLinkId, petId]);
+      return result.rowCount === 1;
+    },
+    async resolveEligible({ userId, householdId, petIds }) {
+      const { rows } = await client.query(
+        `SELECT p.id AS id, (p.id = ANY($3::text[])) AS requested
+           FROM pets p JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = $2
+          WHERE ${OWNED.replaceAll('$USER', '$1')}`,
+        [userId, householdId, [...petIds]],
+      );
+      return { eligible: await load(rows.filter((r) => r['requested'] === true).map((r) => String(r['id']))), hasAnyEligibleInHousehold: rows.length > 0 };
+    },
+    async revalidateEligible({ shareLinkId, householdId, creatorUserId }) {
+      const { rows } = await client.query(
+        `SELECT p.id AS id
+           FROM share_link_pets sp
+           JOIN pets p ON p.id = sp.pet_id
+           JOIN pet_assignments a ON a.pet_id = p.id AND a.household_id = $2
+          WHERE sp.share_link_id = $1 AND ${OWNED.replaceAll('$USER', '$3')}`,
+        [shareLinkId, householdId, creatorUserId],
+      );
+      return load(rows.map((r) => String(r['id'])));
     },
   };
 }

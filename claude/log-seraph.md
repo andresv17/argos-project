@@ -17,3 +17,18 @@
 - 2026-11-17 T460 (Seraph): recorrido completo contra Cloud Run autorizado por Neo. Pasos 1-7 y SC-CLD-012 PASS (HTTP, dos jarras de cookies); cuentas zee.t460.a y kid.t460.a eliminadas (204) y login 401 en ambas. Informe: .specify/memory/audits/recorrido-aceptacion-003.md. Hallazgo menor: paso 7 exige transferir tambien el hogar. Limitacion: sin verificacion visual del boton. Sin tocar src/contracts/specs/tasks.md.
 
 - 2026-11-17 T592 (Seraph): escrito tests/e2e/accessibility/medios-csp-wcag.spec.ts (4 pruebas Chromium, 4 verdes). SPA compilada con vite build y servida bajo buildContentSecurityPolicy(host GCS simulado); axe wcag2a/aa/21a/21aa a 320/1024/1280 sobre PetForm (alta, errores, edicion), recortador y visor (imagen y PDF); teclado, foco visible, objetivos 44 px, violaciones CSP = 0 y host ajeno bloqueado. Hallazgos en src/ (no corregidos): H-S-T592-1 AvatarCropper.tsx l.47-54 (#avatar-file) y H-S-T592-2 MediaPanel.tsx (#media-file, FIELD) desbordan a 320 px (321 px, WCAG 1.4.10); las pruebas fijan ese unico desbordamiento. axe sin violaciones. tsc 0, verify-oracles 004 CUMPLE. Sin [x], sin push.
+
+- 2026-11-23 T1253 (Seraph, parte QA Fase 4): PASS CON OBS. Codigo: ningun camino crea sesion/cookie para PENDING/REJECTED (registro, login, Google callback, username, /me, cuenta); decision admin exige sesion admin propia + X-Argos-Request; CAS atomico (PG17 verde); 409 uniforme. Vitest pedido: corrida paralela 26 archivos rojos por `ajv/dist/runtime/equal` transitorio y un timeout de t1245-purga; serial: 113 archivos, 1520 passed, 0 failed. OBS-1/2/3 y casos de uso sin guarda: no explotables hoy. Acta audits/seraph-009-T1253.md. Sin [x].
+
+- 2026-11-23 T1272 (Seraph, acceso y QA Fase 5): PASS CON OBS. tests/security serie 31 archivos 623/623; sentinels T1271/T1238 4 archivos 101/101; t1258/t1260/t1262/t1228/t1268/t1269u 157/157; t1229 18/18; Playwright Chromium t1269+t1305 28/28. SEN-01 cerrado; SEN-01b (Referer sin Origin: PUT 200/reset 200) aceptable BAJO por SameSite=Strict + preflight. OBS-A: renovacion de sesion antes de validar Origin. Multi-navegador no ejecutado: no bloquea T1272, obligatorio en T1273. Acta audits/seraph-009-T1272-fase5.md. Sin [x], sin commit.
+- 2026-11-25 T1526 (Seraph): PASS CON OBS. t1525 5 specs 110 verdes/9 omitidas PG/3 rojas = 2 errores de prueba (reinvite esperaba expiry viejo 11-08 vs correcto 11-11; loginAs sin retryBusy, anclaje 500 SQLITE_BUSY). Gaps: sesión 30/10 min sin prueba t1525, EDGE-011-019 positivo, PG sin entorno. Acta .specify/memory/audits/seraph-011-T1526-sesiones-2026-11-25.md
+
+## 2026-11-27 — T1619 (012 Bloque A) auditoria de acceso cruzado
+- Ejecutado vitest co-ownership-012.security.spec.ts: 17/17. Revisadas 14 rutas y casos de uso (requireOwner, CSRF global, requireSession).
+- Hallazgos S-1..S-6 (ninguno critico/alto); acta en .specify/memory/audits/seraph-012-T1619-2026-11-27.md.
+
+## 2026-11-27 T1658 (seraph)
+Auditoria acceso/autenticacion Modo Cuidador 012: CUMPLE CON RESERVAS. Acta seraph-012-T1658-2026-11-27.md. Sonda desechable (borrada) confirmo 401/CSRF/403 roles/404 uniforme/cache headers. Hallazgos S-1..S-7, sin CRITICA/ALTA.
+
+## 2026-11-28 T1678 (seraph)
+Auditoria de acceso del QR de emergencia 012: CUMPLE CON RESERVAS. 293 pruebas verdes (31 PG omitidas), verify-oracles 0 debiles; sonda desechable (fuera del repo) confirmo 404 uniforme a ADMIN/CAREGIVER/READER en activar/regenerar/desactivar/consentimiento/estado, 401 y CSRF 403, token viejo 404 tras regenerar. Hallazgos S-1..S-3 (BAJA, cobertura de oraculos) y S-4/S-5 informativos. Acta seraph-012-T1678-2026-11-28.md. Sin ediciones de src ni commits.

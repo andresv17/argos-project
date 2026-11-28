@@ -199,7 +199,12 @@ export class CompleteAdminGoogleLoginUseCase {
     const holders = await this.identityHolders(repositories, sub, email);
     if (holders === null) return false;
     if (!(await this.identityIsFree(repositories, delegate, sub, email))) return false;
-    for (const holder of holders) await repositories.adminIdentities.deleteById(holder.adminId);
+    // Una identidad con expedientes (FK RESTRICT, D8 de 012) no se puede retirar: el borrado falla y el acceso se deniega (`false`), nunca un error al operador.
+    try {
+      for (const holder of holders) await repositories.adminIdentities.deleteById(holder.adminId);
+    } catch {
+      return false;
+    }
     return repositories.adminIdentities.insertIfAbsent({ adminId: delegate.adminId, provider: 'GOOGLE', providerSubject: sub, email, createdAt: now });
   }
 }

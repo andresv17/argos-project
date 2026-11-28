@@ -7,8 +7,22 @@
  */
 
 import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
+import {
+  ARBITER_AUDIT_RETENTION_DAYS,
+  CARE_LOG_MEDICATION_RETENTION_DAYS,
+  CARE_LOG_OTHER_RETENTION_DAYS,
+  CARE_LOG_REVERTED_RETENTION_DAYS,
+  CARE_ROUTINE_INACTIVE_RETENTION_DAYS,
+  DISPUTE_ABSENCE_RETENTION_DAYS,
+  OWNERSHIP_TERMINAL_RETENTION_DAYS,
+} from '../../domain/platform/feature-012-limits.ts';
+import { purgeIpRateEvents } from './chip-ip-rate-limit.ts';
+import { executeDueDisputeDecisions } from './chip-dispute-admin-use-cases.ts';
+import { RotatePhoneHmacKeyUseCase, RunEmergencyMaintenanceUseCase } from './emergency-use-cases.ts';
+import { expireLapsedDisputes, purgeExpiredDisputeEvidence, sweepOrphanDisputeEvidence } from './chip-dispute-retention.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
+import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
@@ -206,11 +220,141 @@ export async function purgeDelegateData(deps: Pick<ApplicationDeps, 'uow' | 'clo
     return await deps.uow.runInTransaction(async (r) => {
       const invitationsPurged = await r.adminDelegates.purgeExpiredInvitations(invitedBefore);
       const anonymized = await r.adminDelegates.anonymizeDisabledBefore(disabledBefore);
-      for (const adminId of anonymized) await r.adminIdentities.deleteById(adminId);
+      // D8 (012): con expedientes (`resolved_by_admin_id` / `second_approver_admin_id`, FK RESTRICT) la identidad NO se borra: se anonimiza y se conserva el vínculo. Sin expedientes, se retira.
+      const requests = anonymized.length > 0 ? await r.ownerRequests.listAll() : [];
+      for (const adminId of anonymized) {
+        if (requests.some((x) => x.resolvedByAdminId === adminId || x.secondApproverAdminId === adminId)) await r.adminIdentities.anonymizeIdentity(adminId);
+        else await r.adminIdentities.deleteById(adminId);
+      }
+      await releaseExpiredPersonIds(r, deps.clock.nowIsoTimestamp());
       return { invitationsPurged, disabledAnonymized: anonymized.length };
     });
-  } catch {
+  } catch (error) {
+    reportMaintenanceFailure('purgeDelegateData', error);
     return NO_DELEGATE_PURGE;
+  }
+}
+
+/** Traza de un fallo de mantenimiento sin PII: solo la tarea y el nombre del tipo de error (nunca el mensaje, que puede traer correos o identificadores). La transacción ya se revirtió; la siguiente pasada reintenta. */
+function reportMaintenanceFailure(task: string, error: unknown): void {
+  console.error(`[maintenance] ${task} falló y se revirtió (${error instanceof Error ? error.name : 'Unknown'}); se reintenta en la próxima pasada`);
+}
+
+/**
+ * D8 (012): `person_id = NULL` en las identidades de operador ya anonimizadas cuando venció el plazo de su ÚLTIMO expediente: `closed_at` (= `resolved_at ?? decided_at ?? expires_at`) + 1095 días en
+ * apropiación de chip (`ARBITER_AUDIT_RETENTION_DAYS`), + 90 días en ausencia (`DISPUTE_ABSENCE_RETENTION_DAYS`) o en cualquier otro expediente (`OWNERSHIP_TERMINAL_RETENTION_DAYS`). Un expediente
+ * aún abierto lo retiene. Sin expedientes restantes (ya purgados) el plazo venció. Nunca toca a operadores activos.
+ */
+async function releaseExpiredPersonIds(r: RepositorySet, now: string): Promise<void> {
+  const candidates = await r.adminIdentities.listAnonymizedWithPersonId();
+  if (candidates.length === 0) return;
+  const requests = await r.ownerRequests.listAll();
+  for (const adminId of candidates) {
+    let releaseAt = '';
+    let open = false;
+    for (const x of requests) {
+      if (x.resolvedByAdminId !== adminId && x.secondApproverAdminId !== adminId) continue;
+      if (x.status === 'PENDING' || x.status === 'UNDER_REVIEW') {
+        open = true;
+        break;
+      }
+      const closedAt = x.resolvedAt ?? x.decidedAt ?? x.expiresAt;
+      const days = x.action === 'CHIP_DISPUTE' && x.disputeReason === 'CHIP_APPROPRIATION' ? ARBITER_AUDIT_RETENTION_DAYS : x.action === 'CHIP_DISPUTE' ? DISPUTE_ABSENCE_RETENTION_DAYS : OWNERSHIP_TERMINAL_RETENTION_DAYS;
+      const due = shiftIsoTimestamp(closedAt, days * DAY_MS);
+      if (due > releaseAt) releaseAt = due;
+    }
+    if (!open && releaseAt < now) await r.adminIdentities.clearPersonId(adminId);
+  }
+}
+
+/** Conteos de la purga de co-propiedad: solo números, nunca identificadores. */
+export interface OwnershipMaintenanceResult {
+  readonly coOwnersPurged: number;
+  readonly requestsPurged: number;
+}
+
+const NO_OWNERSHIP_PURGE: OwnershipMaintenanceResult = { coOwnersPurged: 0, requestsPurged: 0 };
+
+/**
+ * Purga diaria de co-propiedad (feature 012, NFR-012-009, T1623; patrón de `purgeDelegateData`, sin job nuevo): filas terminales de `pet_co_owners` y solicitudes de `owner_requests` terminales (`APPROVED`,
+ * `REJECTED`, `EXPIRED`, `CANCELLED`, o `PENDING` ya vencida) con más de `OWNERSHIP_TERMINAL_RETENTION_DAYS` = 90 días desde su decisión, y las disputas por ausencia resueltas con más de
+ * `DISPUTE_ABSENCE_RETENTION_DAYS` = 90 días desde su `RESOLVED`/`EXPIRED`. **H-08 de `trinity` T1612 (`P-2`)**: la purga EXCLUYE toda solicitud referenciada por `trigger_request_ids` de una disputa no terminal, y la
+ * retención de la solicitud sellada cuenta desde el `RESOLVED`/`EXPIRED` de la disputa (`TRIGGER_LOST` nunca puede originarse en la purga). Las disputas de apropiación de chip (365 días con evidencia) las purga el Bloque #23.
+ * Una transacción; no escribe auditoría ni registra identificadores. Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements NFR-012-009, REQ-OWN12-009, REQ-CHP12-008
+ */
+export async function purgeOwnershipData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<OwnershipMaintenanceResult> {
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const cutoff = shiftIsoTimestamp(now, -OWNERSHIP_TERMINAL_RETENTION_DAYS * DAY_MS);
+    return await deps.uow.runInTransaction(async (r) => {
+      const coOwnersPurged = await r.coOwners.purgeTerminalBefore(cutoff);
+      const requests = await r.ownerRequests.listAll();
+      const NON_TERMINAL_DISPUTE = new Set(['PENDING', 'UNDER_REVIEW']);
+      const terminalDate = (request: (typeof requests)[number]): string => request.resolvedAt ?? request.decidedAt ?? request.expiresAt;
+      // Solicitudes selladas por una disputa: protegidas mientras la disputa siga viva; después, 90 días desde que ella terminó.
+      const retainedUntil = new Map<string, string>();
+      for (const dispute of requests.filter((x) => x.action === 'CHIP_DISPUTE' && x.triggerRequestIds !== null)) {
+        const stamp = NON_TERMINAL_DISPUTE.has(dispute.status) ? '9999-12-31T23:59:59.999Z' : terminalDate(dispute);
+        for (const id of dispute.triggerRequestIds ?? []) if ((retainedUntil.get(id) ?? '') < stamp) retainedUntil.set(id, stamp);
+      }
+      const TERMINAL = new Set(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED', 'RESOLVED']);
+      const withEvidence = new Set<string>();
+      for (const x of requests) if (x.action === 'CHIP_DISPUTE' && (await r.disputeEvidence.listByRequest(x.id)).length > 0) withEvidence.add(x.id);
+      const doomed = requests
+        .filter((x) => {
+          if (x.action === 'CHIP_DISPUTE' && x.disputeReason === 'CHIP_APPROPRIATION') return TERMINAL.has(x.status) && !withEvidence.has(x.id) && terminalDate(x) < shiftIsoTimestamp(now, -ARBITER_AUDIT_RETENTION_DAYS * DAY_MS);
+          if (x.action === 'CHIP_DISPUTE') return x.disputeReason !== 'CHIP_APPROPRIATION' && TERMINAL.has(x.status) && terminalDate(x) < cutoff;
+          // Bloque B (#23): las reclamaciones terminales siguen la misma retención de 90 días; el expediente de una disputa de chip se conserva ARBITER_AUDIT_RETENTION_DAYS (1095) desde su
+          // cierre (`closed_at`) y SOLO cuando su evidencia ya fue purgada (`dispute_evidence` es RESTRICT: primero las filas de evidencia, SC-012-118).
+          if (x.action === 'CLAIM_CO_OWNERSHIP') return TERMINAL.has(x.status) && terminalDate(x) < cutoff;
+          const terminal = TERMINAL.has(x.status) || (x.status === 'PENDING' && x.expiresAt < now);
+          if (!terminal) return false;
+          const reference = retainedUntil.get(x.id);
+          const effective = reference !== undefined && reference > terminalDate(x) ? reference : terminalDate(x);
+          return effective < cutoff;
+        })
+        .map((x) => x.id);
+      return { coOwnersPurged, requestsPurged: await r.ownerRequests.deleteByIds(doomed) };
+    });
+  } catch (error) {
+    reportMaintenanceFailure('purgeOwnershipData', error);
+    return NO_OWNERSHIP_PURGE;
+  }
+}
+
+/** Conteos de la purga de cuidado: solo números. */
+export interface CareMaintenanceResult {
+  readonly entriesPurged: number;
+  readonly routinesPurged: number;
+}
+
+const NO_CARE_PURGE: CareMaintenanceResult = { entriesPurged: 0, routinesPurged: 0 };
+
+/**
+ * Purga diaria del Modo Cuidador (feature 012, T1661, REQ-CAR12-007, SC-012-089; techo máximo, no piso; sin job nuevo ni columna de retención): borra los registros de `MEDICATION` con `occurrence_date` anterior a hoy - 1095 días,
+ * los de `MEAL`/`WALK`/`OTHER` anterior a hoy - 365, los revertidos con `reverted_at` anterior a ahora - 30 días y, después, las rutinas inactivas (`active = false`) desactivadas hace más de 365 días (`updated_at`; lectura del
+ * data-model, reserva para Architect: x-sdd-constants dice «desde su última ocurrencia») que ninguna versión posterior referencia y que ya no tienen registros vivos (D-D(b), Neo: una rutina con registros se conserva hasta que el último venza). Un registro con exactamente N días de antigüedad aún se conserva. «Hoy» es `todayIsoDate`
+ * (America/Bogota). Los registros van antes que las rutinas para contar cada borrado donde corresponde (la cascada de la rutina solo arrastra lo que aún queda). Una transacción; no escribe auditoría ni registra identificadores.
+ * Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements REQ-CAR12-007, SC-012-089
+ */
+export async function purgeCareData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<CareMaintenanceResult> {
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const dateBefore = (days: number): string => shiftIsoTimestamp(`${deps.clock.todayIsoDate()}T00:00:00.000Z`, -days * DAY_MS).slice(0, 10);
+    return await deps.uow.runInTransaction(async (r) => {
+      const entriesPurged = await r.careLog.purgeExpired({
+        medicationBefore: dateBefore(CARE_LOG_MEDICATION_RETENTION_DAYS),
+        otherBefore: dateBefore(CARE_LOG_OTHER_RETENTION_DAYS),
+        revertedBefore: shiftIsoTimestamp(now, -CARE_LOG_REVERTED_RETENTION_DAYS * DAY_MS),
+      });
+      const routinesPurged = await r.careRoutines.purgeInactiveBefore(shiftIsoTimestamp(now, -CARE_ROUTINE_INACTIVE_RETENTION_DAYS * DAY_MS));
+      return { entriesPurged, routinesPurged };
+    });
+  } catch (error) {
+    reportMaintenanceFailure('purgeCareData', error);
+    return NO_CARE_PURGE;
   }
 }
 
@@ -218,15 +362,35 @@ export async function purgeDelegateData(deps: Pick<ApplicationDeps, 'uow' | 'clo
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
  */
+/** Registra solo el nombre del error (nunca identificadores ni mensajes) y sigue: el barrido se reintenta en la próxima pasada. */
+const logEmergencyMaintenanceFailure = (error: unknown): null => {
+  console.error(`[maintenance] barrido de la ficha QR falló (${error instanceof Error ? error.name : 'Unknown'}); se reintenta en la próxima pasada`);
+  return null;
+};
+
 export async function runMaintenance(
   deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media' | 'adminDelegateRetention'>,
   onMediaQueue?: (result: MediaQueueResult) => void,
 ): Promise<MaintenanceCounts> {
+  // Bloque B (#23) ANTES de la cola de medios: contadores por IP (25 h), vencimiento de disputas (60 d), evidencia vencida (365 d desde `closed_at`: filas físicas + claves a la cola en una unidad, SC-012-118)
+  // y barrido de huérfanos del área de espera (24 h). La cola de medios que sigue borra los objetos. Nunca lanzan.
+  await purgeIpRateEvents(deps);
+  await expireLapsedDisputes(deps).catch(() => 0);
+  await purgeExpiredDisputeEvidence(deps).catch(() => 0);
+  await sweepOrphanDisputeEvidence(deps);
+  if ((deps as Partial<ApplicationDeps>).ids !== undefined) await executeDueDisputeDecisions(deps as unknown as ApplicationDeps).catch(() => 0);
   const queue = await runMediaQueueMaintenance(deps);
   if (deps.media !== undefined) onMediaQueue?.(queue);
   await purgeShareData(deps);
   await purgeSceneData(deps);
   await purgeDelegateData(deps);
+  await purgeOwnershipData(deps);
+  await purgeCareData(deps);
+  // Feature 012 (Bloque D, #32): barrido de la ficha QR (consentimientos en espera vencidos, reconciliación, historial de 90 días, topes QR_*) y recálculo idempotente de `phone_hmac` tras una rotación de clave. Solo con la ficha configurada; nunca lanzan.
+  if ((deps as Partial<ApplicationDeps>).emergency !== undefined && (deps as Partial<ApplicationDeps>).ids !== undefined) {
+    await new RunEmergencyMaintenanceUseCase(deps as unknown as ApplicationDeps).execute().catch(logEmergencyMaintenanceFailure);
+    await new RotatePhoneHmacKeyUseCase(deps as unknown as ApplicationDeps).execute().catch(logEmergencyMaintenanceFailure);
+  }
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }

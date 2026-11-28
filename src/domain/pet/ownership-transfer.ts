@@ -11,6 +11,7 @@
  */
 
 import { DomainError } from '../../generated/index.ts';
+import { isPrincipalOfPet } from '../access/pet-ownership.ts';
 import type { LegacyHouseholdMember } from '../households/household-policies.ts';
 
 export interface PetOwnershipRef {
@@ -22,7 +23,7 @@ export interface PetOwnershipRef {
 export interface PetAssignmentRow {
   readonly petId: string;
   readonly householdId: string;
-  readonly assignedByUserId?: string;
+  readonly assignedByUserId?: string | null;
 }
 
 export interface TransferPetOwnershipCommand {
@@ -49,10 +50,10 @@ export interface TransferPetOwnershipResult {
 export function transferPetOwnership(command: TransferPetOwnershipCommand): TransferPetOwnershipResult {
   const { pet, actorUserId, newOwnerUserId, memberships, assignments } = command;
 
-  if (pet.ownerUserId !== actorUserId) {
+  if (!isPrincipalOfPet(actorUserId, pet)) {
     throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'petId');
   }
-  if (newOwnerUserId === pet.ownerUserId) {
+  if (isPrincipalOfPet(newOwnerUserId, pet)) {
     throw new DomainError('ERR-OWN-TRANSFER-INVALID-TARGET', undefined, 'newOwnerUserId');
   }
 

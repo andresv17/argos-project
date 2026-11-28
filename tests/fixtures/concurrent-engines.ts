@@ -15,6 +15,7 @@ import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.po
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { DeterministicIdAdapter } from '../../src/infrastructure/adapters/deterministic-id.adapter.ts';
+import { MemoryMediaStorageAdapter } from '../../src/infrastructure/adapters/memory-media-storage.adapter.ts';
 import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } from '../../src/infrastructure/persistence/postgres/postgres-database.ts';
 import { PostgresUnitOfWork } from '../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 import { openSqliteDatabase, type SqliteDatabase } from '../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
@@ -45,13 +46,13 @@ export function gate(): Gate {
 /** Unidad de trabajo que, tras ejecutar el trabajo y ANTES de confirmar, avisa y espera: la transacción queda abierta con sus candados. */
 export function holdBeforeCommit(uow: UnitOfWorkPort, entered: () => void, hold: Promise<void>): UnitOfWorkPort {
   return {
-    runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>) =>
+    runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>, options?: Parameters<UnitOfWorkPort['runInTransaction']>[1]) =>
       uow.runInTransaction(async (repositories) => {
         const result = await work(repositories);
         entered();
         await hold;
         return result;
-      }),
+      }, options),
   };
 }
 
@@ -67,11 +68,11 @@ function countingWork(uow: UnitOfWorkPort): { readonly uow: UnitOfWorkPort; star
   let starts = 0;
   return {
     uow: {
-      runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>) =>
+      runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>, options?: Parameters<UnitOfWorkPort['runInTransaction']>[1]) =>
         uow.runInTransaction((repositories) => {
           starts += 1;
           return work(repositories);
-        }),
+        }, options),
     },
     starts: () => starts,
   };
@@ -92,7 +93,16 @@ export interface ConcurrentEngine {
 }
 
 function depsWithIds(uow: UnitOfWorkPort, entityPrefix: string, auditPrefix: string): ApplicationDeps {
-  return { ...createDeps(uow, new FixedClockAdapter(), new SpyPasswordHasher()), ids: new DeterministicIdAdapter(ids(entityPrefix)), auditIds: new DeterministicIdAdapter(ids(auditPrefix)) };
+  // 012 (#23, T1634): la disputa de chip guarda su evidencia en el almacén de medios; el motor PostgreSQL de este arnés lo recibe en memoria, como los de memoria y SQLite (share-harness).
+  const clock = new FixedClockAdapter();
+  const media = { storage: new MemoryMediaStorageAdapter({ now: () => new Date(clock.nowIsoTimestamp()) }), limits: { maxBytes: 10_485_760, maxBytesPerOwner: 1_073_741_824, maxConcurrentUploads: 4, signedUrlTtlSeconds: 300 } };
+  return { ...createDeps(uow, clock, new SpyPasswordHasher()), ids: new DeterministicIdAdapter(ids(entityPrefix)), auditIds: new DeterministicIdAdapter(ids(auditPrefix)), media };
+}
+
+/** Dependencias de la conexión A construidas UNA vez por motor: reloj, ids y auditIds compartidos entre todas las llamadas a depsA(uow), para que la secuencia determinista no se reinicie (audit_log_pkey). */
+function stableDepsA(base: UnitOfWorkPort): (uow?: UnitOfWorkPort) => ApplicationDeps {
+  const shared = depsWithIds(base, 'aaaaaaa1', 'aaaaaaa2');
+  return (uow = base) => ({ ...shared, uow });
 }
 
 const isBusy = (error: unknown) => typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'SQLITE_BUSY';
@@ -112,7 +122,7 @@ export async function createSqliteConcurrentEngine(): Promise<ConcurrentEngine> 
     name: 'SQLite',
     uowA,
     uowB,
-    depsA: (uow = uowA) => depsWithIds(uow, 'aaaaaaa1', 'aaaaaaa2'),
+    depsA: stableDepsA(uowA),
     asClientB(call) {
       let busy = 0;
       const counting = countingWork(uowB);
@@ -156,7 +166,7 @@ export async function createPostgresConcurrentEngine(): Promise<ConcurrentEngine
     name: 'PostgreSQL',
     uowA,
     uowB,
-    depsA: (uow = uowA) => depsWithIds(uow, 'aaaaaaa1', 'aaaaaaa2'),
+    depsA: stableDepsA(uowA),
     asClientB(call) {
       const counting = countingWork(uowB);
       return { result: call(depsWithIds(counting.uow, 'ccccccc1', 'ccccccc2')), workStarts: counting.starts, busyRejections: () => 0 };

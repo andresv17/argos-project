@@ -8,6 +8,7 @@
  * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002
  */
 
+import { isOwnerOfPet } from './pet-ownership.ts';
 import type { RbacRole } from './rbac.ts';
 
 /** Membresía con rol (`role` nunca es OWNER: el Propietario Legal se decide por la mascota, no por la membresía). */
@@ -33,6 +34,8 @@ export interface EffectiveRoleSubject {
 export interface EffectiveRolePet {
   readonly id: string;
   readonly ownerUserId: string;
+  /** Filas de co-propiedad (feature 012, REQ-OWN12-005): un co-propietario `ACTIVE` cuenta como Propietario Legal. Ausente = sin co-propietarios. */
+  readonly coOwners?: ReadonlyArray<{ readonly userId: string | null; readonly status: string }>;
 }
 
 /** Orden de precedencia entre roles de membresía (el mayor gana). */
@@ -49,7 +52,7 @@ export function effectiveRole(
   memberships: readonly RoleMembership[],
   assignments: readonly PetHouseholdAssignment[],
 ): RbacRole | null {
-  if (pet.ownerUserId === user.id) {
+  if (isOwnerOfPet(user.id, { ownerUserId: pet.ownerUserId, coOwners: pet.coOwners ?? [] })) {
     return 'OWNER';
   }
   const assignedHouseholds = new Set(

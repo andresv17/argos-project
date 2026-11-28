@@ -45,6 +45,22 @@ export function registerShareLinkRoutes(app: FastifyInstance, { useCases, public
     useCases.listShareLinks.execute(request.userId, { scope: 'HOUSEHOLD', householdId: request.params.householdId }),
   );
 
+  // Alcance `PETS` (feature 012, Bloque E, ENM-005-E): subconjunto estático de mascotas de un hogar; la bandera apagada responde el 404 del hogar (lo decide el caso de uso).
+  app.post<HouseholdParams>('/api/households/:householdId/share-links/pets', { onRequest }, async (request, reply) => {
+    const outcome = await useCases.createPetsShareLink.execute(request.userId, request.params.householdId, request.headers['idempotency-key'], jsonBody(request.body));
+    if (outcome.kind === 'REPLAY') return reply.status(200).send({ link: outcome.link, urlAvailable: false });
+    return reply.status(201).send({ link: outcome.link, url: `${publicBaseUrl}${outcome.url}` });
+  });
+  app.get<HouseholdParams>('/api/households/:householdId/share-links/pets', { onRequest }, (request) => useCases.listHouseholdPetsShareLinks.execute(request.userId, request.params.householdId));
+  app.get<PetParams>('/api/pets/:petId/share-links/pets', { onRequest }, (request) => useCases.listPetPetsShareLinks.execute(request.userId, request.params.petId));
+  app.delete<{ Params: { shareLinkId: string; petId: string } }>('/api/share-links/:shareLinkId/pets/:petId', { onRequest }, async (request, reply) => {
+    await useCases.withdrawPetFromShareLink.execute(request.userId, request.params.shareLinkId, request.params.petId);
+    return reply.status(204).send();
+  });
+  app.get<HouseholdParams & { Querystring: { petIds?: unknown; includeMicrochip?: unknown; includeClinicalFiles?: unknown; includeDeceasedAt?: unknown } }>('/api/households/:householdId/clinical-summary/pets', { onRequest }, (request) =>
+    useCases.previewPetsClinicalSummary.execute(request.userId, request.params.householdId, request.query),
+  );
+
   app.delete<{ Params: { shareLinkId: string } }>('/api/share-links/:shareLinkId', { onRequest }, async (request, reply) => {
     await useCases.revokeShareLink.execute(request.userId, request.params.shareLinkId);
     return reply.status(204).send();

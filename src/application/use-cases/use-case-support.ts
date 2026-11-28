@@ -20,11 +20,13 @@ import {
   type UserSelfProfile,
 } from '../../generated/index.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
+import { isOwnerOfPet, isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { can, petPermissionsFor, type PetAction, type RbacRole } from '../../domain/access/rbac.ts';
 import { toRoleMembership } from '../../domain/households/household-policies.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
+import type { MalwareScannerPort } from '../ports/malware-scanner.port.ts';
 import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
@@ -81,6 +83,8 @@ export interface SharingServices {
   readonly tokens: ShareTokenGeneratorPort;
   readonly ipHmacSecret: string;
   readonly limiter: SharedAccessLimiter;
+  /** Bandera de creación de `PETS` ya parseada por `app-config` (ENM-005-E §8.2.2): solo `true` exacto es ON; ausente = OFF (fail-closed). Con OFF la creación y la vista previa de `PETS` dan el 404 del hogar. */
+  readonly petsCreateEnabled?: boolean;
 }
 
 /**
@@ -167,6 +171,28 @@ export interface AdminServices {
   readonly allowedEmails: readonly string[];
 }
 
+/**
+ * Ficha QR de emergencia (feature 012, Bloque D, #32, T1675): configuración ya validada por la composición (`emergency-config.ts`, INV-ARCH-006) y la entropía del token (puerto CSPRNG). `phoneHmacKey` es la
+ * clave DEDICADA del teléfono (`PHONE_HMAC_KEY`); `publicBaseUrl` es la ÚNICA fuente de la URL del QR (`ARGOS_PUBLIC_BASE_URL`); la versión vigente del aviso y su entrada en vigor salen de `feature-012-limits.ts`.
+ * Ausente: los casos de uso de la ficha fallan cerrados con un error interno.
+ */
+export interface EmergencyServices {
+  readonly phoneHmacKey: string;
+  readonly publicBaseUrl: string;
+  readonly noticeVersion: string;
+  readonly noticeEffectiveAt: string;
+  /** 32 bytes de CSPRNG por llamada (`generateEmergencyToken`); la implementación real vive en infraestructura. */
+  readonly entropy: { next32(): Uint8Array };
+}
+
+/**
+ * Puerto mínimo del ciclo de vida de la ficha QR para el fallecimiento (feature 012, annex §10, `RAMA-T1683-02`). `onPetDeceased` corre DENTRO de la transacción que persiste `life_status = DECEASED`
+ * (`tx`); si lanza, el fallecimiento revierte. `actorUserId` es quien marcó el fallecimiento (actor del evento `EMERGENCY_CARD_AUTO_DEACTIVATED`).
+ */
+export interface EmergencyCardLifecycle {
+  onPetDeceased(petId: string, tx: RepositorySet, actorUserId: string): Promise<void>;
+}
+
 export interface ApplicationDeps {
   /**
    * Tope de hogares ACTIVOS por persona (feature 011, REQ-HOG11-004, INV-HOG11-001): lo inyecta la composición desde `MAX_HOUSEHOLDS_PER_USER` (`app-config.ts`, única fuente).
@@ -214,6 +240,19 @@ export interface ApplicationDeps {
   readonly google?: GoogleServices;
   /** Portal de administración (feature 009, Fase 3). Ausente: no hay rutas de administración (404 uniforme). */
   readonly admin?: AdminServices;
+  /** Log estructurado de servidor (feature 012, T1640): solo eventos operativos sin PII ni chip (p. ej. el aviso del 70 % del contador global). Ausente = sin aviso. */
+  readonly structuredLog?: StructuredLogPort;
+  /** Análisis antimalware de la evidencia de disputas (feature 012, T1641). Ausente: la subida de evidencia falla cerrada (503). */
+  readonly malwareScanner?: MalwareScannerPort;
+  /** Ficha QR de emergencia (feature 012, Bloque D, T1675). Ausente: los casos de uso de la ficha fallan cerrados. */
+  readonly emergency?: EmergencyServices;
+  /** Hook de fallecimiento de la ficha QR (feature 012, annex §10). Ausente: solo opera la reconciliación perezosa. */
+  readonly emergencyLifecycle?: EmergencyCardLifecycle;
+}
+
+/** Puerto mínimo del log estructurado de servidor para eventos operativos. */
+export interface StructuredLogPort {
+  warn(event: string, fields: Readonly<Record<string, unknown>>): void;
 }
 
 interface ValidatorWithErrors {
@@ -277,7 +316,8 @@ export interface PetAccess {
  * los hogares donde la mascota está asignada (INV-ACC2-001). Null si no tiene acceso.
  */
 export async function effectiveRoleOf(repositories: RepositorySet, userId: string, pet: PetProfile): Promise<RbacRole | null> {
-  if (pet.ownerUserId === userId) return 'OWNER';
+  // 012 (REQ-OWN12-005, REQ-OWN12-010): el principal y todo co-propietario ACTIVE cuentan como Propietario Legal; se evalúa en CADA petición (sin caché de rol, EDGE-012-015).
+  if (isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: await repositories.coOwners.listByPet(pet.id) })) return 'OWNER';
   const assignments = await repositories.assignments.listByPet(pet.id);
   const memberships = (await repositories.households.listMembershipsOfUsers([userId])).map(toRoleMembership);
   return effectiveRole({ id: userId }, pet, memberships, assignments);
@@ -297,6 +337,13 @@ export interface VisiblePet {
 export async function listVisiblePets(repositories: RepositorySet, userId: string): Promise<VisiblePet[]> {
   const pets = new Map<string, PetProfile>();
   for (const pet of await repositories.pets.listByOwners([userId])) pets.set(pet.id, pet);
+  // 012: las mascotas donde el usuario es co-propietario ACTIVE (REQ-OWN12-005).
+  const coOwned = (await repositories.coOwners.listByUser(userId)).filter((r) => r.status === 'ACTIVE');
+  for (const row of coOwned) {
+    if (pets.has(row.petId)) continue;
+    const pet = await repositories.pets.findById(row.petId);
+    if (pet !== null) pets.set(pet.id, pet);
+  }
   const memberships = await repositories.households.listMembershipsOfUsers([userId]);
   for (const membership of memberships.filter((m) => m.status === 'ACTIVE')) {
     for (const assignment of await repositories.assignments.listByHousehold(membership.householdId)) {
@@ -308,7 +355,8 @@ export async function listVisiblePets(repositories: RepositorySet, userId: strin
   const roleRows = memberships.map(toRoleMembership);
   const visible: VisiblePet[] = [];
   for (const pet of pets.values()) {
-    const role = pet.ownerUserId === userId ? 'OWNER' : effectiveRole({ id: userId }, pet, roleRows, await repositories.assignments.listByPet(pet.id));
+    const coOwners = coOwned.filter((row) => row.petId === pet.id);
+    const role = isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners }) ? 'OWNER' : effectiveRole({ id: userId }, pet, roleRows, await repositories.assignments.listByPet(pet.id));
     if (role !== null) visible.push({ pet, role });
   }
   return visible;
@@ -335,7 +383,7 @@ export async function lockOwnerThenPet(repositories: RepositorySet, petId: strin
     if (unlocked === null) return;
     await repositories.users.findByIdForUpdate(unlocked.ownerUserId);
     const locked = await repositories.pets.findByIdForUpdate(petId);
-    if (locked === null || locked.ownerUserId === unlocked.ownerUserId) return;
+    if (locked === null || isPrincipalOfPet(unlocked.ownerUserId, locked)) return;
   }
   throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'El propietario de la mascota cambió durante el bloqueo; reintenta.');
 }

@@ -40,7 +40,8 @@ import type {
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
-import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkPetRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { isOwnerOfPet } from '../../../domain/access/pet-ownership.ts';
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
@@ -68,11 +69,16 @@ import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
+import type { OwnerRequestRecord, PetCoOwnerRecord } from '../../../application/ports/co-ownership.port.ts';
+import { memoryDisputeEvidenceRepository, memoryIpRateEventRepository, type ChipMemoryState } from './in-memory-chip-repositories.ts';
+import { memoryCareLogRepository, memoryCareRoutineRepository, memoryCaregiverAccessRepository, type CareMemoryState } from './in-memory-care-repositories.ts';
+import { memoryEmergencyCardRepository, memoryEmergencyConsentRepository, type EmergencyMemoryState } from './in-memory-emergency-repositories.ts';
+import { memoryCoOwnerRepository, memoryOwnerRequestRepository, memoryOwnershipOps } from './in-memory-ownership-repositories.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
 const RECORD_MODULE_NAMES: readonly RecordModule[] = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings', 'medicalVisits', 'customParameters'];
 
-export interface MemoryState extends SceneMemoryState {
+export interface MemoryState extends SceneMemoryState, CareMemoryState, EmergencyMemoryState {
   users: UserAccount[];
   sessions: Record<string, SessionRecord>;
   loginFailures: Record<string, string[]>;
@@ -99,6 +105,8 @@ export interface MemoryState extends SceneMemoryState {
   shareLinks: ShareLinkRecord[];
   /** `share_link_audit` (feature 005, REQ-VET-008). */
   shareAudit: ShareAuditRecord[];
+  /** `share_link_pets` (feature 012, ENM-005-E); opcional: ausente = vacía. Las filas cuyo enlace o mascota ya no existen se descartan al leer (como ON DELETE CASCADE). */
+  shareLinkPets?: Array<{ shareLinkId: string; petId: string }>;
   /** `auth_identities` (feature 008, REQ-SSO8-001); opcional: ausente = vacía. */
   authIdentities?: AuthIdentityRecord[];
   /** `oauth_flow_states` (feature 008, REQ-SSO8-004); opcional: ausente = vacía. */
@@ -110,6 +118,13 @@ export interface MemoryState extends SceneMemoryState {
   adminAudit?: AdminAuditRecord[];
   /** `admin_delegates` (feature 011); opcional: ausente = vacía. */
   adminDelegates?: AdminDelegateRecord[];
+  /** Co-propiedad (feature 012, #22): `pet_co_owners`, `owner_requests` y `pets.ownership_version` (sin entrada = 1); opcionales: ausentes = vacíos. */
+  coOwners?: PetCoOwnerRecord[];
+  ownerRequests?: OwnerRequestRecord[];
+  ownershipVersions?: Record<string, number>;
+  /** Bloque B (#23): `ip_rate_events` y `dispute_evidence`; opcionales: ausentes = vacíos. */
+  ipRateEvents?: ChipMemoryState['ipRateEvents'];
+  disputeEvidence?: ChipMemoryState['disputeEvidence'];
   /** `about_content` (feature 010, T1430): singleton; opcional, ausente o `null` = sin contenido. */
   aboutContent?: AboutContentRecord | null;
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
@@ -150,6 +165,8 @@ export function emptyMemoryState(): MemoryState {
     mediaQueue: [],
     avatars: {},
     auditLog: [],
+    coOwners: [],
+    ownerRequests: [],
     shareLinks: [],
     shareAudit: [],
     authIdentities: [],
@@ -212,17 +229,19 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       if (user.emailVerifiedAt !== undefined && user.email !== null && state.users.some((u) => u.emailVerifiedAt !== undefined && u.email?.toLowerCase() === user.email?.toLowerCase())) {
         throw new Error('users: el correo verificado ya tiene titular'); // índice único parcial users_email_verified_unique
       }
-      state.users.push(copy(user));
+      const { phone: _phone, ...withoutPhone } = copy(user); // `phone` solo lo fija `setPhone` (columna propia, 012 #32)
+      state.users.push(withoutPhone);
     },
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      const { emailVerifiedAt: _ignored, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...rest } = copy(user); // update nunca modifica email_verified_at, account_status (lo decide la aprobación, T1247) ni la declaración 18+ (010)
+      const { emailVerifiedAt: _ignored, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, phone: _phone, ...rest } = copy(user); // update nunca modifica email_verified_at, account_status (lo decide la aprobación, T1247) ni la declaración 18+ (010)
       const prior = state.users[index]!.emailVerifiedAt;
       const priorStatus = state.users[index]!.accountStatus;
       const priorAdultAt = state.users[index]!.adultDeclaredAt;
       const priorAdultVersion = state.users[index]!.adultNoticeVersion;
-      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }), ...(priorAdultAt === undefined ? {} : { adultDeclaredAt: priorAdultAt }), ...(priorAdultVersion === undefined ? {} : { adultNoticeVersion: priorAdultVersion }) };
+      const priorPhone = state.users[index]!.phone; // el teléfono (012 #32) solo lo cambia `setPhone`
+      state.users[index] = { ...rest, ...(priorPhone === undefined ? {} : { phone: priorPhone }), ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }), ...(priorAdultAt === undefined ? {} : { adultDeclaredAt: priorAdultAt }), ...(priorAdultVersion === undefined ? {} : { adultNoticeVersion: priorAdultVersion }) };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
@@ -230,6 +249,13 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       state.authIdentities = (state.authIdentities ?? []).filter((i) => i.userId !== userId);
       state.oauthFlows = (state.oauthFlows ?? []).filter((f) => f.userId !== userId);
       if (state.userAvatars !== undefined) delete state.userAvatars[userId]; // la foto es una columna de `users`: cae con la fila
+      // Ficha QR (012 #32): los consentimientos del usuario caen (CASCADE) y `consented_by_user_id` queda NULL (SET NULL).
+      if (state.emergencyConsents !== undefined) state.emergencyConsents = state.emergencyConsents.filter((c) => c.userId !== userId);
+      if (state.emergencyCards !== undefined) state.emergencyCards = state.emergencyCards.map((c) => (c.consentedByUserId === userId ? { ...c, consentedByUserId: null } : c));
+      // Modo Cuidador (012 #26): niveles del usuario caen (CASCADE); autor, revertidor y concedente quedan NULL (SET NULL, SC-012-076).
+      if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.userId !== userId).map((a) => (a.grantedByUserId === userId ? { ...a, grantedByUserId: null } : a));
+      if (state.careRoutines !== undefined) state.careRoutines = state.careRoutines.map((r) => (r.createdByUserId === userId ? { ...r, createdByUserId: null } : r));
+      if (state.careLog !== undefined) state.careLog = state.careLog.map((e) => (e.performedByUserId === userId || e.revertedByUserId === userId ? { ...e, performedByUserId: e.performedByUserId === userId ? null : e.performedByUserId, revertedByUserId: e.revertedByUserId === userId ? null : e.revertedByUserId } : e));
     },
     async findAvatar(userId) {
       if (!state.users.some((u) => u.id === userId)) return null;
@@ -241,6 +267,12 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       const next = { version: (avatars[userId]?.version ?? 0) + 1, objectId };
       avatars[userId] = next;
       return copy(next);
+    },
+    async setPhone(userId, phone) {
+      const index = state.users.findIndex((u) => u.id === userId);
+      if (index < 0) throw new Error('users: el usuario no existe');
+      const { phone: _previous, ...rest } = state.users[index]!;
+      state.users[index] = phone === null ? rest : { ...rest, phone };
     },
     async clearAvatar(userId) {
       const current = state.userAvatars?.[userId];
@@ -283,6 +315,9 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
     async findByTokenHash(tokenHash) {
       const token = Object.keys(state.sessions).find((t) => hashSessionToken(t) === tokenHash);
       return token === undefined ? null : copy(state.sessions[token]!);
+    },
+    async findLastActivityOfUser(userId) {
+      return Object.values(state.sessions).filter((s) => s.userId === userId).map((s) => s.lastActivityAt).sort().at(-1) ?? null;
     },
     async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
       let revoked = 0;
@@ -344,6 +379,11 @@ function rateLimitRepository(state: MemoryState): RateLimitRepositoryPort {
     },
     async deleteForUser(userId) {
       state.rateEvents = state.rateEvents.filter((e) => e.userId !== userId);
+    },
+    async purgeScopesBefore(scopes, cutoffExclusive) {
+      const before = state.rateEvents.length;
+      state.rateEvents = state.rateEvents.filter((e) => !(scopes.includes(e.scope) && e.occurredAt < cutoffExclusive));
+      return before - state.rateEvents.length;
     },
   };
 }
@@ -416,6 +456,20 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
       state.shareLinks = (state.shareLinks ?? []).filter((l) => l.petId !== petId); // como ON DELETE CASCADE
       delete state.avatars[petId];
+      if (state.coOwners !== undefined) state.coOwners = state.coOwners.filter((c) => c.petId !== petId); // como ON DELETE CASCADE de pet_co_owners
+      if (state.ownerRequests !== undefined) state.ownerRequests = state.ownerRequests.map((r) => (r.petId === petId ? { ...r, petId: null } : r)); // como ON DELETE SET NULL (INV-CHP12-005)
+      if (state.ownershipVersions !== undefined) delete state.ownershipVersions[petId];
+      // Modo Cuidador (012 #26): ON DELETE CASCADE de rutinas, sus registros y los niveles de la mascota.
+      if (state.careRoutines !== undefined) {
+        const gone = new Set(state.careRoutines.filter((r) => r.petId === petId).map((r) => r.id));
+        state.careRoutines = state.careRoutines.filter((r) => r.petId !== petId);
+        if (state.careLog !== undefined) state.careLog = state.careLog.filter((e) => !gone.has(e.routineId));
+      }
+      if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.petId !== petId);
+      // Ficha QR (012 #32): la ficha, sus consentimientos y las alergias críticas caen con la mascota (CASCADE; `critical_allergies` es columna de `pets`).
+      if (state.emergencyCards !== undefined) state.emergencyCards = state.emergencyCards.filter((c) => c.petId !== petId);
+      if (state.emergencyConsents !== undefined) state.emergencyConsents = state.emergencyConsents.filter((c) => c.petId !== petId);
+      if (state.petAllergies !== undefined) delete state.petAllergies[petId];
     },
     async findAvatarVersions(petIds) {
       const wanted = new Set(petIds);
@@ -440,6 +494,7 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       const current = state.avatars[petId] ?? { version: 0, objectId: null };
       if (version > current.version) state.avatars[petId] = { version, objectId: current.objectId };
     },
+    ...memoryOwnershipOps(state),
   };
 }
 
@@ -646,6 +701,16 @@ function auditLogRepository(state: MemoryState): AuditLogRepositoryPort {
         entityId: e.entityId === userId ? hmac : e.entityId,
       }));
     },
+    async listEvents(entityType, entityId, mutationTypes, sinceExclusive) {
+      return state.auditLog
+        .filter((e) => e.entityType === entityType && e.entityId === entityId && mutationTypes.includes(e.mutationType) && e.timestamp > sinceExclusive)
+        .map((e) => ({ mutationType: e.mutationType, executorUserId: e.executorUserId, timestamp: e.timestamp }));
+    },
+    async purgeMutationTypesBefore(mutationTypes, cutoffExclusive) {
+      const before = state.auditLog.length;
+      state.auditLog = state.auditLog.filter((e) => !(mutationTypes.includes(e.mutationType) && e.timestamp < cutoffExclusive));
+      return before - state.auditLog.length;
+    },
   };
 }
 
@@ -655,15 +720,27 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
   const links = (): ShareLinkRecord[] => (state.shareLinks ??= []);
   const byId = (a: ShareLinkRecord, b: ShareLinkRecord) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const inScope = (scope: ShareScope, scopeId: string) => (l: ShareLinkRecord) => l.scope === scope && (scope === 'PET' ? l.petId === scopeId : l.householdId === scopeId);
+  // ENM-005-E §5.5: el tope del hogar cuenta HOUSEHOLD y PETS de todos los creadores.
+  const inCountScope = (scope: ShareScope, scopeId: string) => (l: ShareLinkRecord) => (scope === 'PET' ? l.scope === 'PET' && l.petId === scopeId : (l.scope === 'HOUSEHOLD' || l.scope === 'PETS') && l.householdId === scopeId);
   return {
     async lockScope() {
       // las transacciones de memoria van en serie: ya son el candado
+    },
+    async lockLink() {
+      // las transacciones de memoria van en serie
+    },
+    async listPetsByHousehold(householdId, retainedSince) {
+      const rows = links().filter((l) => l.scope === 'PETS' && l.householdId === householdId && !(l.expiresAt < retainedSince || (l.revokedAt !== null && l.revokedAt < retainedSince)));
+      return copy(rows.sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1)));
+    },
+    async listActivePetsByCreator(householdId, createdByUserId, now) {
+      return copy(links().filter((l) => l.scope === 'PETS' && l.householdId === householdId && l.createdByUserId === createdByUserId && l.revokedAt === null && l.expiresAt > now).sort(byId));
     },
     async insert(link) {
       const rows = links();
       const coherent =
         (link.scope === 'PET' && link.petId !== null && link.householdId === null && link.petOwnerUserIdAtCreation !== null) ||
-        (link.scope === 'HOUSEHOLD' && link.householdId !== null && link.petId === null && link.petOwnerUserIdAtCreation === null);
+        ((link.scope === 'HOUSEHOLD' || link.scope === 'PETS') && link.householdId !== null && link.petId === null && link.petOwnerUserIdAtCreation === null);
       if (!coherent) throw constraint('CHECK constraint failed: share_links scope');
       if (!(EXPIRY_DAYS as readonly number[]).includes(link.expiresInDays)) throw constraint('CHECK constraint failed: share_links expires_in_days');
       if (!(link.expiresAt > link.createdAt)) throw constraint('CHECK constraint failed: share_links expires_at');
@@ -685,17 +762,27 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
       return copy(links().find((l) => l.createdByUserId === userId && l.idempotencyKey === idempotencyKey) ?? null);
     },
     async listByScope(scope, scopeId, retainedSince) {
+      if (scope === 'PETS') return []; // los `PETS` viven en `listPetsByHousehold` (annex §5.5)
       const rows = links().filter(inScope(scope, scopeId)).filter((l) => !(l.expiresAt < retainedSince || (l.revokedAt !== null && l.revokedAt < retainedSince)));
       return copy(rows.sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1)));
     },
     async countActive(scope, scopeId, now) {
-      return links().filter(inScope(scope, scopeId)).filter((l) => l.revokedAt === null && l.expiresAt > now).length;
+      return links().filter(inCountScope(scope, scopeId)).filter((l) => l.revokedAt === null && l.expiresAt > now).length;
     },
     async revoke(id, now) {
       const link = links().find((l) => l.id === id);
       if (link === undefined || link.revokedAt !== null || !(link.expiresAt > now)) return false;
       state.shareLinks = links().map((l) => (l.id === id ? { ...l, revokedAt: now } : l));
       return true;
+    },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      let changed = 0;
+      state.shareLinks = links().map((l) => {
+        if (l.petOwnerUserIdAtCreation !== userId) return l;
+        changed += 1;
+        return { ...l, petOwnerUserIdAtCreation: pseudonym };
+      });
+      return changed;
     },
     async purge(cutoffExclusive) {
       const before = links().length;
@@ -704,6 +791,55 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
     },
     async listAll() {
       return copy([...links()].sort(byId));
+    },
+  };
+}
+
+const orderedByName = <T extends { readonly name: string; readonly id: string }>(pets: readonly T[]): T[] => [...pets].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+/** `share_link_pets` en memoria (ENM-005-E): descarta al leer las filas cuyo enlace o mascota ya no existen (como `ON DELETE CASCADE`). */
+function shareLinkPetRepository(state: MemoryState): ShareLinkPetRepositoryPort {
+  // Solo lectura (no crea la clave del estado): las filas cuyo enlace o mascota ya no existen no se ven.
+  const rows = (): Array<{ shareLinkId: string; petId: string }> => (state.shareLinkPets ?? []).filter((row) => (state.shareLinks ?? []).some((l) => l.id === row.shareLinkId) && state.pets.some((p) => p.id === row.petId));
+  const ownedBy = (userId: string) => (petId: string): boolean => {
+    const pet = state.pets.find((p) => p.id === petId);
+    return pet !== undefined && isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: (state.coOwners ?? []).filter((c) => c.petId === petId) });
+  };
+  const assignedTo = (householdId: string) => (petId: string): boolean => state.assignments.some((a) => a.petId === petId && a.householdId === householdId);
+  const profiles = (ids: readonly string[]) => orderedByName(copy(state.pets.filter((p) => ids.includes(p.id)).map(withLifeFields)));
+  return {
+    async insertMany(shareLinkId, petIds) {
+      for (const petId of petIds) {
+        if (rows().some((r) => r.shareLinkId === shareLinkId && r.petId === petId)) throw constraint('UNIQUE constraint failed: share_link_pets');
+        if (!(state.shareLinks ?? []).some((l) => l.id === shareLinkId) || !state.pets.some((p) => p.id === petId)) throw constraint('FOREIGN KEY constraint failed');
+        state.shareLinkPets = [...rows(), { shareLinkId, petId }];
+      }
+    },
+    async listPetIds(shareLinkId) {
+      return rows().filter((r) => r.shareLinkId === shareLinkId).map((r) => r.petId).sort();
+    },
+    async listPetIdsOfLinks(shareLinkIds) {
+      const out = new Map<string, string[]>();
+      for (const row of rows().filter((r) => shareLinkIds.includes(r.shareLinkId)).sort((a, b) => (a.petId < b.petId ? -1 : 1))) out.set(row.shareLinkId, [...(out.get(row.shareLinkId) ?? []), row.petId]);
+      return out;
+    },
+    async listLinkIdsByPet(petId) {
+      return rows().filter((r) => r.petId === petId).map((r) => r.shareLinkId).sort();
+    },
+    async deleteRow(shareLinkId, petId) {
+      const before = rows();
+      const after = before.filter((r) => !(r.shareLinkId === shareLinkId && r.petId === petId));
+      if (after.length === before.length) return false;
+      state.shareLinkPets = after;
+      return true;
+    },
+    async resolveEligible({ userId, householdId, petIds }) {
+      const mine = state.pets.map((p) => p.id).filter((id) => assignedTo(householdId)(id) && ownedBy(userId)(id));
+      return { eligible: profiles(mine.filter((id) => petIds.includes(id))), hasAnyEligibleInHousehold: mine.length > 0 };
+    },
+    async revalidateEligible({ shareLinkId, householdId, creatorUserId }) {
+      const ids = rows().filter((r) => r.shareLinkId === shareLinkId).map((r) => r.petId).filter((id) => assignedTo(householdId)(id) && ownedBy(creatorUserId)(id));
+      return profiles(ids);
     },
   };
 }
@@ -824,6 +960,9 @@ function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPor
     async findBySubject(provider, providerSubject) {
       return copy(all().find((i) => i.provider === provider && i.providerSubject === providerSubject) ?? null);
     },
+    async findPersonId(adminId) {
+      return all().find((i) => i.adminId === adminId)?.personId ?? null;
+    },
     async findByEmail(email) {
       return copy(all().find((i) => i.email === email) ?? null);
     },
@@ -839,6 +978,26 @@ function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPor
       // ON DELETE CASCADE de admin_sessions.
       state.adminSessions = (state.adminSessions ?? []).filter((session) => session.adminId !== adminId);
       return state.adminIdentities.length < before;
+    },
+    async anonymizeIdentity(adminId) {
+      const index = all().findIndex((i) => i.adminId === adminId);
+      if (index < 0) return false;
+      const current = all()[index]!;
+      all()[index] = { ...current, email: `anon-${adminId}@anonimizado.invalid`, providerSubject: `anon-${adminId}` };
+      state.adminSessions = (state.adminSessions ?? []).filter((session) => session.adminId !== adminId);
+      return true;
+    },
+    async listAnonymizedWithPersonId() {
+      return all()
+        .filter((i) => (i.personId ?? null) !== null && i.email === `anon-${i.adminId}@anonimizado.invalid`)
+        .map((i) => i.adminId)
+        .sort();
+    },
+    async clearPersonId(adminId) {
+      const index = all().findIndex((i) => i.adminId === adminId && (i.personId ?? null) !== null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, personId: null };
+      return true;
     },
   };
 }
@@ -989,7 +1148,8 @@ function adminAuditRepository(state: MemoryState): AdminAuditRepositoryPort {
     async insert(record) {
       if (record.id.length !== 36 || record.adminId.length !== 36 || record.action.length < 1 || record.action.length > 64) throw new Error('admin_audit_entries: fila incoherente');
       if (all().some((r) => r.id === record.id)) throw new Error('admin_audit_entries: identificador duplicado');
-      all().push(copy(record));
+      if (record.metadata != null && (record.metadata.length < 2 || record.metadata.length > 4096)) throw new Error('admin_audit_entries: metadata incoherente');
+      all().push(copy(record.metadata == null ? { id: record.id, adminId: record.adminId, action: record.action, objectRef: record.objectRef, occurredAt: record.occurredAt } : record));
     },
     async listByAdmin(adminId) {
       return copy(all().filter((r) => r.adminId === adminId).sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : a.id < b.id ? -1 : 1)));
@@ -1107,6 +1267,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     auditLog: auditLogRepository(state),
     shareLinks: shareLinkRepository(state),
     shareAudit: shareAuditRepository(state),
+    shareLinkPets: shareLinkPetRepository(state),
     scenes: memorySceneRepository(state),
     sceneConsents: memorySceneConsentRepository(state),
     authIdentities: authIdentityRepository(state),
@@ -1119,6 +1280,15 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     registrations: registrationRepository(state),
     adminParameters: adminParameterRepository(state),
     aboutContent: aboutContentRepository(state),
+    coOwners: memoryCoOwnerRepository(state),
+    ownerRequests: memoryOwnerRequestRepository(state),
+    ipRateEvents: memoryIpRateEventRepository(state),
+    disputeEvidence: memoryDisputeEvidenceRepository(state),
+    careRoutines: memoryCareRoutineRepository(state),
+    careLog: memoryCareLogRepository(state),
+    caregiverAccess: memoryCaregiverAccessRepository(state),
+    emergencyCards: memoryEmergencyCardRepository(state),
+    emergencyConsents: memoryEmergencyConsentRepository(state),
   };
 }
 

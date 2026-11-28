@@ -7,7 +7,13 @@
  */
 import { MS_PER_DAY, addMillis, toEpochMillis } from '../auth/utc-timestamp.ts';
 
-export type ShareScope = 'PET' | 'HOUSEHOLD';
+export type ShareScope = 'PET' | 'HOUSEHOLD' | 'PETS';
+
+/** Comprobación de exhaustividad (ENM-005-E §8.2.1): añadir un alcance sin rama hace fallar la compilación; en ejecución niega (null/404 uniforme). */
+export function assertNever(value: never): null {
+  void value;
+  return null;
+}
 export type ShareStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED';
 
 /** Única caducidad admitida (D5-11); 7 días por defecto. */
@@ -18,6 +24,8 @@ export const isExpiryDays = (value: unknown): value is ExpiryDays => typeof valu
 
 /** Tope de enlaces activos por mascota (alcance PET) o por hogar (alcance HOUSEHOLD), de cualquier creador (D5-18). */
 export const MAX_ACTIVE_SHARE_LINKS = 20;
+/** Tope de mascotas de un enlace `PETS` (ENM-005-E §1, REQ-VET12-001): 1..20 de un solo hogar. */
+export const MAX_SHARE_LINK_PETS = 20;
 /** Tope duro de la URL firmada de la superficie pública, aunque `ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS` sea mayor (RAMA-005-006). */
 export const PUBLIC_SIGNED_URL_MAX_SECONDS = 300;
 /** Retención de enlaces vencidos o revocados (D5-20) y de la auditoría (90 días; 30 si lleva `ip_hmac`, PN-06). */

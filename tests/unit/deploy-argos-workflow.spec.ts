@@ -351,3 +351,55 @@ describe('deploy-argos.yml: ARGOS_SCENE_WORKER_URL usa el Cloud Run nativo, no l
     expect(pairOf('ARGOS_PUBLIC_BASE_URL')).toBe('ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL}');
   });
 });
+
+// Feature 012, Bloque D (PHONE_HMAC_KEY, T-05; anexo §9): la clave de la ficha QR llega a Cloud Run por --set-secrets con versión numérica.
+describe('deploy-argos.yml: PHONE_HMAC_KEY de la ficha QR por --set-secrets (Feature 012, Bloque D)', () => {
+  const resolver = (): string => job('deploy');
+
+  it('resuelve la versión de argos-phone-hmac-key con el mismo criterio opcional que Gemini (nunca latest)', () => {
+    const d = resolver();
+    expect(d).toMatch(/PHONE_HMAC_KEY_VERSION="\$\(optional_latest_version argos-phone-hmac-key\)"/);
+    expect(d).toMatch(/PHONE_SECRET_FLAG=",PHONE_HMAC_KEY=argos-phone-hmac-key:\$\{PHONE_HMAC_KEY_VERSION\}"/);
+    expect(body()).not.toMatch(/argos-phone-hmac-key:latest/);
+  });
+
+  it('valida que la versión sea numérica antes de usarla y la enmascara en los registros', () => {
+    const d = resolver();
+    expect(d).toMatch(/printf '%s' "\$PHONE_HMAC_KEY_VERSION" \| grep -Eq '\^\[0-9\]\+\$'/);
+    expect(d).toMatch(/::add-mask::\$\{PHONE_HMAC_KEY_VERSION\}/);
+  });
+
+  it('inyecta PHONE_HMAC_KEY en --set-secrets y nunca en --set-env-vars ni como valor literal', () => {
+    const d = resolver();
+    const deployCmd = d.slice(d.indexOf('gcloud run deploy argos'));
+    const secrets = /--set-secrets\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '';
+    expect(secrets).toContain('${PHONE_SECRET_FLAG}');
+    const envs = /--set-env-vars\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '';
+    expect(envs).not.toMatch(/PHONE_HMAC_KEY/);
+  });
+
+  it('la variable PHONE_SECRET_FLAG viaja al paso de despliegue por GITHUB_ENV', () => {
+    expect(body()).toMatch(/echo "PHONE_SECRET_FLAG=\$\{PHONE_SECRET_FLAG\}"/);
+  });
+
+  it('ARGOS_PUBLIC_BASE_URL (obligatoria en producción, T1443) sigue inyectada en --set-env-vars', () => {
+    const deployCmd = job('deploy').slice(job('deploy').indexOf('gcloud run deploy argos'));
+    expect(/--set-env-vars\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '').toMatch(/ARGOS_PUBLIC_BASE_URL=\$\{PUBLIC_BASE_URL\}/);
+  });
+});
+
+// Feature 012, Bloque E (ENM-005-E, annex share-link-subset §8.2): cutover único autorizado por Neo (pre-lanzamiento). La creación PETS se enciende en este despliegue.
+describe('deploy-argos.yml: ARGOS_SHARE_PETS_CREATE_ENABLED en cutover único (Feature 012, Bloque E)', () => {
+  const deployCmd = (): string => job('deploy').slice(job('deploy').indexOf('gcloud run deploy argos'));
+  const envPairs = (): string[] => (/--set-env-vars\s+"([^"]*)"/.exec(deployCmd())?.[1] ?? '').split(',').map((x) => x.trim());
+
+  it('fija ARGOS_SHARE_PETS_CREATE_ENABLED=true en --set-env-vars (cutover único, Neo)', () => {
+    expect(envPairs()).toContain('ARGOS_SHARE_PETS_CREATE_ENABLED=true');
+  });
+
+  it('declara la bandera una sola vez, con literal true y sin interpolación de secretos ni variables', () => {
+    expect(body()).not.toMatch(/ARGOS_SHARE_PETS_CREATE_ENABLED=false/);
+    expect(body()).not.toMatch(/ARGOS_SHARE_PETS_CREATE_ENABLED=\$\{\{/);
+    expect(envPairs().filter((x) => x.startsWith('ARGOS_SHARE_PETS_CREATE_ENABLED='))).toHaveLength(1);
+  });
+});

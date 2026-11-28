@@ -104,6 +104,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
@@ -111,6 +112,7 @@ jobs:
           set -euo pipefail
           if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
           if [ -z "${TF_VAR_share_ip_hmac_secret:-}" ]; then echo "TF_VAR_share_ip_hmac_secret vacío o ausente en GitHub Secrets." >&2; exit 1; fi
+          if [ -z "${TF_VAR_phone_hmac_key:-}" ]; then echo "TF_VAR_phone_hmac_key vacío o ausente en GitHub Secrets (ficha QR, Feature 012)." >&2; exit 1; fi
           node scripts/validate-secrets.mjs
 
       - name: Instalar Terraform
@@ -135,6 +137,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
@@ -148,6 +151,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
@@ -163,6 +167,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
@@ -175,8 +180,8 @@ jobs:
             echo
             echo '```'
           } > "${RUNNER_TEMP}/comment.md"
-          for v in "$TF_VAR_database_url" "$TF_VAR_audit_hmac_secret" "$TF_VAR_share_ip_hmac_secret"; do
-            if grep -F -q -- "$v" "${RUNNER_TEMP}/comment.md"; then
+          for v in "$TF_VAR_database_url" "$TF_VAR_audit_hmac_secret" "$TF_VAR_share_ip_hmac_secret" "$TF_VAR_phone_hmac_key"; do
+            if [ -n "$v" ] && grep -F -q -- "$v" "${RUNNER_TEMP}/comment.md"; then
               echo "El comentario contiene un valor de secreto; se aborta." >&2
               exit 1
             fi
@@ -215,6 +220,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
@@ -246,6 +252,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
@@ -272,6 +279,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
@@ -284,6 +292,7 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_phone_hmac_key: ${{ secrets.TF_VAR_phone_hmac_key }}
           TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |

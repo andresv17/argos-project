@@ -111,8 +111,8 @@ describe('perfil por HTTP (PATCH /api/account/profile)', () => {
     });
     const me = await api.call('GET', '/api/auth/me', { cookie });
     const expected = { id: ANA, username: 'ana.duena', displayName: 'Ana D.', createdAt: '2026-01-05T10:00:00.000Z', email: 'ana@example.com', preferredLanguage: 'pt', timezone: 'Europe/Madrid' };
-    // 008 (T1121): /auth/me añade `authMethods` (contrato de identidad 3.2.0); el PATCH no lo devuelve.
-    expect([patch.status, patch.json, (me.json as { user: unknown }).user]).toEqual([200, expected, { ...expected, authMethods: { password: true, google: false } }]);
+    // 008 (T1121): /auth/me añade `authMethods` (contrato de identidad 3.2.0); 012 (anexo §1): y `phone` (null sin teléfono); el PATCH no los devuelve.
+    expect([patch.status, patch.json, (me.json as { user: unknown }).user]).toEqual([200, expected, { ...expected, phone: null, authMethods: { password: true, google: false } }]);
   });
 
   it('[REQ-ACC-001] una edición parcial no toca los demás campos y email null borra el correo', async () => {

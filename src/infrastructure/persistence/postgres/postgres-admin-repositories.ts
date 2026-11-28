@@ -46,21 +46,40 @@ export function adminIdentityRepository(client: PoolClientLike): AdminIdentityRe
   };
   return {
     findById: (adminId) => one('admin_id = $1', [adminId]),
+    async findPersonId(adminId) {
+      const { rows } = await client.query('SELECT person_id FROM admin_identities WHERE admin_id = $1', [adminId]);
+      return rows[0] === undefined ? null : nullable(rows[0]['person_id']);
+    },
     findBySubject: (provider, providerSubject) => one('provider = $1 AND provider_subject = $2', [provider, providerSubject]),
     findByEmail: (email) => one('email = $1', [email]),
     async insertIfAbsent(identity) {
-      const result = await client.query(`INSERT INTO admin_identities (${IDENTITY_COLUMNS}) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`, [
+      const result = await client.query(`INSERT INTO admin_identities (${IDENTITY_COLUMNS}, person_id) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`, [
         identity.adminId,
         identity.provider,
         identity.providerSubject,
         identity.email,
         identity.createdAt,
+        identity.personId ?? null,
       ]);
       return (result.rowCount ?? 0) === 1;
     },
     async deleteById(adminId) {
       // `admin_sessions.admin_id` tiene ON DELETE CASCADE: las sesiones de la identidad retirada se borran con ella.
       const result = await client.query('DELETE FROM admin_identities WHERE admin_id = $1', [adminId]);
+      return (result.rowCount ?? 0) === 1;
+    },
+    async anonymizeIdentity(adminId) {
+      // D8 (012): conserva la fila (FK RESTRICT de owner_requests.*_admin_id) y anonimiza correo y `sub`; las sesiones se borran como lo haría el CASCADE.
+      await client.query('DELETE FROM admin_sessions WHERE admin_id = $1', [adminId]);
+      const result = await client.query("UPDATE admin_identities SET email = 'anon-' || admin_id || '@anonimizado.invalid', provider_subject = 'anon-' || admin_id WHERE admin_id = $1", [adminId]);
+      return (result.rowCount ?? 0) === 1;
+    },
+    async listAnonymizedWithPersonId() {
+      const { rows } = await client.query("SELECT admin_id FROM admin_identities WHERE person_id IS NOT NULL AND email = 'anon-' || admin_id || '@anonimizado.invalid' ORDER BY admin_id");
+      return rows.map((row) => String(row['admin_id']));
+    },
+    async clearPersonId(adminId) {
+      const result = await client.query('UPDATE admin_identities SET person_id = NULL WHERE admin_id = $1 AND person_id IS NOT NULL', [adminId]);
       return (result.rowCount ?? 0) === 1;
     },
   };
@@ -128,16 +147,16 @@ export function adminFlowRepository(client: PoolClientLike): AdminFlowStateRepos
   };
 }
 
-const AUDIT_COLUMNS = 'id, admin_id, action, object_ref, occurred_at';
+const AUDIT_COLUMNS = 'id, admin_id, action, object_ref, occurred_at, metadata';
 
 export function adminAuditRepository(client: PoolClientLike): AdminAuditRepositoryPort {
   return {
     async insert(r) {
-      await client.query(`INSERT INTO admin_audit_entries (${AUDIT_COLUMNS}) VALUES ($1, $2, $3, $4, $5)`, [r.id, r.adminId, r.action, r.objectRef, r.occurredAt]);
+      await client.query(`INSERT INTO admin_audit_entries (${AUDIT_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6)`, [r.id, r.adminId, r.action, r.objectRef, r.occurredAt, r.metadata ?? null]);
     },
     async listByAdmin(adminId) {
       const { rows } = await client.query(`SELECT ${AUDIT_COLUMNS} FROM admin_audit_entries WHERE admin_id = $1 ORDER BY occurred_at, id`, [adminId]);
-      return rows.map((row) => ({ id: String(row['id']), adminId: String(row['admin_id']), action: String(row['action']), objectRef: nullable(row['object_ref']), occurredAt: String(row['occurred_at']) }));
+      return rows.map((row) => ({ id: String(row['id']), adminId: String(row['admin_id']), action: String(row['action']), objectRef: nullable(row['object_ref']), occurredAt: String(row['occurred_at']), ...(row['metadata'] === null || row['metadata'] === undefined ? {} : { metadata: String(row['metadata']) }) }));
     },
   };
 }

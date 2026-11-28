@@ -4,11 +4,11 @@
   "title": "ClinicalSummarySchema",
   "description": "Read-model clínico de solo lectura, versionado y por allow-list (feature 005) [REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, INV-005-004]. Esquema cerrado: un campo nuevo del dominio NO aparece hasta que este contrato lo declare. Sin nombres de archivo (D5-06: viajan en SharedSummaryView.fileLabels), sin fotos de álbum, sin avatar, sin identificadores de usuario, hogar, mascota ni registro, sin claves ni URLs de objeto, sin `ownerUserId`, sin `revision` y sin interpretación automática (alertas, banderas, normal/anormal o texto generado; MAG-005-003). Las fechas de calendario son `YYYY-MM-DD` tal como se guardaron, sin conversión UTC (MAG-005-004); UTC solo en `generatedAt` y en `createdAt` de archivos.",
   "x-sdd-metadata": {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "status": "DRAFT",
-    "supersedes": "1.0.0",
+    "supersedes": "1.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 1.1.0 (feature 007, EDGE-007-027 Opcion A de Neo, sin nuevo bump por seguir DRAFT: ClinicalProfile.age.required pierde totalDays (queda years, months; totalDays opcional) y ClinicalSummary.allOf gana la condicion if/then DECEASED sin deceasedAtIncluded true prohibe age.totalDays; los subesquemas de la regla condicional son objetos cerrados (additionalProperties false) que enumeran todas las propiedades de ClinicalSummary, SummaryDisclosure, ClinicalPetSummary, ClinicalProfile y age (true = sin restriccion adicional, false = prohibida), de modo que cerrar el if no altera su semantica y un campo nuevo en esos objetos exige actualizar tambien la regla; relaja un required, por lo que un lector 1.0.0 que lo exigiera debe tolerar su ausencia solo en DECEASED sin opt-in). MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Regla condicional if/else en ClinicalSummary (O1 de /rama, decision de Neo): pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true; sin bump porque sigue DRAFT y no restringe ningun documento valido emitido hasta ahora. Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "change_note": "MINOR 1.2.0 (feature 012, T1692/ENM-005-E 0.2.2, firmada por Neo 2026-11-28): SummaryScope +PETS (aditivo); la descripcion de ClinicalSummary.pets aclara que en PETS entran las mascotas elegidas sobre las que el creador es propietario principal o co-propietario ACTIVE (ENM-005-A). Sin cambio de forma en el resto. Historial: MINOR 1.1.0 (feature 007, EDGE-007-027 Opcion A de Neo, sin nuevo bump por seguir DRAFT: ClinicalProfile.age.required pierde totalDays (queda years, months; totalDays opcional) y ClinicalSummary.allOf gana la condicion if/then DECEASED sin deceasedAtIncluded true prohibe age.totalDays; los subesquemas de la regla condicional son objetos cerrados (additionalProperties false) que enumeran todas las propiedades de ClinicalSummary, SummaryDisclosure, ClinicalPetSummary, ClinicalProfile y age (true = sin restriccion adicional, false = prohibida), de modo que cerrar el if no altera su semantica y un campo nuevo en esos objetos exige actualizar tambien la regla; relaja un required, por lo que un lector 1.0.0 que lo exigiera debe tolerar su ausencia solo en DECEASED sin opt-in). MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Regla condicional if/else en ClinicalSummary (O1 de /rama, decision de Neo): pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true; sin bump porque sigue DRAFT y no restringe ningun documento valido emitido hasta ahora. Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
     "traceability": [
       "REQ-SUM-001",
       "REQ-SUM-002",
@@ -31,9 +31,10 @@
       "type": "string",
       "enum": [
         "PET",
-        "HOUSEHOLD"
+        "HOUSEHOLD",
+        "PETS"
       ],
-      "description": "Alcance del resumen (mascota u hogar) [REQ-SUM-005]"
+      "description": "Alcance del resumen (mascota, hogar o subconjunto de mascotas) [REQ-SUM-005]"
     },
     "SummaryDisclosure": {
       "type": "object",
@@ -609,7 +610,7 @@
           "items": {
             "$ref": "#/$defs/ClinicalPetSummary"
           },
-          "description": "Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)"
+          "description": "Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19); en PETS entran las mascotas elegidas sobre las que el creador es propietario principal o co-propietario ACTIVE (ENM-005-A)"
         }
       },
       "allOf": [

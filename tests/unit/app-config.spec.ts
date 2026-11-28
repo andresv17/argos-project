@@ -25,6 +25,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
       {
         port: 3100,
         adminEmails: [],
+        sharePetsCreateEnabled: false, // 012 Bloque E (ENM-005-E §8.2.2): defecto OFF, fail-closed
         host: '127.0.0.1',
         databasePath: './data/argos.sqlite',
         appTimezone: 'America/Bogota',

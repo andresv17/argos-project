@@ -46,7 +46,57 @@ import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseC
 import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhotoUseCase } from '../../../application/use-cases/scene-photo-use-cases.ts';
 import { GetSceneImageUseCase, GetSceneUseCase, RequestSceneGenerationUseCase } from '../../../application/use-cases/scene-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
+import { CreatePetsShareLinkUseCase, ListHouseholdPetsShareLinksUseCase, ListPetPetsShareLinksUseCase, PreviewPetsClinicalSummaryUseCase, WithdrawPetFromShareLinkUseCase } from '../../../application/use-cases/share-pets-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedPetAvatarUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
+import {
+  AcceptCoOwnerInvitationUseCase,
+  AckPromotionNoticeUseCase,
+  CancelCoOwnerInvitationUseCase,
+  DeclineCoOwnerInvitationUseCase,
+  GetPetOwnershipUseCase,
+  InviteCoOwnerUseCase,
+  LeavePetUseCase,
+  ListMyCoOwnerInvitationsUseCase,
+} from '../../../application/use-cases/co-ownership-use-cases.ts';
+import {
+  ApproveOwnerRequestUseCase,
+  CancelOwnerRequestUseCase,
+  CreateOwnerRequestUseCase,
+  GetOwnerRequestUseCase,
+  ListMyOwnerRequestsUseCase,
+  RejectOwnerRequestUseCase,
+} from '../../../application/use-cases/owner-request-use-cases.ts';
+import { CreateCareLogEntryUseCase, ListCareLogUseCase, RevertCareLogEntryUseCase } from '../../../application/use-cases/care-log-use-cases.ts';
+import {
+  CreateCareRoutineUseCase,
+  DeactivateCareRoutineUseCase,
+  GetCareRoutineUseCase,
+  GetHouseholdCareTodayUseCase,
+  GetMyCareAccessUseCase,
+  GetPetCareTodayUseCase,
+  ListCareRoutinesUseCase,
+  ListCaregiverAccessUseCase,
+  RemoveCaregiverAccessUseCase,
+  SetCaregiverAccessUseCase,
+  UpdateCareRoutineUseCase,
+} from '../../../application/use-cases/care-routine-use-cases.ts';
+import { CreateChipClaimUseCase, ListMyChipRequestsUseCase } from '../../../application/use-cases/chip-claim-use-cases.ts';
+import { prepareDisputeEvidence, type RawEvidenceFile } from '../../../application/use-cases/chip-evidence.ts';
+import { ConsumeChipMultipartUseCase, OpenChipDisputeUseCase } from '../../../application/use-cases/chip-dispute-use-cases.ts';
+import {
+  CancelChipDisputeExecutionUseCase,
+  CloseChipDisputeMootUseCase,
+  ConfirmChipDisputeDecisionUseCase,
+  ExtendChipDisputeFreezeUseCase,
+  ReadDisputeEvidenceUseCase,
+  ResolveChipDisputeUseCase,
+  loadForArbitration,
+  auditArbiter,
+  type ArbiterActor,
+} from '../../../application/use-cases/chip-dispute-admin-use-cases.ts';
+import { disputeFileView, GetChipDisputeUseCase, ListChipDisputesUseCase } from '../../../application/use-cases/chip-dispute-admin-views.ts';
+import type { OwnerRequestRecord } from '../../../application/ports/co-ownership.port.ts';
+import { DomainError as DomainErrorV31 } from '../../../generated/v31/index.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase, GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../../application/use-cases/pet-use-cases.ts';
 import {
@@ -142,6 +192,66 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     assignPetToHousehold: new AssignPetToHouseholdUseCase(deps),
     unassignPetFromHousehold: new UnassignPetFromHouseholdUseCase(deps),
     transferPetOwnership: new TransferPetOwnershipUseCase(deps),
+    getPetOwnership: new GetPetOwnershipUseCase(deps),
+    inviteCoOwner: new InviteCoOwnerUseCase(deps),
+    cancelCoOwnerInvitation: new CancelCoOwnerInvitationUseCase(deps),
+    leavePet: new LeavePetUseCase(deps),
+    ackPromotionNotice: new AckPromotionNoticeUseCase(deps),
+    listMyCoOwnerInvitations: new ListMyCoOwnerInvitationsUseCase(deps),
+    acceptCoOwnerInvitation: new AcceptCoOwnerInvitationUseCase(deps),
+    declineCoOwnerInvitation: new DeclineCoOwnerInvitationUseCase(deps),
+    createOwnerRequest: new CreateOwnerRequestUseCase(deps),
+    listMyOwnerRequests: new ListMyOwnerRequestsUseCase(deps),
+    getOwnerRequest: new GetOwnerRequestUseCase(deps),
+    approveOwnerRequest: new ApproveOwnerRequestUseCase(deps),
+    rejectOwnerRequest: new RejectOwnerRequestUseCase(deps),
+    cancelOwnerRequest: new CancelOwnerRequestUseCase(deps),
+    // 012, Bloque C (#26, T1656): rutinas, pendientes del día, registro de cumplimiento y niveles del cuidador (los límites viven en la capa HTTP, R-3).
+    listCareRoutines: new ListCareRoutinesUseCase(deps),
+    createCareRoutine: new CreateCareRoutineUseCase(deps),
+    getCareRoutine: new GetCareRoutineUseCase(deps),
+    updateCareRoutine: new UpdateCareRoutineUseCase(deps),
+    deactivateCareRoutine: new DeactivateCareRoutineUseCase(deps),
+    getPetCareToday: new GetPetCareTodayUseCase(deps),
+    getHouseholdCareToday: new GetHouseholdCareTodayUseCase(deps),
+    listCareLog: new ListCareLogUseCase(deps),
+    createCareLogEntry: new CreateCareLogEntryUseCase(deps),
+    revertCareLogEntry: new RevertCareLogEntryUseCase(deps),
+    listCaregiverAccess: new ListCaregiverAccessUseCase(deps),
+    getMyCareAccess: new GetMyCareAccessUseCase(deps),
+    setCaregiverAccess: new SetCaregiverAccessUseCase(deps),
+    removeCaregiverAccess: new RemoveCaregiverAccessUseCase(deps),
+    // 012, Bloque B (#23, T1636): reclamación y disputa por chip, «mis solicitudes» y cola de arbitraje de /admin.
+    createChipClaim: new CreateChipClaimUseCase(deps),
+    openChipDispute: new OpenChipDisputeUseCase(deps),
+    consumeChipMultipart: new ConsumeChipMultipartUseCase(deps),
+    listMyChipRequests: new ListMyChipRequestsUseCase(deps),
+    /** Saneo profundo y antimalware de la evidencia (REQ-CHP12-008); un archivo por encima del tope de 004 es 413 (problema genérico de 004), no 422. */
+    prepareDisputeEvidence: async (files: readonly RawEvidenceFile[]) => {
+      const maxBytes = deps.media?.limits.maxBytes;
+      if (maxBytes !== undefined && files.some((file) => file.bytes.length > maxBytes)) throw new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
+      return prepareDisputeEvidence(deps, files);
+    },
+    adminListDisputes: new ListChipDisputesUseCase(deps),
+    adminGetDispute: new GetChipDisputeUseCase(deps),
+    adminExtendDisputeFreeze: new ExtendChipDisputeFreezeUseCase(deps),
+    adminResolveDispute: new ResolveChipDisputeUseCase(deps),
+    adminConfirmDispute: new ConfirmChipDisputeDecisionUseCase(deps),
+    adminCancelDisputeExecution: new CancelChipDisputeExecutionUseCase(deps),
+    adminCloseDisputeMoot: new CloseChipDisputeMootUseCase(deps),
+    adminReadDisputeEvidence: new ReadDisputeEvidenceUseCase(deps),
+    /** `person_id` opaco del administrador (`null` = sin asignar: el control dual falla cerrado). */
+    adminPersonId: (adminId: string): Promise<string | null> => deps.uow.runInTransaction((r) => r.adminIdentities.findPersonId(adminId)),
+    /** Comprobación previa de un step-up: rol, existencia y recusación dentro de una transacción; se audita la emisión. */
+    adminAuthorizeStepUp: async (actor: ArbiterActor, disputeId: string): Promise<void> => {
+      await deps.uow.runInTransaction(async (repositories) => {
+        const { now } = await loadForArbitration(deps, repositories, actor, disputeId);
+        await auditArbiter(deps, repositories, actor, 'DISPUTE_STEPUP_ISSUED', disputeId, now);
+      });
+    },
+    adminDisputeFile: (viewer: ArbiterActor, row: OwnerRequestRecord) => disputeFileView(deps, viewer, row),
+    nowIso: (): string => deps.clock.nowIsoTimestamp(),
+    newId: (): string => deps.ids.nextId(),
     exportBackup: new ExportBackupUseCase(deps),
     previewBackupImport: new PreviewBackupImportUseCase(deps),
     importBackup: new ImportBackupUseCase(deps),
@@ -160,6 +270,11 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     createShareLink: new CreateShareLinkUseCase(deps),
     listShareLinks: new ListShareLinksUseCase(deps),
     revokeShareLink: new RevokeShareLinkUseCase(deps),
+    createPetsShareLink: new CreatePetsShareLinkUseCase(deps),
+    listHouseholdPetsShareLinks: new ListHouseholdPetsShareLinksUseCase(deps),
+    listPetPetsShareLinks: new ListPetPetsShareLinksUseCase(deps),
+    withdrawPetFromShareLink: new WithdrawPetFromShareLinkUseCase(deps),
+    previewPetsClinicalSummary: new PreviewPetsClinicalSummaryUseCase(deps),
     previewSummary: new PreviewClinicalSummaryUseCase(deps),
     sharedSummary: new GetSharedSummaryUseCase(deps),
     sharedFile: new GetSharedFileUseCase(deps),

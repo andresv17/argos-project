@@ -7,9 +7,12 @@
  */
 import { useEffect, useState } from 'react';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { guardPetsRevocation } from '../pets-link-notice.ts';
 import { useSession } from '../session.tsx';
+import { createShareApi, type ShareApi } from '../share-api.ts';
 import { plural, type HouseholdView } from '../view-model.ts';
 import { Button, FormError, SelectField } from './Field.tsx';
+import { PetsRevocationConfirm } from './PetsRevocationConfirm.tsx';
 
 const messageOf = (error: unknown): string => problemMessage(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
 
@@ -39,18 +42,22 @@ export function petTransferNotice(petName: string, prunedCount: number): string 
   return prunedCount === 0 ? base : `${base} Se retiró ${plural(prunedCount, 'asignación', 'asignaciones')} a hogares donde el nuevo dueño no es miembro.`;
 }
 
-export function PetTransferPanel({ petId, petName, ownerUserId, onTransferred, onCancel }: {
+export function PetTransferPanel({ petId, petName, ownerUserId, onTransferred, onCancel, shareApi }: {
   readonly petId: string;
   readonly petName: string;
   readonly ownerUserId: string;
   readonly onTransferred: (notice: string) => Promise<void>;
   readonly onCancel: () => void;
+  /** Cliente de enlaces para el aviso previo de revocación (annex §5.1 fila 2); por defecto el de la sesión. */
+  readonly shareApi?: ShareApi;
 }): JSX.Element {
   const { api } = useSession();
   const [candidates, setCandidates] = useState<readonly TransferCandidate[] | null>(null);
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Transferir la mascota hace perder al creador sus enlaces `PETS` (annex §5.1 fila 2, D-1): con enlaces activos se pide confirmación antes. */
+  const [petsNotice, setPetsNotice] = useState<{ readonly proceed: () => void } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -71,6 +78,10 @@ export function PetTransferPanel({ petId, petName, ownerUserId, onTransferred, o
       setError('Elige a quién transferir la propiedad.');
       return;
     }
+    void guardPetsRevocation(async () => (await (shareApi ?? createShareApi()).listPetPets(petId)).items, () => void transfer(), (proceed) => setPetsNotice({ proceed }));
+  };
+
+  const transfer = async (): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
@@ -104,8 +115,20 @@ export function PetTransferPanel({ petId, petName, ownerUserId, onTransferred, o
         </>
       )}
       <FormError message={error} />
+      {petsNotice === null ? null : (
+        <PetsRevocationConfirm
+          id={`transfer-pet-${petId}-pets`}
+          confirmLabel="Transferir igualmente"
+          onConfirm={() => {
+            const { proceed } = petsNotice;
+            setPetsNotice(null);
+            proceed();
+          }}
+          onCancel={() => setPetsNotice(null)}
+        />
+      )}
       <div className="flex flex-wrap gap-2">
-        {candidates !== null && candidates.length === 0 ? null : (
+        {petsNotice !== null || (candidates !== null && candidates.length === 0) ? null : (
           <Button variant="danger" disabled={busy} onClick={() => void confirm()}>
             Confirmar transferencia
           </Button>

@@ -30,8 +30,11 @@ export async function assertMicrochipWithinLimit(deps: LimitDeps, repositories: 
   if (error !== null) throw error;
 }
 
-export const isMicrochipDuplicateError = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ERR-PET-MICROCHIP-DUPLICATE';
+/** Un choque de microchip: el duplicado propio de 004 o, desde el split de 012 (`ENM-002-MINOR-012-CHIP`), el 409 uniforme `ERR-CHP12-MICROCHIP-REGISTERED`; ambos cuentan para el límite de 004 (5 en 24 h). */
+export const isMicrochipDuplicateError = (error: unknown): boolean => {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return code === 'ERR-PET-MICROCHIP-DUPLICATE' || code === 'ERR-CHP12-MICROCHIP-REGISTERED';
+};
 
 /** Registra un duplicado del usuario en una transacción independiente; cualquier fallo se ignora (best effort, sin log de datos). */
 export async function recordMicrochipDuplicate(deps: LimitDeps, userId: string): Promise<void> {

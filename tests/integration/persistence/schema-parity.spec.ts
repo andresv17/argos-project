@@ -58,24 +58,42 @@ const ABOUT_CONTENT_PATH = new URL('../../../src/infrastructure/persistence/post
 /** T1527 (011, Bloque D, #63): la 0027 de Postgres equivale a la 0031 de SQLite (tabla `admin_delegates`, REQ-ADM11-001, ORA-1 b). */
 const ADMIN_DELEGATES_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0027_admin_delegates.sql', import.meta.url);
 /** T1556 (011, Bloque I, #78): la 0028 de Postgres equivale a la 0032 de SQLite (`users.avatar_version` y `users.avatar_object_id`, REQ-PRF11-001). */
+/** T1613 (012, Bloque A, #22): la 0029 de Postgres equivale a la 0033 de SQLite (`pets.ownership_version`, `pet_co_owners`, `owner_requests` y `pet_assignments.assigned_by_user_id` NULLable con FK SET NULL, REQ-OWN12-001, REQ-OWN12-007). */
+const CO_OWNERSHIP_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0029_co_ownership.sql', import.meta.url);
+/** T1616 (012, Bloque A, #22): la 0030 de Postgres equivale a la 0034 de SQLite (el CHECK de `audit_log.mutation_type` admite los tipos de auditoría de la co-propiedad, REQ-AUD-001). */
+const CO_OWNERSHIP_AUDIT_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0030_co_ownership_audit.sql', import.meta.url);
+/** B-4 (012, Bloque B, #22): la 0031 de Postgres equivale a la 0035 de SQLite (el CHECK de `rate_limit_events.scope` admite CO_OWNER_INVITE y OWNER_REQUEST, H-02 y H-10). */
+const CO_OWNERSHIP_RATE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0031_co_ownership_rate_limit_scopes.sql', import.meta.url);
+/** T1633 (012, Bloque B, #23): la 0032 de Postgres equivale a la 0036 de SQLite (`dispute_evidence` con FK RESTRICT e `ip_rate_events` sin FK a users, REQ-CHP12-005, REQ-CHP12-008). */
+const DISPUTE_EVIDENCE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0032_dispute_evidence_ip_rate_events.sql', import.meta.url);
+/** T1648 (012, Bloque B, #23): la 0033 de Postgres equivale a la 0037 de SQLite (`admin_identities.person_id` y columnas `*_admin_id`/`*_person_id` de `owner_requests`, FK RESTRICT, REQ-CHP12-009). */
+const ADMIN_DISPUTE_ACTORS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0033_admin_dispute_actors.sql', import.meta.url);
+/** H-01 (012, Bloque B, #23): la 0034 de Postgres equivale a la 0038 de SQLite (`admin_audit_entries.metadata` TEXT NULL, motivo de decisión del arbitraje, NFR-012-006 N-E). */
+const ADMIN_AUDIT_METADATA_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0034_admin_audit_metadata.sql', import.meta.url);
+/** T1652 (012, Bloque C, #26): la 0035 de Postgres equivale a la 0039 de SQLite (`care_routines`, `care_log_entries`, `pet_caregiver_access`, REQ-CAR12-001, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-006). */
+const CARE_MODE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0035_care_mode.sql', import.meta.url);
+/** T1673 (012, Bloque D, #32): la 0037 de Postgres equivale a la 0041 de SQLite (`users.phone`, `pets.critical_allergies`, `pet_emergency_cards`, `pet_emergency_phone_consents`, auditoría `EMERGENCY_*` y ámbitos `QR_*`, REQ-QR12-001..003, REQ-QR12-006, REQ-QR12-007). */
+const EMERGENCY_CARD_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0037_emergency_card.sql', import.meta.url);
+/** T1692 (012, Bloque E, #81): la 0038 de Postgres equivale a la 0042 de SQLite (`share_links.scope` admite PETS con su CHECK combinado y la tabla `share_link_pets` sin `position`, ENM-005-E annex §2). */
+const SHARE_PETS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0038_share_link_pets.sql', import.meta.url);
 const USER_AVATAR_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0028_user_avatar.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
-  'about_content', 'admin_audit_entries', 'admin_delegates', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
-  'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
-  'scene_actor_limit_marks', 'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
+  'about_content', 'admin_audit_entries', 'admin_delegates', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'care_log_entries', 'care_routines', 'custom_parameters', 'dewormings', 'dispute_evidence', 'home_scenes', 'household_invitations',
+  'household_members', 'household_photos', 'households', 'ip_rate_events', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'owner_requests', 'pet_assignments', 'pet_caregiver_access', 'pet_co_owners', 'pet_emergency_cards', 'pet_emergency_phone_consents', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
+  'scene_actor_limit_marks', 'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_link_pets', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
 const CANONICAL_INDEXES = [
-  'admin_audit_entries_admin_occurred', 'admin_delegates_active_subject', 'admin_delegates_email', 'admin_delegates_live_email', 'admin_delegates_status', 'admin_identities_email', 'admin_identities_subject', 'admin_oauth_flow_states_expires', 'admin_sessions_admin_id', 'admin_sessions_created', 'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'admin_audit_entries_admin_occurred', 'admin_delegates_active_subject', 'admin_delegates_email', 'admin_delegates_live_email', 'admin_delegates_status', 'admin_identities_email', 'admin_identities_person_id', 'admin_identities_subject', 'admin_oauth_flow_states_expires', 'admin_sessions_admin_id', 'admin_sessions_created', 'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'care_log_entries_occurrence', 'care_log_entries_routine_date', 'care_routines_pet', 'care_routines_series', 'custom_parameters_pet_id', 'dewormings_pet_id', 'dispute_evidence_delete_after', 'dispute_evidence_object_key', 'dispute_evidence_request',
   'home_scenes_household', 'home_scenes_owner', 'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
-  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'pet_assignments_household_id',
-  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
+  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'ip_rate_events_window', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'owner_requests_absence_anchor', 'owner_requests_chip_reserve', 'owner_requests_claim_pending', 'owner_requests_cooldown', 'owner_requests_dispute_chip_open', 'owner_requests_one_live_action', 'owner_requests_pet_status', 'pet_assignments_household_id', 'pet_caregiver_access_user', 'pet_co_owners_live', 'pet_co_owners_pet_status', 'pet_co_owners_user_status',
+  'pet_emergency_phone_consents_user', 'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
   'scene_attempts_scene_started', 'scene_consents_active', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
-  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'share_link_audit_occurred', 'share_link_pets_pet', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -140,7 +158,8 @@ function extractChecks(item: string): { rest: string; checks: string[] } {
 /** Equivalencias de data-model.md §1 (GLOB -> regex) y normalización de espacios. */
 function canonicalCheck(expr: string): string {
   const e = squash(expr).replace(/\((length\((\w+)\) = 15 AND \2 NOT GLOB '\*\[\^0-9\]\*')\)/, (_m, _g, col: string) => `${col} ~ '^[0-9]{15}$'`);
-  return e;
+  // T1648: el identificador opaco de persona (`person_id`, 8..64, [A-Za-z0-9_-]) usa GLOB en SQLite y `~` en Postgres.
+  return e.replace(/(\w+) NOT GLOB '\*\[\^A-Za-z0-9_-\]\*'/, (_m, col: string) => `${col} ~ '^[A-Za-z0-9_-]+$'`);
 }
 
 function parseCreateTable(name: string, body: string): Table {
@@ -164,7 +183,7 @@ function parseCreateTable(name: string, body: string): Table {
     const m = /^(\w+) (\w+)(.*)$/.exec(item);
     if (!m) throw new Error(`Definición no reconocida en ${name}: ${item}`);
     const tail = m[3]!;
-    const references = /REFERENCES (\w+) ?\((\w+)\)( ON DELETE (CASCADE))?/i.exec(tail);
+    const references = /REFERENCES (\w+) ?\((\w+)\)( ON DELETE (CASCADE|SET NULL))?/i.exec(tail);
     const dflt = /DEFAULT (\(?'[^']*'\)?|\(?\w+\)?|\(.*?\)\)?)(?= NOT NULL| UNIQUE| REFERENCES| GENERATED|$)/i.exec(tail);
     const isPk = /PRIMARY KEY/i.test(tail);
     if (isPk) table.primaryKey = [m[1]!];
@@ -193,6 +212,10 @@ function parseSchema(statements: string[]): Schema {
     if (alter) {
       const added = parseCreateTable(alter[1]!, alter[2]!);
       for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
+      // T1648: el CHECK de columna de un ADD COLUMN (p. ej. `admin_identities.person_id`) también cuenta como CHECK de la tabla.
+      const target = schema.tables.get(alter[1]!)!;
+      target.checks.push(...added.checks);
+      target.checks.sort();
       continue;
     }
     // Postgres nombra el CHECK de columna `<tabla>_<columna>_check`: DROP lo retira y ADD CONSTRAINT … CHECK pone el nuevo (0006).
@@ -203,11 +226,25 @@ function parseSchema(statements: string[]): Schema {
       table.checks = table.checks.filter((c) => !c.startsWith(`${column} IN `));
       continue;
     }
-    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ (CHECK[\s\S]+)$/i.exec(stmt.trim());
+    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT (\w+) (CHECK[\s\S]+)$/i.exec(stmt.trim());
     if (addCheck) {
       const table = schema.tables.get(addCheck[1]!)!;
-      table.checks.push(...extractChecks(addCheck[2]!).checks);
+      // T1692: el CHECK combinado de 0008 es de tabla y sin nombre; el DO de la 0038 lo retira por su definicion (el parser no ve los DO) y `*_shape_check` lo reemplaza.
+      // BAJA-3 (oracle): el filtro se acota a `share_links` y solo retira el CHECK combinado de 0008 (el que une las ramas PET y HOUSEHOLD por `pet_owner_user_id_at_creation`); no toca ningún otro CHECK ni tabla.
+      if (addCheck[1] === 'share_links' && addCheck[2] === 'share_links_scope_shape_check') table.checks = table.checks.filter((c) => !(c.includes("scope = 'PET'") && c.includes('pet_owner_user_id_at_creation')));
+      table.checks.push(...extractChecks(addCheck[3]!).checks);
       table.checks.sort();
+      continue;
+    }
+    // T1613 (012): `ALTER COLUMN … DROP NOT NULL` y `ADD CONSTRAINT … FOREIGN KEY (col) REFERENCES t (c) ON DELETE X [NOT VALID]` (Postgres) equivalen a la columna reconstruida de SQLite.
+    const dropNotNull = /^ALTER TABLE (\w+) ALTER COLUMN (\w+) DROP NOT NULL$/i.exec(stmt.trim());
+    if (dropNotNull) {
+      schema.tables.get(dropNotNull[1]!)!.columns.get(dropNotNull[2]!)!.notNull = false;
+      continue;
+    }
+    const addFk = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ FOREIGN KEY \((\w+)\) REFERENCES (\w+) ?\((\w+)\) ON DELETE (CASCADE|SET NULL)(?: NOT VALID)?$/i.exec(stmt.trim());
+    if (addFk) {
+      schema.tables.get(addFk[1]!)!.columns.get(addFk[2]!)!.references = `${addFk[3]}(${addFk[4]}) ON DELETE ${addFk[5]!.toUpperCase()}`;
       continue;
     }
     const drop = /^DROP INDEX (?:IF EXISTS )?(\w+)$/i.exec(stmt.trim());
@@ -240,10 +277,10 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...postgresStatements(ADMIN_AUDIT_METADATA_PATH), ...postgresStatements(CARE_MODE_PATH), ...postgresStatements(EMERGENCY_CARD_PATH), ...postgresStatements(SHARE_PETS_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
-  column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
+  column === 'data' ? 'JSONB' : column === 'dose_amount' ? 'NUMERIC' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
 
 describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003, REQ-MIG-001)', () => {
   const sqlite = sqliteSchema();
@@ -476,10 +513,10 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     }
   });
 
-  it('audit_log no tiene claves foráneas (REQ-AUD-001) y pet_assignments.assigned_by_user_id tampoco', () => {
+  it('audit_log no tiene claves foráneas (REQ-AUD-001); pet_assignments.assigned_by_user_id gana FK SET NULL y es NULLable en ambos motores (T1613, REQ-OWN12-007)', () => {
     const pg = postgresSchema();
     for (const col of pg.tables.get('audit_log')!.columns.values()) expect(col.references).toBeNull();
-    expect(pg.tables.get('pet_assignments')!.columns.get('assigned_by_user_id')!.references).toBeNull();
+    for (const schema of [sqlite, pg]) expect(schema.tables.get('pet_assignments')!.columns.get('assigned_by_user_id')).toMatchObject({ notNull: false, references: 'users(id) ON DELETE SET NULL' });
   });
 });
 
@@ -519,6 +556,15 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(ABOUT_CONTENT_PATH, 'utf8'));
         await client.query(readFileSync(ADMIN_DELEGATES_PATH, 'utf8'));
         await client.query(readFileSync(USER_AVATAR_PATH, 'utf8'));
+        await client.query(readFileSync(CO_OWNERSHIP_PATH, 'utf8'));
+        await client.query(readFileSync(CO_OWNERSHIP_AUDIT_PATH, 'utf8'));
+        await client.query(readFileSync(CO_OWNERSHIP_RATE_PATH, 'utf8'));
+        await client.query(readFileSync(DISPUTE_EVIDENCE_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_DISPUTE_ACTORS_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_AUDIT_METADATA_PATH, 'utf8'));
+        await client.query(readFileSync(CARE_MODE_PATH, 'utf8'));
+        await client.query(readFileSync(EMERGENCY_CARD_PATH, 'utf8'));
+        await client.query(readFileSync(SHARE_PETS_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

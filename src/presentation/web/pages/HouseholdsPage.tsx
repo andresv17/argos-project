@@ -6,13 +6,18 @@
  * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, REQ-HOG11-001, REQ-HOG11-002, REQ-HOG11-005, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016
  *
  * Feature 011 (#64, D11-05 = A): página única con la lista de hogares y el detalle del hogar elegido con pestañas internas Resumen, Miembros, Mascotas, Compartir, Álbum
- * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta ni contrato nuevos, D11-06 = A).
+ * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta nueva, D11-06 = A). 012 (T1702, D12-19): «Compartir» ofrece «Todas» o «Solo algunas» (subconjunto).
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
 import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
+import { PetsRevocationConfirm } from '../components/PetsRevocationConfirm.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
+import { createCoOwnershipApi } from '../co-ownership-api.ts';
+import { guardPetsRevocation, roleChangeCanRevokePetsLinks } from '../pets-link-notice.ts';
+import { createShareApi } from '../share-api.ts';
+import { eligibleSharePets, loadCoOwnedPetIds } from '../share-eligible-pets.ts';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { HouseholdAlbum } from '../components/HouseholdAlbum.tsx';
 import { useSession } from '../session.tsx';
@@ -352,21 +357,37 @@ function HouseholdDetail(props: {
   readonly children: JSX.Element | null;
 }): JSX.Element {
   const { pets, failed } = useHouseholdPets(props.view.household.id);
-  return <HouseholdDetailView {...props} pets={pets} failed={failed} />;
+  const [coOwnedPetIds, setCoOwnedPetIds] = useState<ReadonlySet<string>>(new Set());
+  // MEDIA-1 (annex §4, §5.3): las mascotas que co-poseo como ACTIVE también son elegibles en el subconjunto, igual que en el servidor.
+  useEffect(() => {
+    if (pets === null || props.myUserId === '') return;
+    let alive = true;
+    const mineIds = new Set(pets.filter((p) => p.profile.ownerUserId === props.myUserId).map((p) => p.profile.id));
+    void loadCoOwnedPetIds(createCoOwnershipApi(), props.myUserId, pets.map((p) => p.profile.id), mineIds).then((ids) => {
+      if (alive) setCoOwnedPetIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pets, props.myUserId]);
+  return <HouseholdDetailView {...props} pets={pets} failed={failed} coOwnedPetIds={coOwnedPetIds} />;
 }
 
 /** Vista pura del detalle (exportada para pruebas de presentación; sin cambios en la lógica de permisos). */
-export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, children }: {
+export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, coOwnedPetIds, children }: {
   readonly view: HouseholdView;
   readonly tab: HouseholdTabKey;
   readonly onTab: (key: HouseholdTabKey) => void;
   readonly myUserId: string;
   readonly pets: readonly PetRow[] | null;
   readonly failed: boolean;
+  /** Mascotas del hogar que el usuario co-posee como co-propietario ACTIVE (MEDIA-1): se suman a las suyas como principal en el selector del subconjunto. */
+  readonly coOwnedPetIds?: ReadonlySet<string>;
   readonly children: JSX.Element | null;
 }): JSX.Element {
   const id = view.household.id;
-  const mine = pets === null ? [] : pets.filter((p) => p.profile.ownerUserId === myUserId);
+  const mineIds = new Set(eligibleSharePets(pets ?? [], myUserId, coOwnedPetIds ?? new Set()).map((p) => p.id));
+  const mine = pets === null ? [] : pets.filter((p) => mineIds.has(p.profile.id));
   const activeMembers = view.members.filter((m) => m.membership.status === 'ACTIVE').length;
   const ownerName = view.members.find((m) => m.membership.isHouseholdOwner)?.membership.displayName ?? null;
   const createdAt = (view.household as { readonly createdAt?: string }).createdAt;
@@ -443,7 +464,7 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
         ) : null}
         {tab === 'compartir' ? (
           canShare && pets !== null && mine.length > 0 ? (
-            <ShareLinksPanel hideScopeChoice petId="" petName={view.household.name} household={{ id, petCount: mine.length }} canCreateLinks />
+            <ShareLinksPanel hideScopeChoice petId="" petName={view.household.name} household={{ id, petCount: mine.length }} householdPets={mine.map((p) => ({ id: p.profile.id, name: p.profile.name }))} canCreateLinks />
           ) : (
             <p className={`${PANEL} text-sm text-slate-800`}>
               {pets === null
@@ -468,6 +489,7 @@ export function HouseholdsPage(): JSX.Element {
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [petsNotice, setPetsNotice] = useState<{ householdId: string; label: string; proceed: () => void } | null>(null);
   const [pendingTransfer, setPendingTransfer] = useState<{ householdId: string; userId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -526,13 +548,20 @@ export function HouseholdsPage(): JSX.Element {
     },
   });
 
+  /** Annex §5.1 / `D-1 = (a)`: salir, ser expulsado o degradarse puede revocar enteros los enlaces `PETS` del hogar; con enlaces activos visibles se pide confirmación antes. */
+  const withPetsNotice = (householdId: string, label: string, proceed: () => void): void => {
+    void guardPetsRevocation(async () => (await createShareApi().listPets(householdId)).items, proceed, (confirm) => setPetsNotice({ householdId, label, proceed: confirm }));
+  };
+
   const onMemberAction = (householdId: string) => (userId: string): void => {
-    void run(() => unwrap(api.DELETE('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } } })));
+    withPetsNotice(householdId, 'Continuar', () => void run(() => unwrap(api.DELETE('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } } }))));
   };
 
   const onChangeRole = (householdId: string) => (userId: string, role: HouseholdRole): void => {
     setNotice(null);
-    void run(() => unwrap(api.PATCH('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } }, body: { role } })));
+    const change = (): void => void run(() => unwrap(api.PATCH('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } }, body: { role } })));
+    if (roleChangeCanRevokePetsLinks(role)) withPetsNotice(householdId, 'Cambiar el rol', change);
+    else change();
   };
 
   const confirmTransfer = (): void => {
@@ -631,6 +660,18 @@ export function HouseholdsPage(): JSX.Element {
                   inviteForm={current.isHouseholdOwner ? <InviteForm householdId={current.household.id} onInvited={load} /> : null}
                 />
               </HouseholdDetail>
+              {petsNotice?.householdId === current.household.id ? (
+                <PetsRevocationConfirm
+                  id={`pets-notice-${current.household.id}`}
+                  confirmLabel={petsNotice.label}
+                  onConfirm={() => {
+                    const { proceed } = petsNotice;
+                    setPetsNotice(null);
+                    proceed();
+                  }}
+                  onCancel={() => setPetsNotice(null)}
+                />
+              ) : null}
               {pendingTransfer?.householdId === current.household.id ? (
                 <div role="alertdialog" aria-labelledby={`transfer-${current.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">
                   <p id={`transfer-${current.household.id}`} className="text-sm text-slate-900">

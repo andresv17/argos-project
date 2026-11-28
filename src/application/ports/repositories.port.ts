@@ -9,7 +9,7 @@
 
 import type { AccountStatus } from '../../domain/account/account-status.ts';
 import type { MediaKind } from '../../domain/media/index.ts';
-import type { ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
+import type { ShareLinkAuditRepositoryPort, ShareLinkPetRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import type { Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
 import type { AuditEntry } from '../../generated/v31/index.ts';
@@ -20,6 +20,11 @@ import type { RecordModule, RecordOf } from '../../domain/records/record-invaria
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 import type { AboutContentRepositoryPort } from './about.port.ts';
+import type { CoOwnerRepositoryPort, OwnerRequestRepositoryPort } from './co-ownership.port.ts';
+import type { IpRateEventRepositoryPort } from './ip-rate-events.port.ts';
+import type { DisputeEvidenceRepositoryPort } from './dispute-evidence.port.ts';
+import type { CareLogRepositoryPort, CareRoutineRepositoryPort, CaregiverAccessRepositoryPort } from './care.port.ts';
+import type { EmergencyCardRepositoryPort, EmergencyConsentRepositoryPort } from './emergency.port.ts';
 import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -41,6 +46,11 @@ export interface UserAccount extends UserSelfProfile {
    */
   readonly adultDeclaredAt?: string;
   readonly adultNoticeVersion?: string;
+  /**
+   * Teléfono E.164 de la cuenta (012, Bloque D, REQ-QR12-001): columna propia de `users` (NO vive en `users.data`); ausente = sin teléfono. `insert` y `update` NUNCA lo modifican: solo `setPhone`.
+   * Solo la cuenta titular lo ve; no entra en `toSelfProfile` ni en ninguna vista.
+   */
+  readonly phone?: string;
 }
 
 export interface UserRepositoryPort {
@@ -91,6 +101,8 @@ export interface UserRepositoryPort {
   replaceAvatar(userId: string, objectId: string): Promise<AvatarState>;
   /** Quita la foto: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia. */
   clearAvatar(userId: string): Promise<void>;
+  /** Fija o borra (`null`) el teléfono E.164 ya normalizado por el dominio (012, REQ-QR12-001). Falla si el usuario no existe. */
+  setPhone(userId: string, phone: string | null): Promise<void>;
   /**
    * Filas de cualquier tabla que referencian al usuario por id (mascotas, hogares, membresías, sesiones, invitaciones,
    * token, eventos de frecuencia) más su propia fila. Postcondición B10: 0 tras eliminar la cuenta.
@@ -113,6 +125,11 @@ export interface SessionRepositoryPort {
   revokeOthersByTokenHash(userId: string, keepTokenHash: string, nowIsoTimestamp: string): Promise<number>;
   /** Borra todas las sesiones del usuario, incluida la actual (B9 (h)). */
   deleteByUser(userId: string): Promise<void>;
+  /**
+   * Instante de la última petición autenticada del usuario: el mayor `last_activity_at` de sus sesiones (vigentes, vencidas o revocadas, mientras el mantenimiento no las purgue); `null` si no conserva ninguna (feature 012,
+   * REQ-OWN12-009: fuente de `target_last_active_at`, fijada en T1627; derivada de lectura, sin columna nueva en `users`).
+   */
+  findLastActivityOfUser(userId: string): Promise<string | null>;
   /**
    * Estado de aprobación de la cuenta dueña de la sesión (009, la guarda exige `ACTIVE`, REQ-APR9-001); `null` si la cuenta no existe. Vive aquí y no en `users` para que la guarda
    * decida sin cargar el perfil ni mezclarse con las lecturas de cuentas de la ruta.
@@ -140,7 +157,8 @@ export interface ConfirmationTokenRepositoryPort {
   deleteForUser(userId: string): Promise<void>;
 }
 
-export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE';
+/** `CO_OWNER_INVITE` y `OWNER_REQUEST`: ámbitos propios de la co-propiedad (012, B-4; migraciones 0035 SQLite / 0031 PostgreSQL). */
+export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' | 'CO_OWNER_INVITE' | 'OWNER_REQUEST' | 'QR_CARD_MUTATION' | 'QR_PRIVATE_WRITE';
 
 export interface RateLimitEvent {
   readonly id: string;
@@ -155,6 +173,8 @@ export interface RateLimitRepositoryPort {
   /** Eventos del ámbito y del usuario con occurredAt estrictamente posterior a `sinceExclusive`. */
   countSince(scope: RateLimitScope, userId: string, sinceExclusive: string): Promise<number>;
   deleteForUser(userId: string): Promise<void>;
+  /** Mantenimiento (012 #32, SC-012-121): borra los eventos de esos ámbitos anteriores al corte; devuelve cuántos. */
+  purgeScopesBefore(scopes: readonly RateLimitScope[], cutoffExclusive: string): Promise<number>;
 }
 
 /** Invitación a un hogar (REQ-HOUSE2-001): `inviteeUserId` nulo es una invitación inerte (el username no existía). */
@@ -206,6 +226,31 @@ export interface PetRepositoryPort {
    * conservar la versión de la existente con el mismo `id` para que la caché `?v=` no sirva una imagen antigua (REQ-IMP-001, INV-AVA-001).
    */
   raiseAvatarVersion(petId: string, version: number): Promise<void>;
+  /** Principal y `ownership_version` de la mascota sin tomar candado (REQ-OWN12-004); null si no existe. */
+  findOwnership(petId: string): Promise<OwnershipState | null>;
+  /**
+   * Como `findOwnership` pero con el bloqueo de la fila de la mascota (`SELECT … FOR UPDATE` en PostgreSQL con `lock_timeout` = `OWNERSHIP_LOCK_TIMEOUT_MS`, que vencido lanza `ERR-OWN12-RETRYABLE`;
+   * `BEGIN IMMEDIATE` ya es el candado en SQLite y las transacciones de memoria van en serie, REQ-OWN12-011). Primera lectura de toda transición de propiedad, DESPUÉS de autorizar.
+   */
+  findOwnershipForUpdate(petId: string): Promise<OwnershipState | null>;
+  /**
+   * `UPDATE pets SET owner_user_id = :nuevo, ownership_version = ownership_version + 1 WHERE id = :id AND owner_user_id = :esperado AND ownership_version = :leída` (REQ-OWN12-011);
+   * devuelve las filas afectadas (0 = otra transición se adelantó). Mantiene `data.ownerUserId` coherente con la columna.
+   */
+  compareAndSetOwner(petId: string, expectedOwnerUserId: string, expectedOwnershipVersion: number, newOwnerUserId: string): Promise<number>;
+  /** `ownership_version + 1` sin cambiar el principal (entra o sale un co-propietario, se ejecuta una acción), condicionado a la versión leída; devuelve las filas afectadas. */
+  bumpOwnershipVersion(petId: string, expectedOwnershipVersion: number): Promise<number>;
+  /**
+   * Mascota que tiene ese microchip entre TODAS las filas (fallecidas incluidas), sin depender del predicado de un índice (INV-CHP12-002): el comprobador único de unicidad y reserva
+   * (`chip-uniqueness.ts`, T1646) es el único consumidor. `null` si ningún registro lo tiene.
+   */
+  findMicrochipHolder(microchipId: string): Promise<{ readonly petId: string; readonly ownerUserId: string } | null>;
+}
+
+/** Principal actual y versión de propiedad de la mascota (`pets.owner_user_id`, `pets.ownership_version`). */
+export interface OwnershipState {
+  readonly ownerUserId: string;
+  readonly ownershipVersion: number;
 }
 
 /** Avatar de la mascota: la versión nunca decrece; `objectId` nulo = sin avatar (REQ-AVA-001). */
@@ -319,7 +364,8 @@ export interface HouseholdRepositoryPort {
 export interface PetAssignmentRecord {
   readonly petId: string;
   readonly householdId: string;
-  readonly assignedByUserId: string;
+  /** Quien asignó la mascota (REQ-OWN12-007); `null` tras la supresión de su cuenta (FK `ON DELETE SET NULL`, NFR-012-009). */
+  readonly assignedByUserId: string | null;
   readonly assignedAt: string;
 }
 
@@ -342,6 +388,20 @@ export interface AuditLogRepositoryPort {
   insert(entry: AuditEntry): Promise<void>;
   /** Sustituye `userId` por `hmac` en `executor_user_id` y en `entity_id` de todas las filas donde aparezca. */
   pseudonymizeUser(userId: string, hmac: string): Promise<void>;
+  /**
+   * Eventos de la entidad con alguno de esos tipos de mutación y `timestamp` estrictamente posterior al corte (012 #32: avisos derivados `lastChange` y `criticalAllergiesChange`). Solo lectura de
+   * tipo, actor y fecha; la auditoría no guarda contenido. Sin orden garantizado.
+   */
+  listEvents(entityType: string, entityId: string, mutationTypes: readonly string[], sinceExclusive: string): Promise<AuditEventRow[]>;
+  /** Mantenimiento (012 #32): borra las filas de esos tipos con `timestamp` anterior al corte (auditoría `EMERGENCY_*` a 90 días); devuelve cuántas. */
+  purgeMutationTypesBefore(mutationTypes: readonly string[], cutoffExclusive: string): Promise<number>;
+}
+
+/** Lo que la ficha QR lee de la auditoría: tipo de mutación, quien ejecutó (o su seudónimo / `SYSTEM`) y el instante. */
+export interface AuditEventRow {
+  readonly mutationType: string;
+  readonly executorUserId: string;
+  readonly timestamp: string;
 }
 
 export interface RepositorySet {
@@ -362,6 +422,8 @@ export interface RepositorySet {
   readonly shareLinks: ShareLinkRepositoryPort;
   /** Auditoría del enlace: creación, revocación y accesos (REQ-VET-008). */
   readonly shareAudit: ShareLinkAuditRepositoryPort;
+  /** Filas `share_link_pets` del alcance `PETS` (feature 012, Bloque E, ENM-005-E). */
+  readonly shareLinkPets: ShareLinkPetRepositoryPort;
   /** Escena del hogar (feature 006, ADR-006-07). Orden de candados: propietario -> mascota -> hogar -> escena (`SCENE_LOCK_ORDER`). */
   readonly scenes: SceneRepository;
   /** Consentimientos de la escena (feature 006, ADR-006-07). */
@@ -383,4 +445,20 @@ export interface RepositorySet {
   readonly adminParameters: AdminParameterRepositoryPort;
   /** Sección pública «Acerca de» (feature 010, T1430, REQ-ACE10-004): singleton con compare-and-set por versión. */
   readonly aboutContent: AboutContentRepositoryPort;
+  /** Co-propiedad de mascotas (feature 012, Bloque A, #22): filas de `pet_co_owners`. */
+  readonly coOwners: CoOwnerRepositoryPort;
+  /** Solicitudes de propietarios (feature 012): aprobación conjunta, reclamación y disputa en una sola tabla `owner_requests`. */
+  readonly ownerRequests: OwnerRequestRepositoryPort;
+  /** Contadores de intentos de chip por usuario, IP y global (012 #23, T1640). */
+  readonly ipRateEvents: IpRateEventRepositoryPort;
+  /** Evidencia de disputas de chip (012 #23, T1641). */
+  readonly disputeEvidence: DisputeEvidenceRepositoryPort;
+  /** Modo Cuidador (012 #26, T1655): rutinas, registro de cumplimiento y niveles de cuidador. */
+  readonly careRoutines: CareRoutineRepositoryPort;
+  readonly careLog: CareLogRepositoryPort;
+  readonly caregiverAccess: CaregiverAccessRepositoryPort;
+  /** Ficha QR de emergencia (012 #32, T1675): `pet_emergency_cards` y `pets.critical_allergies`. */
+  readonly emergencyCards: EmergencyCardRepositoryPort;
+  /** Consentimientos de teléfono por mascota (012 #32): `pet_emergency_phone_consents`. */
+  readonly emergencyConsents: EmergencyConsentRepositoryPort;
 }

@@ -11,6 +11,7 @@ import { ACCOUNT_STATUS_ROUTE } from './account-status.ts';
 import { AccountStatusPage } from './pages/AccountStatusPage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
 import { AlbumPage } from './pages/AlbumPage.tsx';
+import { EmergencyPublicPage } from './pages/EmergencyPublicPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 import { AppShell } from './pages/AppShell.tsx';
 import { LoginPage, RegisterPage } from './pages/AuthPages.tsx';
@@ -64,6 +65,8 @@ export function App({ api }: { readonly api: ApiClient }): JSX.Element {
   return (
     <Routes>
       <Route path="/shared/:token" element={<SharedPage />} />
+      {/* Ficha QR de emergencia (012, T1676): pública, fuera de la sesión; el token solo viaja a `GET /api/emergency/{token}` (REQ-QR12-004). */}
+      <Route path="/e/:token" element={<EmergencyPublicPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
       <Route path="/terminos" element={<TermsPage />} />
       <Route path="/acerca-de" element={<AboutPage />} />

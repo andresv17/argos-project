@@ -1,0 +1,361 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 012 (Ficha QR de emergencia, #32)
+  version: 0.3.0
+  description: >
+    Documento INCREMENTAL de la feature 012 (T1670, Bloque D, #32). Archivo NUEVO: no altera lo compilado de 002..011. DRAFT 0.3.0 (iteracion r2 tras T1671): sin aprobar; solo Neo aprueba.
+
+    UNICA SUPERFICIE PUBLICA (REQ-QR12-004, INV-QR12-002): GET /api/emergency/{token}, anonima, sin cookie ni credenciales. GET /e/{token} NO es un endpoint de datos: es un shell estatico de la SPA, 200 identico para cualquier valor de token, sin datos y sin ruta en este documento (lo registra /morpheus en app.ts, H-01); sus cabeceras (Referrer-Policy: no-referrer, Cache-Control: no-store, X-Robots-Tag: noindex, nofollow, X-Content-Type-Options: nosniff y CSP sin terceros SHARED_PAGE_CSP, sin datos ni script en linea) son obligatorias y estan en emergency-additive-annex.md seccion 5 (trinity T-04, rama P-09). La respuesta contiene unicamente petName, criticalAllergies[0..5] y contactPhones[0..2]. Token inexistente, mal formado, desactivado, regenerado, mascota eliminada o fallecida o guarda incumplida: 404 con CUERPO Y CABECERAS IDENTICOS (ERR-PET-NOT-FOUND, el 404 uniforme reutilizado). La validacion del formato del token es del servidor y responde ese mismo 404 (no 400, 405 ni 422). MECANISMO UNICO (trinity T-03): un solo setNotFoundHandler/setErrorHandler del prefijo cubre TODO lo que no sea GET /api/emergency/{token de 43 caracteres validos}: parametro largo, barra final, URL mal codificada, ruta hermana, y los metodos HEAD, OPTIONS y cualquier otro; todos dan el MISMO 404 uniforme y CUENTAN para el limite de tasa. maxParamLength del enrutador >= 512 (coherente con maxLength del parametro). INSTANCE CONSTANTE (trinity T-01): ProblemDetails.instance de todo 404 y 429 publico es '/emergency' (x-sdd-constants.PUBLIC_PROBLEM_INSTANCE); prohibido token, URL, ruta real o plantilla de ruta en cuerpo, cabeceras o registros. Cabeceras de toda respuesta publica: Cache-Control: no-store, X-Robots-Tag: noindex, nofollow, Referrer-Policy: no-referrer, X-Content-Type-Options: nosniff; sin Set-Cookie, sin metaetiquetas og:/twitter: ni recursos de terceros. Limite QR_SCAN_MAX_PER_IP_PER_MINUTE = 30 por IP (HMAC; ARGOS_TRUST_PROXY_HOPS): 429 ERR-RATE-LIMITED uniforme con Retry-After y X-Content-Type-Options: nosniff; contador EN MEMORIA por proceso (tope efectivo N x 30 por minuto por IP con N instancias, SC-012-109); cuenta toda peticion antes de consultar la ficha; si la IP no se resuelve, falla ABIERTA (se atiende y se cuenta en un contador operativo, nunca un bucket compartido). Lectura de la ficha SIN cache en proceso token->ficha: revocacion e invalidacion salen de la misma lectura SQL por token_hash (trinity T-09); sin Set-Cookie ni CORS; ruta fuera del hook de sesion. Un telefono con consentimiento EN ESPERA por cambio MINOR/MAJOR del aviso no se publica (NOTICE_COMPATIBILITY). petName se emite sin caracteres rechazados por TEXT_POLICY (Cc, Cf, Zl, Zp, Co, Cn, Cs, bidi, invisibles) y con al menos un caracter visible; si no, 404 uniforme.
+
+    SUPERFICIE PRIVADA (cookie argos_session + X-Argos-Request en toda escritura; 403 ERR-AUTH-CSRF-REJECTED si falta): propietario principal y co-propietario ACTIVE de la mascota activan, regeneran y desactivan (REQ-QR12-003); quien no es titular o no puede leer la mascota recibe el 404 uniforme ERR-PET-NOT-FOUND (anti-enumeracion; nunca 403 salvo CSRF). Orden de evaluacion: CSRF (403), sesion, tope por usuario (429 ERR-RATE-LIMITED, tambien cuenta lo que luego da 404), autorizacion (404), esquema (422 ERR-SCHEMA-VALIDATION-FAILED), ya activa (409 ERR-QR12-ALREADY-ACTIVE, solo activar), consentimiento (ERR-QR12-CONSENT-REQUIRED), guarda (ERR-QR12-ACTIVATION-REQUIREMENTS), URL (ERR-QR12-URL-TOO-LONG). TOPES POR USUARIO (Neo, Nivel 2, 2026-11-27; ventana movil de 1 h, persistentes): QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20 sobre activar + regenerar + desactivar; QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60 sobre opt-in de telefono + alergias + telefono de cuenta; 429 ERR-RATE-LIMITED con Retry-After. ALCANCE DE ADMIN (Neo, 2026-11-27): solo updateCriticalAllergies admite ademas a un ADMIN de hogar con la mascota en su hogar activo (rol efectivo de REQ-RBAC-001); SUPER_ADMIN y OPERATOR de plataforma quedan excluidos; el ADMIN no activa, regenera, desactiva ni opta por telefono y recibe el 404 uniforme en esas rutas y en getEmergencyCardStatus. REGISTROS: el cuerpo y los errores de PUT /account/phone y de phone-consent no se registran (LOG_REDACTION). Cache-Control: private, no-store y Vary: Cookie en las respuestas privadas; las que llevan el token usan Cache-Control: no-store.
+
+    TOKEN (Neo-N, INV-QR12-001): opaco de 256 bits (base64url, 43 caracteres) del puerto CSPRNG; solo se guarda su SHA-256; se muestra UNA sola vez en la respuesta de activar o regenerar, que no pasa por almacen de repeticion ni de idempotencia, ni por registros ni almacen de medios (SC-012-109). Ninguna lectura posterior lo devuelve. Regenerar invalida el anterior al instante; desactivar deja la ruta publica en 404 y limpia token_hash y last_scanned_at. SVG (trinity hueco 5): el SVG viaja en el JSON de la respuesta 201 con solo svg, rect y path (sin texto de usuario, script ni foreignObject); el cliente lo usa como Blob o <img src=blob:> con download, jamas innerHTML; Content-Disposition y CSP sandbox de REQ-QR12-005 aplican a cualquier ruta futura que sirva SVG (x-sdd-constants.SVG_DELIVERY).
+
+    CAIDA AUTOMATICA A OFF (Neo-D, REQ-QR12-010): cualquier mutacion que haga perder la guarda de D12-14 (opt-in retirado, telefono borrado o cambiado sin reconfirmar, alergias vaciadas, salida LEFT/ENDED o cuenta eliminada del titular del telefono, fallecimiento de la mascota) pasa la ficha a OFF en la MISMA transaccion; el estado queda visible en getEmergencyCardStatus (statusReason, lastChange). TODA transicion a OFF (USER_DEACTIVATED, AUTO_GUARD_LOST, AUTO_PET_DECEASED, AUTO_NOTICE_CHANGED) BORRA en el acto las filas de pet_emergency_phone_consents (rama D-R1/P-01): reactivar exige opt-in nuevo. statusReason y lastChange se conservan 90 dias tras OFF (EMERGENCY_HISTORY_RETENTION_DAYS) y luego son null. CAMBIO DE AVISO (Neo, 2026-11-27 (b)): un cambio MINOR/MAJOR de noticeVersion deja los consentimientos de telefono EN ESPERA (no se publican) sin apagar la ficha mientras haya alergias u otro telefono vigente; si no, cae a OFF (AUTO_NOTICE_CHANGED); un cambio PATCH no exige nada (x-sdd-constants.NOTICE_COMPATIBILITY). La espera dura como maximo EMERGENCY_NOTICE_WAIT_DAYS = 90 desde EMERGENCY_NOTICE_EFFECTIVE_AT: vencida, la fila se BORRA y la ficha se reconcilia (Neo 2026-11-27 (1)).
+
+    ALERGIAS CRITICAS Y TELEFONO (aditivos de la 012, T1662 reubicada): updateCriticalAllergies audita PET_CRITICAL_ALLERGIES_UPDATED (con el rol del actor y SIN el contenido, tambien cuando lo edita un ADMIN de hogar); updateAccountPhone valida y normaliza E.164 con la misma funcion de dominio en los tres motores. El telefono no sale de la cuenta propia salvo en la ficha activa con opt-in por mascota.
+
+    CERRADO EN 0.3.0 (T1671 r2): redaccion de tokens en registros por FORMA, sin anclar y de cualquier longitud en /e/ y /api/emergency/, incluido req.url y el mensaje 'Route ... not found' (LOG_REDACTION; trinity N-01); la ruta publica registra exposeHeadRoutes: false y HEAD/OPTIONS dan el mismo 404 sin Access-Control-* (PUBLIC_ROUTE_HARDENING, SC-012-126; trinity N-07); RECONCILIACION PEREZOSA ORDENADA: se reconcilia DESPUES de autorizar, con UPDATE condicional WHERE status = 'ON' y un solo evento, y en una reconfirmacion primero se aplica la mutacion y luego se reconcilia (LAZY_RECONCILIATION, SC-012-123; trinity N-02); consentimientos de telefono EN ESPERA: maximo 90 dias desde el cambio del aviso, vencidos se BORRAN y se reconcilia la ficha (EMERGENCY_NOTICE_WAIT_DAYS, decision de Neo 2026-11-27 (1)); rotacion de PHONE_HMAC_KEY: recalculo desde users.phone o borrado con actor de sistema, nunca deja filas en espera (SC-012-122, decision (2)); auditoria EMERGENCY_* conservada 90 dias (decision (3)); aviso derivado criticalAllergiesChange en el estado privado y lastChange con lista blanca de 4 tipos de tarjeta (SC-012-128).
+
+    CERRADO EN 0.2.0 (T1671): limites de tasa de las escrituras privadas (d), vigencia del aviso (b), alcance de ADMIN (a), retencion (c) y entrega del SVG (hueco 5). Criterios BLOQUEANTES de T1685 que este contrato condiciona: redactSecrets cubre /e/<token> y /api/emergency/<token> (trinity T-02; SC-012-086 y SC-012-107), ver emergency-additive-annex.md seccion 6.
+  x-sdd-status: APPROVED
+  x-sdd-metadata:
+    version: 0.3.0
+    status: APPROVED
+    supersedes: null
+    change_type: MINOR
+    change_note: "0.3.0 (iteracion r2 tras T1671 r2 trinity/rama, Architect 2026-11-27; DRAFT, NO APPROVED; solo Neo aprueba): decisiones de Neo (1) espera de 90 dias de los consentimientos de telefono tras cambio MINOR/MAJOR del aviso, (2) rotacion de PHONE_HMAC_KEY por recalculo o borrado, (3) auditoria EMERGENCY_* a 90 dias; HEAD/OPTIONS y exposeHeadRoutes false (N-07), redaccion de logs por forma y sin anclar (N-01), reconciliacion ordenada (N-02), criticalAllergiesChange (N-03), lastChange con lista blanca (rama N-04), IPv6 /64 en QR_SCAN (N-05), deactivate comparte cubo (N-09), higiene de version y forbidden (N-08); SC-012-121..129. 0.2.0 (iteracion tras T1671 trinity/rama, Architect 2026-11-27; DRAFT, NO APPROVED; solo Neo aprueba): decisiones de Neo (a) ADMIN de hogar edita alergias, (b) aviso MINOR/MAJOR deja el telefono en espera, (c) retencion 90 dias y borrado de consentimientos en todo OFF, (d) topes por usuario 20 y 60 por hora; correcciones T-01 (instance /emergency), T-03 (404 unico del prefijo), T-04 (cabeceras del shell), T-06 (429 con nosniff, contador en memoria), T-07 (politica de texto), P-01, P-05 (EMERGENCY_PHONE_CONSENT_CHANGED), hueco 5 (SVG) y hueco 8 (auditoria). 0.1.0 (feature 012, T1670, Bloque D, #32; Architect 2026-11-27; DRAFT, NO APPROVED). Primera redaccion: getEmergencyCard (publica), getEmergencyCardStatus, activateEmergencyCard, regenerateEmergencyCard, deactivateEmergencyCard, setEmergencyPhoneConsent, updateCriticalAllergies (T1662 reubicada) y updateAccountPhone. Revisado por /trinity y /rama (T1671: CUMPLE CON RESERVAS); pendiente de re-auditoria y de la aprobacion de Neo."
+    traceability: [REQ-QR12-008, SC-012-086, SC-012-107, EDGE-012-018, REQ-QR12-001, REQ-QR12-002, REQ-QR12-003, REQ-QR12-004, REQ-QR12-005, REQ-QR12-006, REQ-QR12-007, REQ-QR12-009, REQ-QR12-010, INV-QR12-001, INV-QR12-002, INV-QR12-003, INV-QR12-004, INV-QR12-005, INV-QR12-006, INV-QR12-008, SC-012-041, SC-012-042, SC-012-043, SC-012-044, SC-012-045, SC-012-046, SC-012-047, SC-012-048, SC-012-050, SC-012-052, SC-012-083, SC-012-085, SC-012-087, SC-012-106, SC-012-109, SC-012-110, EDGE-012-023, EDGE-012-025, EDGE-012-063, SC-012-121, SC-012-122, SC-012-123, SC-012-124, SC-012-125, SC-012-126, SC-012-127, SC-012-128, SC-012-129]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: emergency-public
+  - name: emergency-card
+  - name: critical-allergies
+  - name: account-phone
+
+paths:
+  /emergency/{token}:
+    get:
+      tags: [emergency-public]
+      operationId: getEmergencyCard
+      summary: "Ficha publica de emergencia por token opaco (UNICA superficie publica) [REQ-QR12-004, REQ-QR12-007, REQ-QR12-009, INV-QR12-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-004, REQ-QR12-007, REQ-QR12-009]
+      security: []
+      description: "Anonima, sin cookie ni credentials. 200 solo con token valido, ficha ON, mascota vigente y guarda cumplida (se reevalua en cada lectura, falla cerrada; los telefonos en espera por cambio del aviso no cuentan). El hash se calcula tambien para tokens mal formados y, tras recuperar la fila, se compara con crypto.timingSafeEqual (T-10). Cualquier otro caso: 404 ERR-PET-NOT-FOUND con cuerpo y cabeceras identicos. last_scanned_at se actualiza como maximo una vez por hora y ficha, solo tras token valido; su fallo no rompe la respuesta. La ruta se registra con exposeHeadRoutes: false y sin plugin CORS: HEAD y OPTIONS caen en el 404 uniforme del prefijo, sin Access-Control-* (PUBLIC_ROUTE_HARDENING; criterio de aceptacion de T1675, SC-012-126). Nunca escribe en la ficha (solo falla cerrada; la persistencia de la caida la hacen las rutas privadas y el mantenimiento)."
+      parameters:
+        - { $ref: '#/components/parameters/Token' }
+      responses:
+        '200':
+          description: Vista publica minima
+          headers:
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            X-Robots-Tag: { $ref: '#/components/headers/XRobotsTag' }
+            Referrer-Policy: { $ref: '#/components/headers/ReferrerPolicy' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/EmergencyCardPublicView' }
+        '404':
+          description: "404 uniforme ERR-PET-NOT-FOUND: mismo cuerpo y mismas cabeceras publicas para token inexistente, mal formado, desactivado, regenerado, mascota eliminada o fallecida, guarda incumplida, y cualquier otra ruta, metodo o URL malformada del prefijo (INV-QR12-002, T-03). ProblemDetails.instance = '/emergency' CONSTANTE (T-01); sin token ni ruta real en el cuerpo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            X-Robots-Tag: { $ref: '#/components/headers/XRobotsTag' }
+            Referrer-Policy: { $ref: '#/components/headers/ReferrerPolicy' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+              example: { type: 'urn:argos:error:ERR-PET-NOT-FOUND', code: ERR-PET-NOT-FOUND, instance: '/emergency' }
+        '429':
+          description: "429 ERR-RATE-LIMITED uniforme: mas de QR_SCAN_MAX_PER_IP_PER_MINUTE = 30 por IP y minuto (contador en memoria por proceso; clave = IPv4 completa o prefijo /64 de IPv6; con el mapa acotado lleno se expulsa la entrada menos reciente y se cuenta la expulsion, sin rechazar la peticion; cuenta toda peticion del prefijo, HEAD y OPTIONS incluidos); lleva Retry-After y X-Content-Type-Options: nosniff (T-06). ProblemDetails.instance = '/emergency' CONSTANTE (T-01)"
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            X-Robots-Tag: { $ref: '#/components/headers/XRobotsTag' }
+            Referrer-Policy: { $ref: '#/components/headers/ReferrerPolicy' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+              example: { type: 'urn:argos:error:ERR-RATE-LIMITED', code: ERR-RATE-LIMITED, instance: '/emergency' }
+
+  /pets/{petId}/emergency-card:
+    get:
+      tags: [emergency-card]
+      operationId: getEmergencyCardStatus
+      summary: "Estado privado de la ficha QR de la mascota (sin token) [REQ-QR12-003, REQ-QR12-010, INV-QR12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-003, REQ-QR12-010]
+      x-sdd-audit: [EMERGENCY_CARD_AUTO_DEACTIVATED, EMERGENCY_PHONE_CONSENT_CHANGED]
+      description: "Propietario principal y co-propietario ACTIVE (ADMIN no titular, SUPER_ADMIN y OPERATOR: 404 uniforme). Nunca devuelve token, hash, url ni qrSvg. Devuelve statusReason y lastChange (lista blanca de 4 tipos de tarjeta; nunca cambios de consentimiento ni de alergias) para el aviso de apagado automatico y el aviso a los demas co-propietarios, y criticalAllergiesChange ({at, byMe} o null) para el aviso de que cambiaron las alergias (tambien si las edito un ADMIN de hogar); todos null pasados 90 dias (EMERGENCY_HISTORY_RETENTION_DAYS). RECONCILIACION (LAZY_RECONCILIATION): se hace DESPUES de autorizar (un no titular recibe 404 sin escribir nada), con UPDATE condicional WHERE status = 'ON' y un solo EMERGENCY_CARD_AUTO_DEACTIVATED, en la misma transaccion y antes de responder: cubre la caida por AUTO_NOTICE_CHANGED (cambio de aviso o vencimiento de los 90 dias de espera) y borra los consentimientos en espera vencidos. Es un GET que escribe, idempotente, solo para titulares autorizados. myPhoneReconfirmRequired indica un consentimiento propio en espera. El estado por defecto de una mascota sin ficha es status OFF, statusReason null, lastChange null."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+      responses:
+        '200':
+          description: Estado de la ficha
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/EmergencyCardOwnerView' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /pets/{petId}/emergency-card/activate:
+    post:
+      tags: [emergency-card]
+      operationId: activateEmergencyCard
+      summary: "Activa la ficha QR (OFF a ON) y devuelve el token UNA sola vez [REQ-QR12-003, REQ-QR12-005, REQ-QR12-006, INV-QR12-005]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-003, REQ-QR12-005, REQ-QR12-006]
+      x-sdd-audit: [EMERGENCY_CARD_ACTIVATED, EMERGENCY_PHONE_CONSENT_CHANGED]
+      x-sdd-rate-limit: { constant: QR_CARD_MUTATIONS_PER_USER_PER_HOUR, value: 20, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Cualquier propietario principal o co-propietario ACTIVE. Exige confirmar el aviso (consentAccepted true y noticeVersion vigente; registra version, fecha y quien consintio). Guarda de D12-14: al menos un telefono visible (opt-in vigente por mascota, no en espera) o una alergia critica. Tope: QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20 (429). Con showMyPhone = true audita tambien EMERGENCY_PHONE_CONSENT_CHANGED. Un ADMIN de hogar no titular recibe 404 uniforme. Ficha ya ON: 409 ERR-QR12-ALREADY-ACTIVE (para rotar el codigo se usa regenerateEmergencyCard). Avisa a los demas co-propietarios (aviso derivado en getEmergencyCardStatus). Respuesta con Cache-Control: no-store; sin almacen de idempotencia ni de repeticion."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/ActivateEmergencyCardRequest' }
+      responses:
+        '201':
+          description: Ficha activada; el token aparece UNA sola vez
+          headers:
+            Cache-Control: { $ref: '#/components/headers/TokenCacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/EmergencyCardActivationResult' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /pets/{petId}/emergency-card/regenerate:
+    post:
+      tags: [emergency-card]
+      operationId: regenerateEmergencyCard
+      summary: "Regenera el token (invalida el anterior al instante); desde OFF cuenta como activar [REQ-QR12-003, REQ-QR12-010, INV-QR12-008]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-003, REQ-QR12-010]
+      x-sdd-audit: [EMERGENCY_CARD_REGENERATED, EMERGENCY_CARD_ACTIVATED, EMERGENCY_PHONE_CONSENT_CHANGED]
+      x-sdd-rate-limit: { constant: QR_CARD_MUTATIONS_PER_USER_PER_HOUR, value: 20, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Mismo cuerpo, mismas guardas, mismo orden de evaluacion, mismo tope (compartido con activar y desactivar) y misma respuesta que activateEmergencyCard; con showMyPhone = true audita EMERGENCY_PHONE_CONSENT_CHANGED. Solo titulares. Con la ficha ON rota el token y avisa a los demas co-propietarios; desde OFF exige guarda, consentimiento y token nuevo (Neo-D). Invalidar y emitir es atomico (INV-QR12-008): no existe instante con dos tokens validos ni con ninguno cuando la operacion termina en 201."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/ActivateEmergencyCardRequest' }
+      responses:
+        '201':
+          description: Token nuevo; el anterior ya no funciona
+          headers:
+            Cache-Control: { $ref: '#/components/headers/TokenCacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/EmergencyCardActivationResult' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /pets/{petId}/emergency-card/deactivate:
+    post:
+      tags: [emergency-card]
+      operationId: deactivateEmergencyCard
+      summary: "Desactiva la ficha (ON a OFF) sin exigir aprobacion [REQ-QR12-003, SC-012-045]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-003]
+      x-sdd-audit: [EMERGENCY_CARD_DEACTIVATED]
+      x-sdd-rate-limit: { constant: QR_CARD_MUTATIONS_PER_USER_PER_HOUR, value: 20, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Cualquier propietario principal o co-propietario ACTIVE. Surte efecto inmediato: la ruta publica responde 404, token_hash y last_scanned_at pasan a NULL, statusReason = USER_DEACTIVATED, y se BORRAN en el acto los consentimientos de telefono de la mascota (reactivar exige opt-in nuevo). Idempotente: con la ficha ya OFF responde 204 sin cambiar nada. Tope compartido QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20 con activar y regenerar (429; decision documentada, trinity N-09: la via alternativa para apagar la ficha es retirar el opt-in de telefono y vaciar las alergias con el cubo QR_PRIVATE_WRITES). Solo titulares."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204':
+          description: Ficha en OFF
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            Vary: { $ref: '#/components/headers/Vary' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /pets/{petId}/emergency-card/phone-consent:
+    put:
+      tags: [emergency-card]
+      operationId: setEmergencyPhoneConsent
+      summary: "Opt-in o retiro de MI telefono en la ficha de ESTA mascota [REQ-QR12-006, REQ-QR12-010, INV-QR12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-006, REQ-QR12-010]
+      x-sdd-audit: [EMERGENCY_PHONE_CONSENT_CHANGED, EMERGENCY_CARD_AUTO_DEACTIVATED]
+      x-sdd-rate-limit: { constant: QR_PRIVATE_WRITES_PER_USER_PER_HOUR, value: 60, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Solo titulares; afecta solo el telefono de quien llama (nunca el de otro propietario; un ADMIN de hogar no titular recibe 404). No hay opt-in global de cuenta. visible = true (opt-in o RECONFIRMACION de un consentimiento en espera por cambio MINOR/MAJOR del aviso) exige telefono en la cuenta (422 ERR-QR12-PHONE-INVALID con detail generico, sin eco) y noticeVersion vigente (422 ERR-QR12-CONSENT-REQUIRED); tope QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60 (429); el cuerpo y los errores no se registran; queda ligado a phone_hmac, de modo que cambiar users.phone lo invalida hasta reconfirmar. visible = false retira el telefono al instante; si la ficha ON pierde la guarda, cae a OFF en la misma transaccion. ORDEN (LAZY_RECONCILIATION): autorizar, aplicar PRIMERO la mutacion (en una reconfirmacion se actualizan notice_version y consented_at) y reconciliar DESPUES, para que la reconciliacion no apague la ficha ni borre el consentimiento que se reconfirmaba. Devuelve el estado vigente de la ficha (sin token)."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/SetEmergencyPhoneConsentRequest' }
+      responses:
+        '200':
+          description: Estado de la ficha tras el cambio
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/EmergencyCardOwnerView' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /pets/{petId}/critical-allergies:
+    put:
+      tags: [critical-allergies]
+      operationId: updateCriticalAllergies
+      summary: "Reemplaza las alergias criticas de la mascota [REQ-QR12-002, REQ-QR12-009, REQ-QR12-010, T1662]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-002, REQ-QR12-009, REQ-QR12-010]
+      x-sdd-audit: [PET_CRITICAL_ALLERGIES_UPDATED, EMERGENCY_CARD_AUTO_DEACTIVATED]
+      x-sdd-rate-limit: { constant: QR_PRIVATE_WRITES_PER_USER_PER_HOUR, value: 60, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Editable por propietario principal, co-propietario ACTIVE y ADMIN DE HOGAR con la mascota en su hogar activo (rol efectivo de REQ-RBAC-001; decision de Neo 2026-11-27 (a)); SUPER_ADMIN y OPERATOR de plataforma excluidos. Quien no puede leer la mascota (ADMIN de otro hogar incluido) recibe el 404 uniforme ERR-PET-NOT-FOUND. Un miembro del hogar que SI puede leer la mascota pero cuyo rol efectivo es CAREGIVER o READER recibe 403 ERR-ACC-FORBIDDEN (EDIT_PET_BASICS es solo OWNER/ADMIN); esta es la UNICA ruta de la ficha privada cuyo 403 puede ser ERR-ACC-FORBIDDEN, asi que la regla de 403 solo CSRF NO aplica aqui (aclaracion 2026-11-28, INFO-1 oracle; sin cambio de comportamiento). Normalizacion: NFC, trim y deduplicacion sin distinguir mayusculas despues de NFC, sin normalizar tildes; maximo MAX_CRITICAL_ALLERGIES = 5 de 1-60 puntos de codigo; TEXT_POLICY ampliada: se rechazan Cc, Cf, Zl, Zp, Co, Cn, Cs, bidi, caracteres invisibles que sobreviven al trim (U+3164, U+2800 y afines), mas de 3 marcas combinantes consecutivas y elementos sin caracter visible; el plegado de mayusculas de la deduplicacion es independiente de locale; incumplimiento: 422 ERR-SCHEMA-VALIDATION-FAILED SIN eco del valor. Tope QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60 (429). Todo cambio efectivo genera la auditoria PET_CRITICAL_ALLERGIES_UPDATED con newStateHash = null, sin actorRole y SIN el contenido, ni conteo, ni ip ni userAgent. Texto de ayuda del editor (maggie m-6): ver x-sdd-constants.TEXTS.value.allergiesEditorHelp de emergency-card.schema.json. Vaciar la lista con la ficha ON sin telefono visible la hace caer a OFF en la misma transaccion (cardAutoDeactivated = true); se aplica primero la edicion y se reconcilia despues (LAZY_RECONCILIATION). El cambio queda visible a los titulares en criticalAllergiesChange de getEmergencyCardStatus (sin contenido ni identidad)."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/UpdateCriticalAllergiesRequest' }
+      responses:
+        '200':
+          description: Lista normalizada vigente
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/CriticalAllergiesView' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /account/phone:
+    put:
+      tags: [account-phone]
+      operationId: updateAccountPhone
+      summary: "Establece o borra el telefono de la cuenta propia [REQ-QR12-001, SC-012-046, SC-012-110]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-QR12-001, REQ-QR12-010]
+      x-sdd-audit: [EMERGENCY_PHONE_CONSENT_CHANGED, EMERGENCY_CARD_AUTO_DEACTIVATED]
+      x-sdd-rate-limit: { constant: QR_PRIVATE_WRITES_PER_USER_PER_HOUR, value: 60, window: 1h, scope: user, status: 429, code: ERR-RATE-LIMITED, headers: [Retry-After] }
+      description: "Editable solo por su titular (la cuenta de la sesion). Valida y normaliza a E.164 con la funcion de dominio unica (paridad SQLite, PostgreSQL y Memoria, sin CHECK regex); invalido: 422 ERR-QR12-PHONE-INVALID sin registrar ni ecoar el valor; el CUERPO de la peticion y los mensajes de error no se registran (LOG_REDACTION, rama P-06). Cambiarlo o borrarlo invalida (borra) los consentimientos ligados a phone_hmac, audita EMERGENCY_PHONE_CONSENT_CHANGED (visible = false) por cada mascota afectada y puede hacer caer fichas ON a OFF (AUTO_GUARD_LOST) en la misma transaccion (primero se borran los consentimientos y despues se reconcilia cada ficha, LAZY_RECONCILIATION); tope QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60 (429). No va en el respaldo por defecto y se borra con la cuenta."
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/UpdateAccountPhoneRequest' }
+      responses:
+        '200':
+          description: Telefono vigente de la cuenta propia
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            Vary: { $ref: '#/components/headers/Vary' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/emergency-card.schema.json#/$defs/AccountPhoneView' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 001/002 (nunca la de /admin). La ruta publica getEmergencyCard declara security vacio.
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    Token:
+      name: token
+      in: path
+      required: true
+      description: "Token opaco de 256 bits (base64url, 43 caracteres, ^[A-Za-z0-9_-]{43}$). El esquema NO restringe el formato a proposito: un valor mal formado debe dar el MISMO 404 que uno inexistente (INV-QR12-002). La longitud maxima solo acota la entrada; el enrutador usa maxParamLength >= 512 y todo lo que lo exceda cae en el 404 unico del prefijo (T-03)."
+      schema: { type: string, minLength: 1, maxLength: 512 }
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED (INV-AUTH-007)
+      schema: { type: string, const: '1' }
+  headers:
+    CacheControl:
+      description: "private, no-store en las respuestas autenticadas"
+      schema: { type: string, const: 'private, no-store' }
+    TokenCacheControl:
+      description: "no-store en la respuesta que lleva el token (activar o regenerar); sin almacen de repeticion ni de idempotencia (SC-012-109)"
+      schema: { type: string, const: 'no-store' }
+    PublicCacheControl:
+      description: "no-store en toda respuesta publica (REQ-QR12-004)"
+      schema: { type: string, const: 'no-store' }
+    XRobotsTag:
+      description: "noindex, nofollow en toda respuesta publica"
+      schema: { type: string, const: 'noindex, nofollow' }
+    ReferrerPolicy:
+      description: "no-referrer en toda respuesta publica"
+      schema: { type: string, const: 'no-referrer' }
+    NoSniff:
+      description: "nosniff"
+      schema: { type: string, const: 'nosniff' }
+    Vary:
+      description: "Cookie en las respuestas autenticadas"
+      schema: { type: string, const: 'Cookie' }
+    RetryAfter:
+      description: "Segundos hasta poder reintentar tras un 429 ERR-RATE-LIMITED"
+      schema: { type: integer, minimum: 1, maximum: 3600 }
+  responses:
+    RateLimited:
+      description: "429 ERR-RATE-LIMITED por usuario (QR_CARD_MUTATIONS_PER_USER_PER_HOUR = 20 o QR_PRIVATE_WRITES_PER_USER_PER_HOUR = 60, ventana movil de 1 h); lleva Retry-After. Se evalua tras CSRF y sesion y antes de consultar la mascota (cuenta tambien los 404)"
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/Vary' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Problem:
+      description: "Error tipado del catalogo contracts/errors/error-catalog.json (RFC 9457). 404 ERR-PET-NOT-FOUND uniforme; 403 solo ERR-AUTH-CSRF-REJECTED en todas las rutas privadas de la ficha, EXCEPTO PUT /pets/{petId}/critical-allergies, cuyo 403 tambien puede ser ERR-ACC-FORBIDDEN para CAREGIVER y READER (annex §4); 409 ERR-QR12-ALREADY-ACTIVE; 422 ERR-QR12-PHONE-INVALID, ERR-QR12-CONSENT-REQUIRED, ERR-QR12-ACTIVATION-REQUIREMENTS, ERR-QR12-URL-TOO-LONG o ERR-SCHEMA-VALIDATION-FAILED"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

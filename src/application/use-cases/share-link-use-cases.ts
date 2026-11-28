@@ -11,8 +11,9 @@
  *
  * @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-012, STATE-SHARE-001, INV-005-005, SC-005-015, SC-005-019, SC-005-025, SC-005-038, SC-005-046, SC-005-051, ERR-SHARE-LINK-LIMIT, ERR-SHARE-NOT-FOUND, EDGE-005-15, EDGE-005-16, EDGE-005-17-bis
  */
-import { retentionCutoffs, computeExpiresAt, deriveStatus, isExpiryDays, isRevocationNoop, DEFAULT_EXPIRY_DAYS, MAX_ACTIVE_SHARE_LINKS, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
+import { assertNever, retentionCutoffs, computeExpiresAt, deriveStatus, isExpiryDays, isRevocationNoop, DEFAULT_EXPIRY_DAYS, MAX_ACTIVE_SHARE_LINKS, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';
+import { isOwnerOfPet } from '../../domain/access/pet-ownership.ts';
 import { DomainError } from '../../generated/index.ts';
 import { DomainError as DomainErrorV33, type CreateShareLinkInput, type ShareLinkList, type ShareLinkView } from '../../generated/v33/index.ts';
 import { validateCreateShareLinkInput } from '../../generated/v33/index.ts';
@@ -48,7 +49,7 @@ export function toShareLinkView(link: ShareLinkRecord, now: string): ShareLinkVi
 
 export type CreateShareLinkOutcome = { readonly kind: 'CREATED'; readonly link: ShareLinkView; readonly token: string } | { readonly kind: 'REPLAY'; readonly link: ShareLinkView };
 
-function parseIdempotencyKey(value: unknown): string {
+export function parseIdempotencyKey(value: unknown): string {
   if (typeof value !== 'string' || !IDEMPOTENCY_KEY.test(value)) {
     throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'Idempotency-Key debe ser un UUID v4 en minúsculas.', 'Idempotency-Key');
   }
@@ -76,6 +77,7 @@ export class CreateShareLinkUseCase {
 
   async execute(userId: string, ref: ShareScopeRef, idempotencyKey: unknown, body: unknown): Promise<CreateShareLinkOutcome> {
     const { deps } = this;
+    if (ref.scope === 'PETS') throw new DomainErrorV33('ERR-SHARE-NOT-FOUND'); // el alcance `PETS` lo crea `CreatePetsShareLinkUseCase` (annex §3)
     const sharing = requireSharing(deps);
     const now = deps.clock.nowIsoTimestamp();
     const token = sharing.tokens.nextShareToken();
@@ -128,20 +130,43 @@ export class ListShareLinksUseCase {
 
   async execute(userId: string, ref: ShareScopeRef): Promise<ShareLinkList> {
     const { deps } = this;
+    if (ref.scope === 'PETS') throw new DomainErrorV33('ERR-SHARE-NOT-FOUND'); // los `PETS` viven en `listHouseholdPetsShareLinks` (annex §5.5)
     const now = deps.clock.nowIsoTimestamp();
     return deps.uow.runInTransaction(async (r) => {
       await requireShareAuthority(r, userId, ref, false);
       const items = (await r.shareLinks.listByScope(ref.scope, scopeIdOf(ref), retentionCutoffs(now).links)).map((link) => toShareLinkView(link, now));
-      return { items: items.slice(0, MAX_LISTED), activeCount: items.filter((i) => i.status === 'ACTIVE').length, maxActiveLinks: MAX_ACTIVE_SHARE_LINKS };
+      // ENM-005-E §5.5 (R2-03): `activeCount` del hogar cuenta también los `PETS` activos de todos los creadores (es el número del 409); `items` no los trae.
+      const petsActive = ref.scope === 'HOUSEHOLD' ? (await r.shareLinks.listPetsByHousehold(ref.householdId, retentionCutoffs(now).links)).filter((l) => deriveStatus(l, now) === 'ACTIVE').length : 0;
+      return { items: items.slice(0, MAX_LISTED), activeCount: items.filter((i) => i.status === 'ACTIVE').length + petsActive, maxActiveLinks: MAX_ACTIVE_SHARE_LINKS };
     });
   }
 }
 
-/** El creador, el propietario legal (PET) o el propietario o ADMIN del hogar (HOUSEHOLD) pueden revocar. */
+/**
+ * Quién revoca (switch exhaustivo con default-deny, ENM-005-E §8.2.1): el creador siempre; PET: cualquier propietario ACTIVE (012); HOUSEHOLD: propietario o ADMIN del hogar; PETS: el principal o un co-propietario
+ * ACTIVE de AL MENOS UNA mascota del enlace según las filas de `share_link_pets` (§5.2; el propietario u ADMIN del hogar no titular recibe 404, D5-19). Cualquier otro valor: false (404 uniforme).
+ */
 async function mayRevoke(r: RepositorySet, userId: string, link: ShareLinkRecord): Promise<boolean> {
   if (link.createdByUserId === userId) return true;
-  if (link.scope === 'PET') return (await r.pets.findById(link.petId!))?.ownerUserId === userId;
-  return isHouseholdManager(await r.households.listMembershipsOfUsers([userId]), link.householdId!);
+  const scope = link.scope;
+  switch (scope) {
+    case 'PET': {
+      const pet = await r.pets.findById(link.petId!);
+      return pet !== null && isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: await r.coOwners.listByPet(pet.id) }); // 012: cualquier propietario ACTIVE puede revocar
+    }
+    case 'HOUSEHOLD':
+      return isHouseholdManager(await r.households.listMembershipsOfUsers([userId]), link.householdId!);
+    case 'PETS': {
+      for (const petId of await r.shareLinkPets.listPetIds(link.id)) {
+        const state = await r.pets.findOwnership(petId);
+        if (state !== null && isOwnerOfPet(userId, { ownerUserId: state.ownerUserId, coOwners: await r.coOwners.listByPet(petId) })) return true;
+      }
+      return false;
+    }
+    default:
+      assertNever(scope);
+      return false;
+  }
 }
 
 /** @implements REQ-VET-005, REQ-VET-008, STATE-SHARE-001, MIF-005-08, SC-005-019, SC-005-046 */
@@ -152,7 +177,11 @@ export class RevokeShareLinkUseCase {
     const { deps } = this;
     const now = deps.clock.nowIsoTimestamp();
     await deps.uow.runInTransaction(async (r) => {
-      const link = await r.shareLinks.findById(shareLinkId);
+      let link = await r.shareLinks.findById(shareLinkId);
+      if (link !== null && link.scope === 'PETS') {
+        await r.shareLinks.lockLink(link.id); // §6 paso 3: la revocación de un `PETS` toma el bloqueo de la fila del enlace (serializa con las retiradas) y relee bajo él
+        link = await r.shareLinks.findById(shareLinkId);
+      }
       if (link === null || !(await mayRevoke(r, userId, link))) throw new DomainErrorV33('ERR-SHARE-NOT-FOUND');
       if (isRevocationNoop(deriveStatus(link, now))) return;
       if (await r.shareLinks.revoke(link.id, now)) {

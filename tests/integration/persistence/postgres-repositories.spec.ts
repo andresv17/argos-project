@@ -13,6 +13,7 @@ import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } fro
 import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 import { defineAuthIdentityRepositoryContractSuite } from '../../fixtures/auth-identity-repository-contract-suite.ts';
 import { defineMediaRepositoryContractSuite } from '../../fixtures/media-repository-contract-suite.ts';
+import { defineCareRepositoryContractSuite } from '../../fixtures/care-repository-contract-suite.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
 
@@ -84,6 +85,37 @@ describe.skipIf(!TEST_DATABASE_URL)(
           }
           mediaPool = undefined;
           mediaAdmin = undefined;
+        },
+      },
+    );
+    // T1655 tramo 2 (F7): repositorios de cuidado (care_routines, care_log_entries, caregiver_access), un esquema desechable por prueba.
+    let carePool: PoolLike | undefined;
+    let careAdmin: PoolLike | undefined;
+    let careSchema = '';
+    defineCareRepositoryContractSuite(
+      'PostgreSQL',
+      async () => {
+        careSchema = `argos_c_${randomUUID().replaceAll('-', '')}`;
+        careAdmin = createPostgresPool({ connectionString: TEST_DATABASE_URL ?? '', pgPoolMax: 1 });
+        await careAdmin.query(`CREATE SCHEMA ${careSchema}`);
+        const url = new URL(TEST_DATABASE_URL ?? '');
+        url.searchParams.set('options', `-c search_path=${careSchema}`);
+        carePool = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 4 });
+        await carePool.query(BASELINE);
+        const { createPostgresRepositories } = (await import(/* @vite-ignore */ REPOSITORIES_PATH)) as {
+          createPostgresRepositories: (client: PoolClientLike) => RepositorySet;
+        };
+        return new PostgresUnitOfWork(carePool, createPostgresRepositories);
+      },
+      {
+        dispose: async () => {
+          if (carePool) await closePool(carePool);
+          if (careAdmin) {
+            await careAdmin.query(`DROP SCHEMA IF EXISTS ${careSchema} CASCADE`);
+            await closePool(careAdmin);
+          }
+          carePool = undefined;
+          careAdmin = undefined;
         },
       },
     );

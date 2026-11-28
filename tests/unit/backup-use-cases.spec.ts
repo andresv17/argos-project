@@ -455,7 +455,7 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
       ),
     );
     // REQ-PET4-002: el duplicado registra un evento del usuario en una transacción independiente; el resto del estado queda intacto byte a byte.
-    const sansRateEvents = () => json({ ...uow.inner.snapshot(), rateEvents: [] });
+    const sansRateEvents = () => json({ ...uow.inner.snapshot(), rateEvents: [], ipRateEvents: [] }); // la importación cuenta un CHIP_LOOKUP por chip (REQ-CHP12-005)
     const before = sansRateEvents();
     // H-O-004A1-1: el archivo lleva un microchip REAL de 15 dígitos (el fixture base lo trae nulo y la aserción de fuga era vacua).
     const file = json(v3((e) => { e.pets[0]!.microchipId = DUPLICATE_CHIP; }));
