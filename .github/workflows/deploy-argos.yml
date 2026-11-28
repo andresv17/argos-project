@@ -205,6 +205,21 @@ jobs:
           else
             echo "Secreto argos-phone-hmac-key sin versión habilitada: PHONE_HMAC_KEY no se inyecta; la ficha QR queda desconectada." >&2
           fi
+          # Verificación de origen Cloudflare: opcional. Sin versión ENABLED no se inyecta; cuando existe se referencia por versión numérica.
+          ORIGIN_VERIFY_VERSION="$(optional_latest_version argos-origin-verify-secret)"
+          ORIGIN_VERIFY_SECRET_FLAG=""
+          ORIGIN_VERIFY_ENABLED="false"
+          if [ -n "$ORIGIN_VERIFY_VERSION" ]; then
+            if ! printf '%s' "$ORIGIN_VERIFY_VERSION" | grep -Eq '^[0-9]+$'; then
+              echo "Versión de secreto origin-verify no numérica; se aborta el despliegue." >&2
+              exit 1
+            fi
+            echo "::add-mask::${ORIGIN_VERIFY_VERSION}"
+            ORIGIN_VERIFY_SECRET_FLAG=",ARGOS_ORIGIN_VERIFY_SECRET=argos-origin-verify-secret:${ORIGIN_VERIFY_VERSION}"
+            ORIGIN_VERIFY_ENABLED="true"
+          else
+            echo "Secreto argos-origin-verify-secret sin versión habilitada: bloqueo directo *.run.app inactivo en esta revisión." >&2
+          fi
           for v in "$DB_VERSION" "$HMAC_VERSION" "$SHARE_HMAC_VERSION" "$OAUTH_SECRET_VERSION" "$ADMIN_EMAILS_VERSION"; do
             if ! printf '%s' "$v" | grep -Eq '^[0-9]+$'; then
               echo "Versión de secreto no numérica; se aborta el despliegue." >&2
@@ -219,6 +234,8 @@ jobs:
           {
             echo "GEMINI_SECRET_FLAG=${GEMINI_SECRET_FLAG}"
             echo "PHONE_SECRET_FLAG=${PHONE_SECRET_FLAG}"
+            echo "ORIGIN_VERIFY_SECRET_FLAG=${ORIGIN_VERIFY_SECRET_FLAG}"
+            echo "ORIGIN_VERIFY_ENABLED=${ORIGIN_VERIFY_ENABLED}"
             echo "DB_VERSION=${DB_VERSION}"
             echo "HMAC_VERSION=${HMAC_VERSION}"
             echo "SHARE_HMAC_VERSION=${SHARE_HMAC_VERSION}"
@@ -283,7 +300,7 @@ jobs:
             --image "$IMAGE" \
             --no-traffic --tag "$TAG" \
             --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS},ARGOS_SHARE_PETS_CREATE_ENABLED=true,ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${OIDC_AUDIENCE}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI}" \
-            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION},ARGOS_ADMIN_EMAILS=argos-admin-emails:${ADMIN_EMAILS_VERSION}${GEMINI_SECRET_FLAG}${PHONE_SECRET_FLAG}" \
+            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION},ARGOS_ADMIN_EMAILS=argos-admin-emails:${ADMIN_EMAILS_VERSION}${GEMINI_SECRET_FLAG}${PHONE_SECRET_FLAG}${ORIGIN_VERIFY_SECRET_FLAG}" \
             --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
             --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json > "${RUNNER_TEMP}/service.json"
@@ -305,8 +322,17 @@ jobs:
           # GFE intercepta /healthz externo con 404 (D-32): el smoke externo usa /readyz y /; las probes internas siguen en /healthz.
           curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}/readyz" > /dev/null
           echo "Smoke test OK: /readyz"
-          curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}/" > /dev/null
-          echo "Smoke test OK: /"
+          if [ "${ORIGIN_VERIFY_ENABLED:-false}" = "true" ]; then
+            STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 15 "${TAG_URL}/")"
+            if [ "$STATUS" != "403" ]; then
+              echo "Smoke test falló: con ARGOS_ORIGIN_VERIFY_SECRET activo, / directo debía devolver 403 y devolvió ${STATUS}." >&2
+              exit 1
+            fi
+            echo "Smoke test OK: / directo bloqueado con 403 (X-Origin-Verify activo)"
+          else
+            curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}/" > /dev/null
+            echo "Smoke test OK: /"
+          fi
 
       - name: Mover el 100 % del tráfico a la revisión nueva
         run: |

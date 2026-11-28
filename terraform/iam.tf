@@ -137,6 +137,14 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_gemin
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+# argos-deployer: metadatos de versiones del secreto de verificación de origen Cloudflare, a nivel de secreto. Sin secretAccessor.
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_origin_verify_secret" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.origin_verify_secret.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # argos-scheduler: invocar el servicio (OIDC hacia POST /internal/maintenance, REQ-CLD-007).
 resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   project  = var.project_id
@@ -243,4 +251,12 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_phone
   secret_id = google_secret_manager_secret.phone_hmac_key.secret_id
   role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# argos-run: lectura del secreto de verificación de origen Cloudflare (bloqueo *.run.app), solo a nivel de secreto.
+resource "google_secret_manager_secret_iam_member" "run_origin_verify_secret" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.origin_verify_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
 }

@@ -190,6 +190,31 @@ resource "google_secret_manager_secret" "phone_hmac_key" {
   depends_on = [google_project_service.apis]
 }
 
+# Verificación de origen Cloudflare (bloqueo de acceso directo a *.run.app, mitigación H-01 a costo $0).
+# Solo el contenedor del secreto: NO hay google_secret_manager_secret_version, así que ni la clave ni un marcador
+# entran al repositorio ni al state. Carga inicial por Neo fuera de Terraform:
+#   printf '%s' "$CLAVE" | gcloud secrets versions add argos-origin-verify-secret --data-file=- --project=<project_id>
+# Opcional: sin versión creada, deploy-argos.yml no referencia ARGOS_ORIGIN_VERIFY_SECRET y el despliegue no falla.
+resource "google_secret_manager_secret" "origin_verify_secret" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-origin-verify-secret"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_secret_manager_secret_version" "phone_hmac_key" {
   secret          = google_secret_manager_secret.phone_hmac_key.id
   secret_data     = var.phone_hmac_key
