@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserAvatarEditor } from '../components/AvatarCropper.tsx';
 import { Button, FormError, PasswordField, SelectField, TextField } from '../components/Field.tsx';
 import { UserAvatar } from '../components/UserAvatar.tsx';
+import { AccountPhoneSection } from '../components/AccountPhone.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { DeletionApiError, createAccountDeletionApi, deletionFeedback, type AffectedHousehold, type DeletionFeedback } from '../account-deletion-google.ts';
 import { humanSchemaMessage } from '../schema-messages.ts';
@@ -491,6 +492,7 @@ export function AccountPage(): JSX.Element {
       <h1 className="text-2xl font-bold">Perfil</h1>
       <AvatarSection />
       <ProfileSection />
+      <AccountPhoneSection initial={(user as { readonly phone?: string | null } | null)?.phone ?? null} />
       {hasGoogle ? <GoogleLinkedStatus /> : hasPassword ? <GoogleLinkSection /> : null}
       {hasPassword ? (
         <>

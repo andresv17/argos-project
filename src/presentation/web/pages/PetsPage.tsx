@@ -23,6 +23,8 @@ import { ChipRegisteredDialog, MyChipRequests } from '../components/ChipRegister
 import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
 import { CarePanel } from '../components/CarePanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
+import { EmergencyCardPanel } from '../components/EmergencyCard.tsx';
+import { CriticalAllergiesEditor } from '../components/EmergencyAllergies.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isMicrochipRegistered, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
@@ -345,7 +347,14 @@ export function PetsPage(): JSX.Element {
                 {...(dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN'
                   ? {
                       shareSlot: (
-                        <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                        <>
+                          <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                          {/* 012, T1676: alergias críticas (titular o ADMIN de hogar) y ficha QR (solo titulares; el servidor decide con 404 uniforme). */}
+                          <CriticalAllergiesEditor key={`allergies-${dashboard.profile.id}`} petId={dashboard.profile.id} initial={(dashboard.profile as { readonly criticalAllergies?: readonly string[] }).criticalAllergies ?? []} />
+                          {dashboard.myRole === 'OWNER' ? (
+                            <EmergencyCardPanel key={`qr-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} hasPhone={(user as { readonly phone?: string | null } | null)?.phone !== null} />
+                          ) : null}
+                        </>
                       ),
                     }
                   : {})}

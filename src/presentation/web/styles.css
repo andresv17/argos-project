@@ -116,3 +116,59 @@ body {
     content: none;
   }
 }
+
+/* Hoja A6 de la ficha QR de emergencia (012, T1676; REQ-QR12-005, SC-012-051): solo existe en papel y solo con `body.printing-qr`; el QR mide 60 mm de lado (el mínimo del contrato es 30 mm), negro sobre blanco. */
+.qr-a6 {
+  display: none;
+}
+
+@media print {
+  @page qr-a6 {
+    size: A6;
+    margin: 0;
+  }
+
+  /* Solo la hoja: el resto de la app queda invisible y sin ocupar papel; la hoja se coloca en la esquina de la página. */
+  body.printing-qr * {
+    visibility: hidden;
+  }
+
+  body.printing-qr .qr-a6,
+  body.printing-qr .qr-a6 * {
+    visibility: visible;
+  }
+
+  body.printing-qr .qr-a6 {
+    display: grid;
+    position: fixed;
+    top: 0;
+    left: 0;
+    page: qr-a6;
+    justify-items: center;
+    align-content: center;
+    gap: 6mm;
+    width: 105mm;
+    height: 148mm;
+    padding: 10mm;
+    box-sizing: border-box;
+    background: #fff;
+    color: #000;
+    text-align: center;
+  }
+
+  .qr-a6__name {
+    font-size: 20pt;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .qr-a6__code {
+    width: 60mm;
+    height: 60mm;
+    image-rendering: pixelated;
+  }
+
+  .qr-a6__caption {
+    font-size: 12pt;
+  }
+}
