@@ -46,10 +46,10 @@ describe('verify-ci-ready.sh (DEUDA-CI-VERIFY-PREPUSH)', () => {
     expect(readFileSync(SCRIPT, 'utf8')).toContain('set -euo pipefail');
   });
 
-  it('un repo limpio sale 0 con las tres comprobaciones en PASA', () => {
+  it('un repo limpio sale 0 con las cuatro comprobaciones en PASA', () => {
     const r = run(repo(CLEAN));
     expect(r.code).toBe(0);
-    expect(r.out.match(/^PASA /gm)).toHaveLength(3);
+    expect(r.out.match(/^PASA /gm)).toHaveLength(4);
     expect(r.out).toContain('LISTO PARA CI');
   });
 
@@ -122,9 +122,29 @@ describe('verify-ci-ready.sh (DEUDA-CI-VERIFY-PREPUSH)', () => {
     expect(run(dir).code).toBe(0);
   });
 
-  it('el repo real: la comprobacion (ii) no encuentra lecturas de claude/ sin seguimiento ni archivos sin seguimiento', () => {
+  it('(iv) un test Vitest que importa playwright sin skipIf + executablePath falla; con guarda o en tests/e2e/ pasa', () => {
+    const bad = repo({
+      ...CLEAN,
+      'tests/unit/bad-pw.spec.ts': "import { chromium } from 'playwright';\nexport const x = chromium;\n",
+    });
+    const r = run(bad);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('tests/unit/bad-pw.spec.ts:1');
+
+    const guarded = repo({
+      ...CLEAN,
+      'tests/unit/ok-pw.spec.ts': "import { chromium } from 'playwright';\nconst has = Boolean(chromium.executablePath());\nexport const runIf = (fn: () => void) => ({ skipIf: (c: boolean) => (c ? undefined : fn()) }).skipIf(!has);\n",
+      'tests/e2e/e2e-pw.spec.ts': "import { test } from '@playwright/test';\nexport const e = test;\n",
+    });
+    expect(run(guarded).code).toBe(0);
+  });
+
+  it('el repo real: la comprobacion (ii) no encuentra lecturas de claude/ sin seguimiento ni archivos sin seguimiento, ni (iv) Playwright sin guarda', () => {
     const r = spawnSync('node', [join(process.cwd(), 'scripts', 'lib', 'ci-ready-test-reads.mjs')], { encoding: 'utf8' });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
+    const pw = spawnSync('node', [join(process.cwd(), 'scripts', 'lib', 'ci-ready-playwright-guard.mjs')], { encoding: 'utf8' });
+    expect(pw.status).toBe(0);
+    expect(pw.stdout.trim()).toBe('');
   });
 });
