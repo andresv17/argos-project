@@ -14,7 +14,7 @@
  */
 import { useState } from 'react';
 import { BRAND_NAME } from '../brand.ts';
-import type { ClinicalPetView, SharedSummaryViewModel } from '../share-api.ts';
+import { NEUTRAL_SCOPE_LABEL, type ClinicalPetView, type ShareScopeName, type SharedSummaryViewModel } from '../share-api.ts';
 import { SEVERITY_LABEL, SYMPTOM_TYPE_LABEL } from '../symptoms.ts';
 import { decimalEs, DEWORMING_TYPE_LABEL, formatCalendarDate, formatUtcStamp, labelOf, PARAMETER_CATEGORY_LABEL, SEX_LABEL, SPECIES_LABEL } from '../share-view.ts';
 
@@ -199,12 +199,29 @@ function PetSection({ pet, index, props, names }: { readonly pet: ClinicalPetVie
   );
 }
 
+/**
+ * Título y modo de lista del resumen por alcance, con `switch` exhaustivo y caso neutro (ENM-005-E §8.3): un `scope` desconocido NUNCA se trata como `HOUSEHOLD` («Hogar compartido») ni como mascota
+ * única; se rotula «Compartido» y, si trae varias mascotas, se lista sin nombrar un alcance que no se conoce.
+ */
+export function summaryHeading(scope: ShareScopeName, pets: ReadonlyArray<{ readonly profile: { readonly name: string } }>): { readonly multi: boolean; readonly title: string } {
+  switch (scope) {
+    case 'PET':
+      return { multi: false, title: `Resumen clínico de ${pets[0]?.profile.name ?? ''}` };
+    case 'HOUSEHOLD':
+      return { multi: true, title: `Resumen clínico · Hogar compartido · ${pets.length} mascotas` };
+    case 'PETS':
+      return { multi: true, title: `Resumen clínico · ${pets.length} ${pets.length === 1 ? 'mascota' : 'mascotas'}` };
+    default:
+      return { multi: pets.length > 1, title: `Resumen clínico · ${NEUTRAL_SCOPE_LABEL}` };
+  }
+}
+
 export function SharedSummaryDocument(props: SharedSummaryDocumentProps): JSX.Element {
   const { view, mode } = props;
   const { summary } = view;
   const names = new Map(view.fileLabels.map((l) => [l.fileId, l.displayName] as const));
-  const household = summary.scope === 'HOUSEHOLD';
-  const title = household ? `Resumen clínico · Hogar compartido · ${summary.pets.length} mascotas` : `Resumen clínico de ${summary.pets[0]?.profile.name ?? ''}`;
+  const { multi, title } = summaryHeading(summary.scope, summary.pets);
+  const household = multi;
   return (
     <article aria-labelledby="summary-title" className="mx-auto grid w-full min-w-0 max-w-3xl gap-3 bg-white p-4 text-slate-900 sm:p-6 print-sheet">
       {mode === 'PREVIEW' ? (

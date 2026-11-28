@@ -230,6 +230,8 @@ export function PetsPage(): JSX.Element {
   // «Compartir con mi veterinario» (REQ-VET-001, D5-19): el alcance hogar se ofrece solo si el contexto activo es un hogar donde soy propietario o ADMIN y poseo mascotas en él.
   const ownedInContext = isMine || user === null ? 0 : cards.filter((c) => c.profile.ownerUserId === user.id).length;
   const shareHousehold = !isMine && ownedInContext > 0 && households.some((h) => h.household.id === contextId && h.myRole === 'ADMIN') ? { id: contextId, petCount: ownedInContext } : null;
+  // 012 (T1696, D12-19): en el contexto de un hogar la ficha ofrece el MISMO selector de subconjunto que Hogares; en «Mis mascotas» no hay hogar ni selector (REQ-PET11-001).
+  const sharePets = user === null ? [] : cards.filter((c) => c.profile.ownerUserId === user.id).map((c) => ({ id: c.profile.id, name: c.profile.name }));
   const householdChoices = options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []));
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -348,7 +350,7 @@ export function PetsPage(): JSX.Element {
                   ? {
                       shareSlot: (
                         <>
-                          <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                          <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} householdPets={shareHousehold === null ? undefined : sharePets} canCreateLinks hideScopeChoice={shareHousehold === null} />
                           {/* 012, T1676: alergias críticas (titular o ADMIN de hogar) y ficha QR (solo titulares; el servidor decide con 404 uniforme). */}
                           <CriticalAllergiesEditor key={`allergies-${dashboard.profile.id}`} petId={dashboard.profile.id} initial={(dashboard.profile as { readonly criticalAllergies?: readonly string[] }).criticalAllergies} />
                           {dashboard.myRole === 'OWNER' ? (

@@ -96,13 +96,69 @@ export class ShareApiError extends Error {
   }
 }
 
-export type ShareRef = { readonly scope: 'PET'; readonly id: string } | { readonly scope: 'HOUSEHOLD'; readonly id: string };
+/**
+ * Referencia de un enlace. `PETS` (ENM-005-E, feature 012): subconjunto estático de mascotas de un hogar; solo la vista previa lo usa con su lista candidata (`petIds`).
+ * Todo `switch` sobre el alcance es exhaustivo con un caso neutro (ENM-005-E §8.3): un valor desconocido NUNCA se trata como hogar ni como mascota única.
+ */
+export type ShareRef = { readonly scope: 'PET'; readonly id: string } | { readonly scope: 'HOUSEHOLD'; readonly id: string } | { readonly scope: 'PETS'; readonly id: string; readonly petIds: readonly string[] };
 
-const base = (ref: ShareRef): string => (ref.scope === 'PET' ? `/pets/${ref.id}` : `/households/${ref.id}`);
+/** Rótulo neutro de un alcance que esta versión de la SPA no conoce (ENM-005-E §8.3). */
+export const NEUTRAL_SCOPE_LABEL = 'Compartido';
+
+const exhaustive = (value: never): string => {
+  void value;
+  return '';
+};
+
+/** Prefijo de ruta del recurso (`/pets/{id}` o `/households/{id}`); un alcance desconocido no devuelve ruta (cadena vacía). */
+export function base(ref: ShareRef): string {
+  switch (ref.scope) {
+    case 'PET':
+      return `/pets/${ref.id}`;
+    case 'HOUSEHOLD':
+    case 'PETS':
+      return `/households/${ref.id}`;
+    default:
+      return exhaustive(ref);
+  }
+}
+
+/** Una vista privada de un enlace `PETS` (`share-link-pets.schema.json`): solo las mascotas del enlace sobre las que quien consulta es titular. Sin `householdId` ni identidad del creador. */
+export interface PetsShareLinkView {
+  readonly id: string;
+  readonly scope: 'PETS';
+  readonly status: ShareStatusName;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly revokedAt: string | null;
+  readonly includeMicrochip: boolean;
+  readonly includeClinicalFiles: boolean;
+  readonly includeDeceasedAt?: boolean;
+  readonly petIds: readonly string[];
+  readonly petCount: number;
+  readonly createdByMe: boolean;
+}
+export interface PetsShareLinkList {
+  readonly items: PetsShareLinkView[];
+  /** Enlaces activos del hogar (`HOUSEHOLD` + `PETS`, de todos los creadores): el número del `409`; puede superar los `items` de esta lista. */
+  readonly activeCount: number;
+  readonly maxActiveLinks: 20;
+}
+export type PetsShareLinkListResult = PetsShareLinkList & { readonly serverNow: string | null };
+export interface CreatePetsShareLinkBody extends CreateShareLinkBody {
+  readonly petIds: readonly string[];
+}
+export type CreatePetsShareLinkOutcome = { readonly kind: 'CREATED'; readonly link: PetsShareLinkView; readonly url: string } | { readonly kind: 'REPLAY'; readonly link: PetsShareLinkView };
 
 export interface ShareApi {
   create(ref: ShareRef, body: CreateShareLinkBody, idempotencyKey: string): Promise<CreateShareLinkOutcome>;
   list(ref: ShareRef): Promise<ShareLinkListResult>;
+  /** Alcance `PETS` (ENM-005-E): crea el enlace de un subconjunto de mascotas del hogar (`Idempotency-Key` como en 005). */
+  createPetsShareLink(householdId: string, body: CreatePetsShareLinkBody, idempotencyKey: string): Promise<CreatePetsShareLinkOutcome>;
+  /** Enlaces `PETS` del hogar visibles para quien consulta. */
+  listPets(householdId: string): Promise<PetsShareLinkListResult>;
+  /** Retira UNA mascota de un enlace `PETS` sin revocarlo para las demás (404 uniforme si no aplica). */
+  withdrawPet(shareLinkId: string, petId: string): Promise<void>;
   revoke(shareLinkId: string): Promise<void>;
   preview(ref: ShareRef, options: { readonly includeMicrochip: boolean; readonly includeClinicalFiles: boolean; readonly includeDeceasedAt?: boolean }): Promise<SharedSummaryViewModel>;
   /** Lectura pública por token: sin cookie, sin CSRF, solo GET. */
@@ -155,12 +211,29 @@ export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       const response = await send(`${base(ref)}/share-links`, authed('GET'));
       return { ...(await json<ShareLinkList>(response)), serverNow: parseHttpDate(response.headers.get('date')) };
     },
+    async createPetsShareLink(householdId, body, idempotencyKey) {
+      const response = await send(`/households/${householdId}/share-links/pets`, authed('POST', { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey }, JSON.stringify(body)));
+      const result = await json<{ link: PetsShareLinkView; url?: string }>(response);
+      return response.status === 201 && typeof result.url === 'string' ? { kind: 'CREATED', link: result.link, url: result.url } : { kind: 'REPLAY', link: result.link };
+    },
+    async listPets(householdId) {
+      const response = await send(`/households/${householdId}/share-links/pets`, authed('GET'));
+      return { ...(await json<PetsShareLinkList>(response)), serverNow: parseHttpDate(response.headers.get('date')) };
+    },
+    async withdrawPet(shareLinkId, petId) {
+      await send(`/share-links/${shareLinkId}/pets/${petId}`, authed('DELETE'));
+    },
     async revoke(shareLinkId) {
       await send(`/share-links/${shareLinkId}`, authed('DELETE'));
     },
     async preview(ref, options) {
-      const query = `includeMicrochip=${String(options.includeMicrochip)}&includeClinicalFiles=${String(options.includeClinicalFiles)}${options.includeDeceasedAt === true ? '&includeDeceasedAt=true' : ''}`;
-      return json<SharedSummaryViewModel>(await send(`${base(ref)}/clinical-summary?${query}`, authed('GET')));
+      const flags = `includeMicrochip=${String(options.includeMicrochip)}&includeClinicalFiles=${String(options.includeClinicalFiles)}${options.includeDeceasedAt === true ? '&includeDeceasedAt=true' : ''}`;
+      if (ref.scope === 'PETS') {
+        // Lista candidata en la query repetida `petIds` (los registros de la aplicación no guardan la query; el filtro de Cloud Run es precondición de release, annex §8.6).
+        const ids = ref.petIds.map((id) => `petIds=${encodeURIComponent(id)}`).join('&');
+        return json<SharedSummaryViewModel>(await send(`${base(ref)}/clinical-summary/pets?${ids}&${flags}`, authed('GET')));
+      }
+      return json<SharedSummaryViewModel>(await send(`${base(ref)}/clinical-summary?${flags}`, authed('GET')));
     },
     async getShared(token) {
       return json<SharedSummaryViewModel>(await send(`/shared/${encodeURIComponent(token)}/summary`, { method: 'GET', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' }, false));

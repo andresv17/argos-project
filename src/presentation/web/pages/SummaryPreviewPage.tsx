@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { SharedSummaryDocument } from '../components/SharedSummary.tsx';
-import { createShareApi, previewAvatarPath, ShareApiError, type ShareApi, type SharedSummaryViewModel } from '../share-api.ts';
+import { createShareApi, previewAvatarPath, ShareApiError, type ShareApi, type ShareRef, type SharedSummaryViewModel } from '../share-api.ts';
 import { shareProblemMessage } from '../share-view.ts';
 
 export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.Element {
@@ -19,12 +19,14 @@ export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.El
   const includeMicrochip = query.get('includeMicrochip') === 'true';
   const includeClinicalFiles = query.get('includeClinicalFiles') === 'true';
   const includeDeceasedAt = query.get('includeDeceasedAt') === 'true';
+  // 012 (T1696): la vista previa de un subconjunto lleva la lista candidata en la query repetida `petIds`.
+  const petIds = query.getAll('petIds').join(',');
 
   useEffect(() => {
     const client = api ?? createShareApi();
-    const ref = householdId !== undefined ? ({ scope: 'HOUSEHOLD', id: householdId } as const) : ({ scope: 'PET', id: petId ?? '' } as const);
+    const ref: ShareRef = householdId === undefined ? { scope: 'PET', id: petId ?? '' } : petIds === '' ? { scope: 'HOUSEHOLD', id: householdId } : { scope: 'PETS', id: householdId, petIds: petIds.split(',') };
     client.preview(ref, { includeMicrochip, includeClinicalFiles, includeDeceasedAt }).then(setView, (e: unknown) => setError(shareProblemMessage(e instanceof ShareApiError ? e.code : 'ERR-INTERNAL-UNEXPECTED')));
-  }, [api, petId, householdId, includeMicrochip, includeClinicalFiles, includeDeceasedAt]);
+  }, [api, petId, householdId, petIds, includeMicrochip, includeClinicalFiles, includeDeceasedAt]);
 
   return (
     <div className="grid min-w-0 gap-3">

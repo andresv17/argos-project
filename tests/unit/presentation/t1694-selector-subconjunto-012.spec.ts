@@ -161,7 +161,8 @@ describe('T1694 un solo selector en los dos puntos de entrada (SC-012-054, REQ-V
     const fromHouseholds = renderToStaticMarkup(h(ShareLinksView as never, subsetProps({ petName: 'Casa Vallejo' }) as never));
     const fromPets = renderToStaticMarkup(h(ShareLinksView as never, subsetProps({ petName: 'Casa Vallejo', household: { petCount: 4 } }) as never));
     expect(fromHouseholds).toBe(fromPets);
-    expect(checkboxNames(fromHouseholds)).toEqual(['Argos', 'Kira', 'Nyx', 'Milo']);
+    // Solo las casillas del selector (el formulario trae además las de microchip, archivos clínicos y fecha de fallecimiento, que no son mascotas).
+    expect(checkboxNames(/<fieldset[^>]*data-pet-subset[^>]*>.*?<\/fieldset>/s.exec(fromHouseholds)?.[0] ?? '')).toEqual(['Argos', 'Kira', 'Nyx', 'Milo']);
     expect(fromHouseholds).toMatch(/2\s+de\s+4\s+mascotas/);
   });
 

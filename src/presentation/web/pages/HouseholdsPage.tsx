@@ -443,7 +443,7 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
         ) : null}
         {tab === 'compartir' ? (
           canShare && pets !== null && mine.length > 0 ? (
-            <ShareLinksPanel hideScopeChoice petId="" petName={view.household.name} household={{ id, petCount: mine.length }} canCreateLinks />
+            <ShareLinksPanel hideScopeChoice petId="" petName={view.household.name} household={{ id, petCount: mine.length }} householdPets={mine.map((p) => ({ id: p.profile.id, name: p.profile.name }))} canCreateLinks />
           ) : (
             <p className={`${PANEL} text-sm text-slate-800`}>
               {pets === null
