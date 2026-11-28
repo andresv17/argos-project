@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/share-link-pets.schema.json",
   "title": "ShareLinkPetsSchema",
-  "description": "Alcance PETS de los enlaces de solo lectura para el veterinario [REQ-VET12-001..008, D12-19..D12-21, ENM-005-E]. Esquemas INCREMENTALES de la feature 012 (DRAFT 0.2.2, Bloque E, #81, T1690). Objetos cerrados. NO edita share-link.schema.json ni clinical-summary.schema.json de 005 (APPROVED/DRAFT ajenos): las vistas de 005 para PET/HOUSEHOLD no cambian; el tercer valor de alcance PETS y su efecto en 005 se declaran como enmienda ENM-005-E en share-link-subset-annex.md, que firma solo Neo. Sin tokenHash, sin token en vistas de lectura (INV-005-005). La respuesta publica /shared/{token}/summary conserva el envoltorio SharedSummaryView de 005 sin cambio de forma.",
+  "description": "Alcance PETS de los enlaces de solo lectura para el veterinario [REQ-VET12-001..008, D12-19..D12-21, ENM-005-E]. Esquemas INCREMENTALES de la feature 012 (APPROVED 0.2.2, firmado por Neo, Bloque E, #81, T1690). Objetos cerrados. NO edita share-link.schema.json ni clinical-summary.schema.json de 005 (APPROVED/DRAFT ajenos): las vistas de 005 para PET/HOUSEHOLD no cambian; el tercer valor de alcance PETS y su efecto en 005 se declaran como enmienda ENM-005-E en share-link-subset-annex.md, que firma solo Neo. Sin tokenHash, sin token en vistas de lectura (INV-005-005). La respuesta publica /shared/{token}/summary conserva el envoltorio SharedSummaryView de 005 sin cambio de forma.",
   "x-sdd-metadata": {
     "version": "0.2.2",
     "status": "APPROVED",

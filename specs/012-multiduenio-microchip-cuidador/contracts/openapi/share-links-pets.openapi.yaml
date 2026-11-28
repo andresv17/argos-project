@@ -4,7 +4,7 @@ info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 012 (Compartir un subconjunto de mascotas con el veterinario, #81)
   version: 0.2.2
   description: >
-    Documento INCREMENTAL de la feature 012 (T1690, Bloque E, #81). Archivo NUEVO: no edita share-links.openapi.yaml de 005 (3.5.0). DRAFT 0.2.2 (incorpora T1691, rondas r2 y r3, y las decisiones de Neo del 2026-11-28): sin aprobar; solo Neo aprueba (ENM-005-E).
+    Documento INCREMENTAL de la feature 012 (T1690, Bloque E, #81). Archivo NUEVO: no edita share-links.openapi.yaml de 005 (3.5.0). APPROVED 0.2.2, firmado por Neo (Nivel 2, 2026-11-28; incorpora T1691, rondas r2 y r3, y las decisiones de Neo del 2026-11-28; ENM-005-E).
 
     ALCANCE PETS (REQ-VET12-001, D12-19): tercer alcance de enlace de solo lectura, ESTATICO, con 1 a MAX_SHARE_LINK_PETS = 20 mascotas elegidas de UN hogar (elegible = asignada ahora al hogar y con el creador como propietario principal o co-propietario ACTIVE, ENM-005-A). Cuenta como UN enlace del hogar de origen para el tope de 20 de REQ-VET-012 (D12-21). 'Todas' sigue creando un enlace HOUSEHOLD (dinamico) por createHouseholdShareLink de 005; en la ficha de la mascota se mantiene el alcance PET sin selector (REQ-PET11-001).
 
