@@ -42,3 +42,55 @@
 - deploy-argos.yml: solo variables de entorno del bloque gcloud run deploy; ninguna accion ni instalacion nueva.
 - Dictamen PASS CON OBS. E1 se cumple literalmente. Observaciones: OBS-M1 firma Logos sin fuente en disco; OBS-M2 riesgo residual sin redimensionado; OBS-M5 N2-10/T885 aun cita N2-01 = A.
 - Acta: .specify/memory/audits/merovingian-006-fase14-deps.md. Sin commit ni push.
+
+## 2026-11-19 | Revalidación Caso B 007 (grafo REQ->INV->STATE->ERR->src->tests, solo lectura)
+- CC: enmiendas 002 (exportBackup V32, ImportPreview lifeStatusChanges, commit a49ccbe) y 005 (share-link 1.1.0 e openapi 3.4.0, commit a63e285) verificadas en la worktree argos-007 (HEAD a63e285). Sin ediciones de contratos, src ni tests.
+- Consumidores: 003 no referencia el sobre de respaldo (solo ProblemDetails); transferencia SQLite->PG pinea 3.2.0 en la misma build. 006 sin referencias a backup. Sin rotura.
+- Opt-in: default false seguro (clinical-summary.ts:72); INV-005-004 y hashes pineados (t778) intactos. Hallazgos: O-1 includeDeceasedAt sin cablear (MEDIA), O-3 004 openapi cambia sin bump y dice LOCKED en 005 (MEDIA).
+- Veredicto PASS CON OBSERVACIONES. Acta .specify/memory/audits/merovingian-007-revalidacion-caso-b.md (worktree argos-007). Sin commit ni push ni [x].
+
+## 2026-11-20 | T1070 | Merovingian (grafo de impacto Bloque G 007, solo lectura)
+- Worktree argos-007 (HEAD 94e0865). Acta: .specify/memory/audits/merovingian-007-T1070-grafo-16bit.md (sin commit, sin [x]).
+- H1: T1069 no entregado (claude/decisiones-neo-007-2026-11-21.md inexistente); bloquea solo texto 16-bit. Conteo y estructura no esperan.
+- H2: R1 ALTA: filtro JSON sin foto choca con renderedPetsCount/PET_COUNT_RULE. Requiere decision /architect antes de T1072.
+- H3: 351bf9a implementa T1073/T1074/T1076 (semilla) con tasks.md en [ ]. Drift a reportar.
+- H4: householdBlock (build-image-prompt.ts:34) tambien dice 32-bit; no estaba en el backlog de T1070.
+- Contrato: scene-payload.schema.json no fija el JSON del prompt; sin enmienda. Confirmado.
+
+## 2026-11-20 — Feature 008 impacto y dependencias (solo lectura, rama 008-sso-portal-roles @7614387)
+- Constitución vigente 3.7.0 (no 3.4.0 como indica el encargo). `jose` 6.2.17 autorizada solo para `/internal/maintenance` y `/internal/scene-worker` en `src/infrastructure/http/oidc-verify.ts` (comentario de código: "No se reimplementa criptografía a mano").
+- Hallazgos: enmienda de cookie `argos_oauth` SameSite=Lax exige enmienda constitucional (T1111); registro con sesión (D8-02) rompe contrato STATE-AUTH-SESSION-001 sin tarea asignada; REQ-PRM-003 de 005 contradicho por Bloques D/E; backup 004 sin impacto (envelope excluye usuarios).
+- npm audit (lockfile) sin salida en este entorno: no verificado. package.json y lock sin cambios; jose 6.2.17 confirmado.
+- Acta: .specify/memory/audits/merovingian-008-impacto.md (sin commit, sin [x], sin instalación).
+
+## 2026-11-23 — T1205 (parte /merovingian), Feature 009
+- Veredicto PASS CON CAMBIOS. Cero dependencias npm nuevas (package.json sin diff); jose ya autorizada, reutilización requiere Enmienda 009-A.
+- Hallazgos clave: MER-01 (ALTO) registerUser/login/STATE-AUTH-SESSION cambian en 002/004 sin declarar (T1241 dice «sin editar»); MER-02 (ALTO) tope 5 USD no protege gasto acumulado al cambiar de modelo (contraejemplo 4,80+4,20=9,00 USD); MER-07 (ALTO) REQ-PRO9-007 toca 007 APPROVED sin enmienda firmada.
+- Acta: .specify/memory/audits/merovingian-009-impacto.md. Sin commit, sin [x], spec/plan/tasks intactos.
+
+## 2026-11-25 — T1504 (parte /merovingian), Feature 011
+- Veredicto PASS CON CAMBIOS. Cero dependencias npm nuevas propuestas (package.json y lock sin diff); reutilizar stripImageMetadata, AvatarCropper/avatar-crop y fetch nativo. Riesgo: miniatura 96 px (#59) tentaría sharp/jimp (Nivel 2); recomendado canvas en cliente.
+- Hallazgo MER-11-01 (ALTO, bloqueante de diseño): D11-09 contradice REQ-SUM-003/006, INV-005-002 y las pruebas t750, t770, t778 de 005; no relajar pruebas (Nivel 3). Ruta recomendada: endpoint dedicado de avatar, resumen sin cambios. D11-06 = A sin enmienda 005; corregir fila obsoleta en contracts/README 011.
+- Acta: .specify/memory/audits/merovingian-011-T1504-impacto-2026-11-25.md. Sin commit, sin [x], sin tocar spec/plan/tasks.
+
+## 2026-11-26 — Auditoría previa Fase 0, Feature 012 (solo lectura)
+- CC: veredicto BLOQUEADO PARA ENMIENDA. H-01: unicidad global de microchip YA vigente (002 E-04, 004, migraciones 0008 SQLite / 0004 PG); ENM-002-MINOR-012-CHIP se re-enmarca a cambio de alcance del índice + split de error. H-02: citas INV-ACC-* obsoletas (son INV-ACC2-*) y falta INV-OWN2-001.
+- H-03: REQ-VET-002/011 dependen de #22 (Bloque A) pero T1690 los pone en E: dividir ENM-005. H-04: D12-08 (CHIP_CONFLICT, no abortar) contradice el precheck SC-CAT-025: decisión de Neo.
+- npm: package.json y lock sin diferencias vs HEAD; cero dependencias nuevas (D12-17 confirmado).
+- Acta: .specify/memory/audits/merovingian-012-fase0-2026-11-26.md. Sin ediciones de specs/contratos/código, sin commit, sin push, sin [x].
+
+## 2026-11-28 | T1691 (parte /merovingian), Feature 012, causa y efecto de ENM-005-E (solo lectura, HEAD f4f9ed1)
+- Veredicto PASS CON CAMBIOS. Sin dependencias npm nuevas (package.json y lock sin diff); refs solo argos.local.
+- Hallazgos: H-1 ALTA (share_link_audit.event_type CHECK de 005 no admite PET_WITHDRAWN; T1692 no lo migra; sin columna de mascota); H-2 ALTA (listHouseholdShareLinks: activeCount suma PETS sin especificar consulta ni items; ShareLinkView sin rama PETS); H-3 MEDIA (MINOR no aditivo para consumidores con enum cerrado; SPA ShareLinks.tsx:93 rotula PETS como «Hogar compartido»).
+- H-4 MEDIA (descripción pets de clinical-summary), H-5 BAJA (summary abierto en preview PETS).
+- Acta: .specify/memory/audits/merovingian-012-T1691-2026-11-28.md. Sin commit, sin [x], sin tocar contratos ni código.
+
+## 2026-11-28 | T1691 r2 (parte /merovingian), Feature 012, re-auditoría ENM-005-E DRAFT 0.2.0 (solo lectura)
+- CC: veredicto PASS CON CAMBIOS, 0 ALTA. ALTA-1 (PET_WITHDRAWN) y ALTA-2 (activeCount, listas, fuente única) CERRADAS en texto; contraste en disco con 005 (share-link 1.2.0), sqlite, use-cases y SPA.
+- Hallazgos: MEDIA-1 despliegue sin compuerta de SPA (Fase 2 no condicionada, SharedSummary.tsx:206); MEDIA-2 §8.3 incompleta (ShareLinks.tsx:329/362/402, share-api.ts:74/101 caen a PET); MEDIA-3 activeCount cambia semántica en campo existente (MINOR no es solo aditivo). BAJA: ref §5.3 en vez de §5.2 (línea 18), rama PETS de ShareLinkView atómica con el enum, H-5 abierto.
+- Verificado: stub de PetsPreviewView justificado (compile 012 carga solo 004 en schemas); fallthrough §8.1 confirmado; supply chain sin dependencias nuevas. Acta .specify/memory/audits/merovingian-012-T1691-r2-2026-11-28.md. Sin commit, sin [x], contratos intactos.
+
+## 2026-11-28 | T1691 r3 (parte /merovingian), Feature 012, re-auditoría ENM-005-E DRAFT 0.2.1 (solo lectura)
+- CC: veredicto PASS CON CAMBIOS, 0 ALTA. MEDIA-1 (precondición SPA §8.2.3), MEDIA-2 (§8.3 completa, líneas verificadas) y MEDIA-3 (semántica de activeCount declarada en §1(c), §5.5 y change_notes) CERRADAS en texto; BAJA-1 y BAJA-2 cerradas; BAJA-3 abierta.
+- Hallazgos nuevos: MEDIA-4 (inventario §8.5 mal localizado: resolveShare está en shared-view-use-cases.ts:58, no en share-link-use-cases.ts:144 que es mayRevoke); MEDIA-5 (activeCount de la lista se calcula en ListShareLinksUseCase:136 sobre items, no en countActive); MEDIA-6 (MINOR frente a cambio semántico, regla SemVer de spec-system.md:17, decisión de Neo); BAJA-N1..N3 (bandera: lectura al arrancar, posición en §3.4, openapi preview; cota 300 s no forzada).
+- Bandera ARGOS_SHARE_PETS_CREATE_ENABLED: sin efecto en contratos de 005 (ni enum, ni openapi 3.5.0, ni deploy). Sin dependencias nuevas. Acta .specify/memory/audits/merovingian-012-T1691-r3-2026-11-28.md. Sin commit, sin [x], contratos intactos.

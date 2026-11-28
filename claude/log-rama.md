@@ -209,3 +209,102 @@
 - Pública PASS CON OBS: sin clave ni ruta de almacenamiento; Cache-Control public max-age=60 sin prueba; Cloudflare no cachea /api/*. Auditoría PASS (ABOUT_UPDATE y ABOUT_PHOTO_UPDATE solo con objectRef=about, sin texto, alt, clave ni bytes).
 - Consentimiento FAIL de cobertura: legal-texts.md sin mención de /acerca-de ni de publicación del operador (0 coincidencias). Sin sustitutos legales: pendiente de abogado (P4-a..e). Hallazgo RAMA-T1432-01 MEDIO: no hay retirada de la foto.
 - Pruebas: vitest 5 archivos, 75 pasan, 21 omitidas (PG sin TEST_DATABASE_URL). Acta: .specify/memory/audits/rama-010-T1432-about-2026-11-25.md. Sin cambios en código, pruebas, specs ni tasks; sin [x], sin push.
+- 2026-11-25 [rama] T1513 (lectura, sin cambios): texto «Imagen generada con inteligencia artificial» veraz como etiqueta; no cambia lo enviado ni el consentimiento (no requiere noticeVersion nueva).
+  H-RAMA-01 ALTA (para Neo, Nivel 2): scene-notice.ts gemini-api (l.87 y l.101) dice «clave del propietario de esta instalacion» y «uso local con tu propia clave», contra /privacidad §6 y 010 (clave de Tipi; sin clave propia). D9-30 permite gemini-api en produccion desde /admin: el aviso vivo es falso. Deuda DEUDA-010-NOTICE con prioridad sube.
+  H-RAMA-02 MEDIA: aviso Vertex §4 afirma como hecho «no se usan para entrenar» y «30 dias»; /privacidad lo deja pendiente de validacion legal. Sin fuente en disco. Acta .specify/memory/audits/rama-011-T1513-etiqueta-ia-2026-11-25.md. Sin commit, sin [x].
+- 2026-11-25 [rama] T1518 dictamen prompt (011 Bloque C): PASS CON OBS. Prompt no persistido ni hasheado en produccion; echo no alcanzable (scene-composition:167). OBS-1 ALTA: REQ-IA11-004 'solo conteos' no implementable (diff necesita ids opacos) -> decision Neo; T1519 = saneado con migracion (no 'sin migracion'), recalcular huella. OBS-2: retencion copias/logs sin evidencia (sin IaC). OBS-5: plantilla editable sin control de datos personales. Acta .specify/memory/audits/rama-011-T1518-prompt-2026-11-25.md. Sin codigo, sin [x], sin commit.
+
+## 2026-11-25 · Feature 011 · T1530 /rama (Bloque D #63, delegados y roles) · solo lectura
+- Acta: .specify/memory/audits/rama-011-T1530-delegados-2026-11-25.md. Verificado en código: auditoría de 7 acciones con objectRef=admin_id sin correo ni sub; logs solo method+routeOptions.url; registro de rol SUPER_ONLY; alta 202 uniforme sin consultar users.
+- Veredicto: PASS CON OBS. OBS-1 MEDIA sub/correo de DISABLED retenidos en admin_identities sin plazo; OBS-2 MEDIA servidor devuelve correos de otros SUPER_ADMIN delegados (filtro solo en UI); OBS-5 ALTA aviso no describe a administradores delegados (decisión Neo, Nivel 2); sin plazo de retención para DISABLED ni INVITED caducadas.
+- T1531: no-fuga en auditoría PG y memoria (hoy solo SQLite), canario en logs, byte a byte del 202. Sin commit, sin [x], sin cambios de código.
+
+## 2026-11-25 · Feature 011 · T1534 parte /rama (avatar compartido, #31) · HEAD 1486eaf · solo lectura
+- Acta: .specify/memory/audits/rama-011-T1534-avatar-2026-11-25.md. Verificado en disco: PutAvatarUseCase guarda sin stripImageMetadata (la premisa "avatar saneado" del contrato no se cumple); strip solo en about y scene; t750/t770/t778 leídos sin cambios.
+- Veredicto: FAIL en estado actual (RAMA-T1534-01 ALTA: strip al servir obligatorio fail-closed; RAMA-T1534-02 ALTA: la nota ENM no basta, INV-005-002 y REQ-VET-006 requieren enmienda decidida por Neo). PASS CON OBS si se cumplen ambas y se actualiza la sección 7 de legal-texts.
+- Sin commit, sin [x], sin código.
+- 2026-11-25 [rama] Dictamen final T1534 (A+C+TR-1): CUMPLE CON RESERVAS. Cierra RAMA-T1534-01/02 en contrato; RES-1 bloqueante para T1535 (OpenAPI getSharedPetAvatar 500 por fallo de almacenamiento contradice TR-1; faltan nosniff y CSP en 5xx). Sec.7 legal-texts = deuda Neo/abogado, no bloquea T1535. Acta .specify/memory/audits/rama-011-T1534-avatar-A-C-2026-11-25.md. Sin ediciones de specs/código.
+- 2026-11-25 [rama] CC-RES1 Cierre RES-1 T1534: CERRADA tras verificacion linea a linea (OpenAPI L379, L411, L416-417; spec L120 reglas 4 y 6). Solo lectura salvo acta y registro. Sin commit ni cambios de estado.
+
+## 2026-11-25 — T1555 (dictamen de privacidad, foto de perfil de usuario, #78)
+- CC-RAMA-T1555-01: lectura completa de tasks T1553/T1555, spec REQ-PRF11-001/002, INV-PRF11-001, SC-011-057..062, EDGE-011-007, anexo user-avatar, OpenAPI 3.2.0, schema 1.0.0, acta D11-13 y enmienda Logos iter 244/246.
+- H-RAMA-T1555-01..08: hallazgos de cache privada de larga duracion, texto legal 010 sin foto de perfil, excepcion INV-ARC-003 sin enmienda en 004 ni regex de listado para users/, sin tarea legal en tasks.md, falta registrar iter 246 en el acta de decisiones.
+- Veredicto: CUMPLE CON RESERVAS. Sin edicion de codigo ni contratos. Acta en .specify/memory/audits/rama-011-T1555-avatar-usuario-2026-11-25.md.
+
+## 2026-11-26 · Feature 012 · Fase 0 (T1605) auditoría de privacidad del data-model · solo lectura
+- Veredicto: NO CUMPLE (sellable tras correcciones). 7 ALTA: F-01 premisa falsa (unicidad global de microchip ya existe en 004: SQLite 0008, PG 0004); F-02 índice con chip_conflict/deceased_at deja huecos; F-03 token QR en logs de plataforma sin exclusión; F-04 consentimiento del teléfono por cuenta, no por mascota; F-05 borrado de cuenta del principal sin bloqueo por co-propietarios (account-use-cases.ts:181-240); F-06 IDs de usuario sin FK ni pseudonimización; F-07 evidencias sin ciclo de vida.
+- Retención y borrado propuestos por dato nuevo en el acta (sección 4). Decisiones para Neo: D-P1..D-P5 (sección 7).
+- Acta: .specify/memory/audits/rama-012-fase0-2026-11-26.md. Sin ediciones de specs, contratos, código ni tasks; sin [x], commit ni push.
+
+## 2026-11-26 · Feature 012 · Re-auditoría dirigida Fase 0 (F-01..F-14) · solo lectura
+- Veredicto: CUMPLE CON RESERVAS. F-01..F-14 cerrados en el texto nuevo; 10 residuales (R-01..R-10). Sucesión del principal (Nivel 1 §D.4) confirmada con condición de ratificación de Neo (R-09, R-10).
+- Acta: .specify/memory/audits/rama-012-reauditoria-2026-11-26.md. Sin ediciones de specs, contratos, código ni tasks; sin [x], commit, push ni git add.
+
+## 2026-11-26 21:30 · Feature 012 · Revisión dirigida (N2-R2, N2-R2 cascadas, rejected_by, R-08, R-06, I.1, I.3) · solo lectura
+- Veredicto: CUMPLE CON RESERVAS. Cerrados: cascadas (R-05), rejected_by/approver_set (R-04 parcial), ficha OFF al fallecer (R-08a), ip_rate_events (R-06), supresión del reclamante no adelanta borrado. Abiertos: share_links vs 005 (NOT NULL + CASCADE, R-A3), retención de disputas por ausencia (R-A6), plazo máximo de UNDER_REVIEW (R-A1), aviso de alergias en activación (R-A5).
+- Acta: .specify/memory/audits/rama-012-dirigida-2026-11-26.md. Sin ediciones de specs, contratos, código ni tasks; sin [x], commit, push ni git add. Decisiones pendientes para Neo: plazo UNDER_REVIEW, retención ausencias, PRINCIPAL_ABSENT, preferencia del reclamante.
+
+## 2026-11-27 · Feature 012 · Bloque B DRAFT (T1630-T1632) revision dirigida privacidad · solo lectura
+- CC-RAMA-BB-01: lectura de chip-claim (openapi/schema), catalogo 0.2.0, anexos T1631/T1632, spec REQ-CHP12-004/007/008/010, REQ-OWN12-008, data-model (retencion por dato, dispute_evidence, owner_requests) y acta R-A1..R-A6.
+- H-RAMA-BB-01..14: hueco de purga EXPIRED (delete_after=resolved_at), contradiccion L136 data-model, evidencia sin redaccion tras borrado, APPROVED indebido en catalogo, auditoria del arbitro sin valor propio (002 provisional 730), copias sin ventana, trigger_request_ids sin FK, seudonimizacion 'cuando proceda', avisos de resolucion sin contrato, 503 posible oraculo (a trinity), saneo PDF, regex chip_last4, ambiguedad 4 digitos en auditoria.
+- Veredicto: NO CUMPLE (sellable tras correcciones). Premisa corregida: P-2 regula expedientes, no auditoria del arbitro. Acta .specify/memory/audits/rama-012-bloqueB-DRAFT-2026-11-27.md. Sin ediciones normativas, sin commit, sin [x].
+
+## 2026-11-27 · Feature 012 · Bloque B DRAFT 0.3 segunda revision · solo lectura
+- CC-RAMA-BB3-01: verificacion de F-01..F-13 contra data-model (63,71,135,136,141,142,150), annex (33,37,39,50,61,71,75), error-catalog (6), openapi (24-25,97,112-119,167-168), schema (126,222), spec (85,95,96,174,297), tasks (84,87).
+- H-RAMA-BB3-01..08: N-01 ALTO reserva EXPIRED (data-model:150); N-02 ALTO ancla RESOLVED residual en spec/tasks; N-03 oraculo SC-012-118 debil; N-04 borrado fisico vs deleted_at; N-05 restauracion sin prueba; N-06 APPROVED en cabecera con bloque DRAFT; N-07 residual E-B3; N-08 sin cambio.
+- Veredicto: NO CUMPLE (sellable tras correcciones textuales). Acta .specify/memory/audits/rama-012-bloqueB-v03-2026-11-27.md. Sin ediciones normativas, sin commit, sin [x].
+
+## 2026-11-27 — re-auditoria dirigida v0.6 Bloque B
+- Veredicto NO CUMPLE (N-A ALTO: fuente de person_id sin definir). Cerrados en texto: N-07, F-03 (condicionado), F-05, F-08, BACKUP_MAX=30, SC-012-118/119. Parciales: F-09, STAGING (sin tarea). Acta: .specify/memory/audits/rama-012-bloqueB-v06-2026-11-27.md. Sin commits ni cambios fuera de la acta.
+
+## 2026-11-27 — T1644 re-auditoria ciclo de vida y privacidad (Bloque B)
+- Veredicto NO CUMPLE. A-01 ALTO: person_id sin NULL tras 1095 d; purga de delegados borra admin_identities con FK RESTRICT de owner_requests y falla en silencio (maintenance-use-cases.ts:213-217). M-01..M-05, B-01, B-02. Retencion admin_audit 24 m (R-1) CUMPLE; metadata solo resolve/confirm CUMPLE. Acta: .specify/memory/audits/rama-012-bloqueB-T1644-2026-11-27.md. Sin cambios en src ni commits.
+
+## 2026-11-27 — T1644 re-auditoria con D8 (solo lectura)
+- Veredicto NO CUMPLE. D8 no implementado: purgeDelegateData borra admin_identities con expedientes (RESTRICT) y person_id nunca pasa a NULL. Texto data-model.md:149-151 CUMPLE. M-02, M-04 cerrados por texto; A-01, M-01, M-03 abiertos. Acta rama-012-bloqueB-T1644-D8-2026-11-27.md.
+
+## 2026-11-27 — T1644 re-auditoria con D8 sobre f96e16d (solo lectura)
+- Veredicto CUMPLE CON RESERVAS. A-01, A-01b, M-01, M-03 cerrados en codigo. Prueba t1580 D8: 14 OK en memoria/SQLite, PG omitida (R-PG-1). Nota PG: ruta ACTIVE hace COMMIT sobre tx abortada (ROLLBACK, DENIED correcto); riesgo fragil BAJO. Acta: .specify/memory/audits/rama-012-bloqueB-T1644-D8-reaudit-f96e16d-2026-11-27.md. Sin commits, sin [x].
+
+## 2026-11-27 — T1647 pase /rama: supresión con disputa, retención, rejected_by (solo lectura, HEAD 348faa3)
+- Veredicto CUMPLE CON RESERVAS en (a), (b) y (c). Sin prueba de SC-012-096/EDGE-012-053 ni del límite 1095 d. Vitest 4 ficheros: 49 OK, 22 omitidas PG. Acta rama-012-bloqueB-T1647-supresion-retencion-rejected-2026-11-27.md.
+
+## 2026-11-27 — T1671 privacidad Ficha QR (solo lectura)
+- Veredicto CUMPLE CON RESERVAS. P-01 (retencion consentimiento tras OFF/fallecimiento) y P-02 (alcance ADMIN) ALTA; P-03..P-09 MEDIA. Huecos 1,6,7,8 decididos; 2 y 3 piden Neo. Sin edicion de contratos ni codigo. Acta: .specify/memory/audits/rama-012-T1671-2026-11-27.md.
+
+## 2026-11-27 — T1671 r2 (Bloque D, DRAFT 0.2.0)
+- Re-auditoria de privacidad y retencion sobre contratos 0.2.0. Veredicto CUMPLE CON RESERVAS, sin ALTA nueva.
+- P-01, P-02, D-R1 y D-R3 cerrados; N-01 (rotacion PHONE_HMAC_KEY) y N-02 (en espera sin plazo) son las reservas principales.
+- Acta: .specify/memory/audits/rama-012-T1671-r2-2026-11-27.md (no commiteado).
+
+## 2026-11-28 07:52 — T1683 re-auditoria dirigida privacidad QR (Bloque D, HEAD 6581ea2) · solo lectura
+- CC-RAMA-T1683-01: lectura de anexo §1/§4/§7/§9, data-model 125-134/145-147/161, código emergency-*, chip-dispute-admin, co-ownership, account-use-cases, repos 3 motores, maintenance y scheduler (0 6 * * *).
+- H-RAMA-T1683-01 MEDIA: purga 90 d incluye PET_CRITICAL_ALLERGIES_UPDATED (emergency-use-cases.ts:332; test audit-purge-012 la fija a 100 d) vs anexo §7 «no se acorta» y data-model:161 (730 d). Decisión Neo.
+- H-RAMA-T1683-02 MEDIA: fallecimiento no dispara reconcileCard; OFF y borrado de consentimientos perezosos (barrido diario); público cerrado por state.deceased → 404. Decisión Neo (hook o excepción escrita).
+- H-RAMA-T1683-03 BAJA: guardSatisfied cuenta STALE (phones.length + stale) no documentado en data-model:134.
+- Veredicto: CUMPLE CON RESERVAS (0 ALTA). LEFT/ENDED, historial 90 d en 3 motores, purga EMERGENCY_* 90 d, ADMIN (requireOwner 404; alergias EDIT_PET_BASICS) y rotación HMAC: CUMPLE.
+- Acta: .specify/memory/audits/rama-012-T1683-2026-11-28.md. Sin ediciones de código, contratos, specs ni tasks; sin commit, [x] ni push.
+
+## 2026-11-28 · Feature 012 · T1691 revision privacidad y retencion del anexo PETS (DRAFT 0.1.0, Bloque E) · solo lectura
+- CC-RAMA-T1691-01: lectura de share-link-subset-annex (§2-§8), share-links-pets.openapi.yaml, share-link-pets.schema.json, 012 data-model (retencion y auditoria), 012 spec (REQ-VET12, SC-012-053..066, SC-012-108), enm-005-a-annex §2 y 005 (data-model §3-§6, spec EDGE-005-20-bis, SC-005-052).
+- H-RAMA-T1691-01 ALTA: enlaces PETS no se revocan en traspaso ni salida del creador (anexo §5), a diferencia de PN-08/B-1 de 005: A->B->A resucita el enlace hasta expires_at (<=30 d). Decision de Neo (Nivel 2).
+- H-RAMA-T1691-02..04 MEDIA: borrado de mascota deja PETS vivo con cero filas; PET_WITHDRAWN sin tabla, CHECK ni retencion; householdId visible a co-propietarios no miembros. H-05..08 BAJA.
+- Veredicto: NO CUMPLE (1 ALTA). Acta .specify/memory/audits/rama-012-T1691-2026-11-28.md. Sin ediciones de contratos ni codigo, sin commit, sin [x] ni push.
+
+## 2026-11-28 · Feature 012 · T1691 r2 re-auditoria privacidad y retencion ENM-005-E DRAFT 0.2.0 (PETS) · solo lectura
+- CC-RAMA-T1691-R2-01: lectura de share-link-subset-annex 0.2.0 (§1-§10), openapi y schema PETS 0.2.0, data-model (retencion, auditoria, matriz de borrado), enm-005-a-annex §2, spec REQ-VET12-007, deuda-012-withdraw-audit y terraform/logging.tf (exclusiones de Cloud Logging).
+- Verificado H-RAMA-01 (cerrado en §5.1 + §9(i)), H-02 (cerrado), H-03 (eliminado; deuda existe), H-04 (quitado de schema), H-05 (cerrado), H-06 (abierto parcial: infra), H-07 (cerrado con nota), H-08 (cerrado con reserva, stub).
+- H-RAMA-T1691-R2-01 MEDIA: petIds de la vista previa van en la query y terraform/logging.tf solo excluye /shared/; Cloud Run guarda requestUrl+remoteIp. Precondicion de publicar la ruta; aplicacion por Neo.
+- H-RAMA-T1691-R2-02 MEDIA: la deuda y §5.2 dicen que la retirada solo desaparece para el retirador; desaparece para todos los co-propietarios. Neo debe reconfirmar la aceptacion.
+- H-RAMA-T1691-R2-03..06 BAJA (activeCount, minimizacion de la fila de la mascota que sale, disparadores de principal incompletos, data-model desalineado), R2-07/08 INFO.
+- Veredicto: CUMPLE CON RESERVAS (0 ALTA). Acta .specify/memory/audits/rama-012-T1691-r2-2026-11-28.md. Sin ediciones de contratos ni codigo, sin commit, sin [x] ni push.
+
+## 2026-11-28 · Feature 012 · T1691 r3 re-auditoria privacidad y retencion ENM-005-E DRAFT 0.2.1 (PETS) · solo lectura
+- CC-RAMA-T1691-R3-01: lectura de share-link-subset-annex 0.2.1 (§2, §3.7, §4.7, §5.1-§5.5, §8.2, §8.6, §10.2), openapi y schema PETS 0.2.1, data-model 138, deuda-012-withdraw-audit, spec REQ-VET12-003..007, terraform/logging.tf, src/infrastructure/http/cloud-logging.ts (serializeRequest usa routeOptions.url, sin query), tasks/quickstart (trazabilidad de R2-01).
+- H-RAMA-T1691-R3-01 MEDIA: R2-01 no escrito sin ambiguedad. Las exclusiones de Cloud Logging descartan entradas completas, no redactan la query; la precondicion va «antes de activar»; pero la ruta de vista previa existe desde la Fase 1 (flag OFF responde 404) y Cloud Run registra requestUrl con petIds. Ademas no tiene deuda propia, tarea ni entrada en quickstart (DEUDA-012-TERRAFORM-LOGS-QR solo cubre /e/ y /api/emergency/). §3.7, §4.7 y OpenAPI afirman «los registros de acceso NO guardan la query»: cierto solo para los logs de la app.
+- H-RAMA-T1691-R3-02 BAJA: R2-04 abierta, ambas opciones escritas, pero §10.2 dice «Opcion A (vigente)» y «Se aplica A hasta que Neo decida»: default provisional sin marcar como no vinculante. Cruce roto en §2 (apunta a §5.2 en vez de §10.2).
+- H-RAMA-T1691-R3-03 BAJA: R2-03 (activeCount cuenta PETS ajenos visibles a owners/ADMIN) aceptado por architect sin decision de Neo registrada.
+- H-RAMA-T1691-R3-04 BAJA: §5.1 disparadores ajenos a ENM-005-A solo citan REQUEST_CHANGE_PRINCIPAL y supresion; END_CO_OWNERSHIP por arbitraje (spec REQ-OWN12-009) no aparece nombrado. Verificar cobertura en ENM-005-A.
+- H-RAMA-T1691-R3-05 BAJA: EDGE-012-076 (≤300 s) depende del valor desplegado (app-config admite 30-900, defecto 300); no esta en §8.6. R2-01 ausente de la cabecera de trazabilidad.
+- Cerrados: R2-02 (§5.2, deuda y data-model 138 consistentes), R2-05 (disparadores en §5.1), R2-06 (data-model alineado). D-1 (a) aceptable en privacidad con reservas (aviso solo al actor; revocacion por cualquier co-propietario = disponibilidad).
+- Veredicto: CUMPLE CON RESERVAS (0 ALTA; 1 MEDIA; 4 BAJA; INFO). Acta .specify/memory/audits/rama-012-T1691-r3-2026-11-28.md. Sin ediciones de contratos ni codigo, sin commit, sin [x] ni push.

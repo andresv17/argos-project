@@ -2857,3 +2857,131 @@
 - 2026-11-27 /architect: D-A/D-B/Reserva1 aplicadas en contratos 012 Modo Cuidador (care.openapi, care-routine.schema, spec, data-model); compile OK; APPROVED intacto.
 - 2026-11-27 keymaker: cierre T1655/T1661 (D-A orden 403-404-422-409, D-B mapeo definitivo, D-D(b) guarda NOT EXISTS en 3 motores); sin marcar [x]; pendiente oracle.
 - 2026-11-27 keymaker: alineados contadores de RepositorySet (34) y migraciones (at(-10)) en 2 pruebas; sin tocar src/contratos.
+- 2026-11-27 oracle: acta T1655/T1661 da0e870 -> T1655 CUMPLE, T1661 CUMPLE CON RESERVAS (R-1 updated_at vs effective_to); gates rc=0; ver audits/oracle-012-T1655-T1661-da0e870-2026-11-27.md
+- 2026-11-27 [morpheus] Oracle T1655 CUMPLE / T1661 CUMPLE CON RESERVAS; escalado a Neo por Logos (R-1, H-01).
+- 2026-11-27 [morpheus] Neo resuelve R-1 (b) y H-01 (b); firma T1655/T1661. Mision: architect invariante, keymaker T1656.
+- 2026-11-27 /architect: R-1 (desactivacion fija effective_to y updated_at = now) documentada en data-model, spec REQ-CAR12-007 y care-routine.schema; compile rc=0
+2026-11-27 Keymaker: T1656 rutas HTTP + UI Modo Cuidador + limites R-3 (REVIEW pendiente de Oracle; sin [x], sin push)
+- 2026-11-27 oracle: auditoria T1656 f52a0a4 -> CUMPLE CON RESERVAS (H-T1656-1 conteo limite antes de potestad vs contrato; H-T1656-2 ARGOS->Tipi). test:gate 9 fallos todos H-01. Acta: .specify/memory/audits/oracle-012-T1656-f52a0a4-2026-11-27.md
+- 2026-11-27 [morpheus] Oracle T1656 CUMPLE CON RESERVAS; escalado a Neo (cupo R-3 y literal ARGOS/Tipi).
+- 2026-11-27 [morpheus] Neo resuelve T1656: cupo R-3 tras potestad (a) y literal Tipi (a). Rebote architect->keymaker->oracle.
+- 2026-11-27 [keymaker] T1656 rebote: cupo R-3 tras potestad (gancho afterAuthorization) y BRAND_NAME en dosis; gates verdes, commit local.
+- 2026-11-27 oracle: revalidacion T1656 c4afc1f -> CUMPLE (reservas 1 y 2 cerradas; test:gate 11 fallos = 9 H-01 + verify-ci-ready (acta seraph T1619 sin commitear) + 2 flaky aislados verdes). Acta: .specify/memory/audits/oracle-012-T1656-c4afc1f-2026-11-27.md
+- 2026-11-27 [morpheus] Oracle T1656 rebote CUMPLE; escalado a Neo (firma T1656 y verify-ci-ready).
+- 2026-11-27 [morpheus] Neo firma T1656 (51 [x]) y decide commitear acta seraph T1619 (a). Mision: commit selectivo; luego T1658.
+- 2026-11-27 [keymaker] commit selectivo acta seraph T1619 + tasks.md T1656 [x] hecho (local).
+- 2026-11-27 [maggie] T1658 lectura clínica final Modo Cuidador (HEAD 7bff7aa): veredicto NO CUMPLE por IU fuera de catálogo (schema/dominio/UI vs spec REQ-CAR12-001); resto verificado. Acta .specify/memory/audits/maggie-012-T1658-2026-11-27.md (sin commit, T1658 sin [x]).
+- 2026-11-27 [kid] T1658 simulación cuidador (HEAD 7bff7aa): CUMPLE CON RESERVAS. Hallazgo H-1 (MEDIA): CarePanel.tsx:82 ofrece «Deshacer» a cuidador fuera de 10 min, servidor da 403. 112 pruebas verdes, 21 PG omitidas, sin navegador. Acta: .specify/memory/audits/kid-012-T1658-2026-11-27.md
+- 17:46 seraph T1658 (012 Bloque C): acta .specify/memory/audits/seraph-012-T1658-2026-11-27.md; CUMPLE CON RESERVAS (S-1 sin oraculos de seguridad care; sin CRITICA/ALTA); api spec 6/6 rc0 (SQLite, no PG); sin commit
+- 2026-11-27 [sati] T1658 a11y Modo Cuidador: CUMPLE CON RESERVAS (axe 0, reflow ok, textos ok; M-1..M-4 foco y errores). Acta sati-012-T1658-2026-11-27.md; vista cuidador no verificada (/kid).
+- 2026-11-27 [morpheus] T1658 revisiones completas (kid/seraph/sati/maggie). Lote de correcciones a keymaker; Neo recibe consolidado tras oracle (incluye IU).
+- 2026-11-27 [keymaker] T1658 lote kid/seraph/sati/maggie aplicado (A-I salvo m-03); gates en curso; commit local selectivo sin logs ni bus.
+- 2026-11-27 oracle: T1658 árbol sin commit -> CUMPLE CON RESERVAS (A,B,D-I cumplen; C reservas BAJAS de oráculo; D sin prueba de foco en navegador). Gates rc0 (tsc, oracles, traz; vitest 1021 verdes). Acta: .specify/memory/audits/oracle-012-T1658-arbol-2026-11-27.md
+- 2026-11-27 [morpheus] T1658 lote auditado (CUMPLE CON RESERVAS) en arbol; commit bloqueado por index.lock; escalado a Neo.
+- 2026-11-27 [morpheus] Neo desbloquea index.lock; resuelve IU (b), alcance (b), S-5 visible. Secuencia keymaker->architect->keymaker->oracle.
+- 2026-11-27 [oracle] T1658 revalidación b037dd1+6c860b5: CUMPLE CON RESERVAS (gates rc0, 1087 tests verdes); H-T1658-1 CHECK IU en 0035/0039; acta en audits/oracle-012-T1658-b037dd1-6c860b5-2026-11-27.md.
+- 2026-11-27 [morpheus] T1658 lista para firma: oracle 6c860b5 CUMPLE CON RESERVAS; escalado a Neo (migración IU y firma).
+- 2026-11-27 [morpheus] Neo aprueba migracion (a) y firma T1658 (52 [x]); arranca Bloque D (T1670/T1671).
+- 2026-11-27 [architect] T1670 contratos Bloque D en DRAFT 0.1.0 (emergency.openapi, emergency-card.schema, annex aditivo, catalogo 0.4.0 +ERR-QR12-ALREADY-ACTIVE); compile rc0; pendiente T1671 (trinity/rama).
+- 2026-11-27 [trinity] T1671 revision seguridad QR (Bloque D): CUMPLE CON RESERVAS (2 ALTA: instance constante, redactSecrets /e/; 5 MEDIA); huecos 1..8 resueltos, 2 y 4 piden Neo; acta audits/trinity-012-T1671-2026-11-27.md.
+- 2026-11-27 [rama] T1671 privacidad QR (Bloque D, solo lectura): CUMPLE CON RESERVAS (2 ALTA: retencion de telefono tras OFF/fallecimiento, alcance ADMIN; 5 MEDIA incl. status_reason data-model vs schema, auditoria ROTATED/REGENERATED); huecos 1,6,7,8 decididos, 2 y 3 piden Neo; acta audits/rama-012-T1671-2026-11-27.md.
+- 2026-11-27 [morpheus] T1671 QR: trinity y rama CUMPLEN CON RESERVAS; 4 decisiones a Neo antes de iterar 0.2 del DRAFT.
+- 2026-11-27 [morpheus] Neo resuelve decisiones Bloque D (a..d). Architect itera DRAFT 0.2.
+- 2026-11-27 [architect] Bloque D DRAFT 0.2.0 (openapi/schema/annex 0.2.0, catalogo 0.4.1, data-model, spec) con decisiones Neo a..d y T-01..T-07/P-01..P-14; compile rc0; pendiente re-auditoria trinity/rama y firma de Neo.
+- 2026-11-27 [oracle] f9b46d0 (0036/0040 sin IU): CUMPLE, gates rc0; acta oracle-012-migraciones-dose-unit-f9b46d0-2026-11-27.md
+- 2026-11-27 [trinity] T1671 r2 re-auditoria QR 0.2.0 (solo lectura): CUMPLE CON RESERVAS; T-01..T-10 y huecos 1..8 cerrados; 0 ALTA, 3 MEDIA nuevas (patron redaccion 43 chars, reconciliacion perezosa, ADMIN sin aviso); acta audits/trinity-012-T1671-r2-2026-11-27.md
+- 2026-11-27 [rama] T1671 r2 privacidad QR (Bloque D, DRAFT 0.2.0, solo lectura): CUMPLE CON RESERVAS; P-01, P-02, P-03..P-06, D-R1..D-R3 cerrados; sin ALTA nueva; 5 MEDIA (N-01 rotacion PHONE_HMAC_KEY sin regla, N-02 en espera sin plazo, N-03 reconciliacion perezosa, N-04 lastChange sin filtro, N-05 campos tras 90 d); acta audits/rama-012-T1671-r2-2026-11-27.md.
+- 2026-11-27 [morpheus] Re-auditorias QR 0.2.0: sin ALTA; decisiones Neo (plazo espera 90d, rotacion PHONE_HMAC_KEY, retencion audit) antes de architect 0.3.
+- 2026-11-27 [morpheus] Neo resuelve decisiones Bloque D; architect 0.3.0 en curso.
+- 2026-11-27 /architect: Bloque D DRAFT 0.3.0 (openapi/schema/annex, data-model, spec SC-012-121..129); compile rc=0, trace rc=1 (9 SC sin mapear en tasks.md, pendiente /morpheus)
+- 2026-11-27 [oracle] Bloque D #32 DRAFT 0.3.0 verificacion puntual: CUMPLE CON RESERVAS (0 bloqueantes; 2 MEDIA trazabilidad SC-122/127 y SC-086/T1680 sin ampliar); tsc, compile, oracles, trace rc=0; acta audits/oracle-012-QR-0.3.0-puntual-2026-11-27.md
+- 2026-11-27 oracle: revalidacion puntual Bloque D 0.3.0 r2 (H-A..H-F, INFO) CUMPLE; gates rc=0/0; acta oracle-012-QR-0.3.0-r2-2026-11-27.md
+- 2026-11-27 [morpheus] Bloque D 0.3.0 PASS oracle; pendiente firma Neo (APPROVED + catalogo 0.4.1).
+- 2026-11-27 [morpheus] Neo aprueba Bloque D (APPROVED 0.3.0, T1670/T1671 [x], commit autorizado). Arranca implementacion T1672-T1674.
+- 2026-11-27 [oracle] Bloque D T1674/T1672/T1673 (cc5edcc,147c52d,06604df): CUMPLE los 3; tsc/oracles/trace rc=0, vitest 74/74 PG real; 0 hallazgos ALTA/MEDIA, INFO audit_log sin details para T1675; acta audits/oracle-012-bloqueD-T1672-T1673-T1674-2026-11-27.md
+- 2026-11-27 /trinity: revisión T1672 (encoder QR 6-M, 147c52d) CUMPLE CON RESERVAS (0 CRIT/ALTA/MEDIA; 2 BAJA, 3 INFO); fuzz 126/126 vs qrcodegen; package.json sin cambios. Acta: .specify/memory/audits/trinity-012-T1672-encoder-2026-11-27.md
+- 2026-11-27 [morpheus] Bloque D: T1672-T1674 commits + oracle PASS; trinity encoder CUMPLE CON RESERVAS; escalado a Neo (firmas y escaneo fisico T1672).
+- 2026-11-27 [morpheus] Neo firma T1673/T1674 [x]; aprueba 3a y T1675; keymaker fase verde Bloque D.
+- 2026-11-27 [keymaker] T1680 redactSecrets por forma (/e/ y /api/emergency/) + prueba SC-012-086 (13 verdes); commit local.
+- 2026-11-27 [keymaker] T1675 dominio+casos de uso+repos 3 motores+rutas publicas/privadas; 173 rojas -> verdes; commit local.
+- 2026-11-27 [keymaker] T1684 config URL base/PHONE_HMAC_KEY + pruebas limitador/URL; commit local. Cableado en server.ts pendiente (H-01, Morpheus).
+- 2026-11-27 [keymaker] T1662 auditoria alergias (ADMIN/OWNER) + texto m-6 + prueba; commit local.
+- 2026-11-27 [oracle] Bloque D verde 3861257/1b68ac8/5365585/1ffbad9: CUMPLE CON RESERVAS, 0 bloqueantes (H-D1 MEDIA actorRole/origin solo hash vs annex, H-D2 MEDIA cableado loadEmergencyServices pendiente H-01); tsc/oracles/trace rc=0, vitest 312/312 (1 timeout flaky re-ejecutado verde); acta audits/oracle-012-bloqueD-verde-3861257-1ffbad9-2026-11-27.md
+- 2026-11-27 [morpheus] Oracle fase verde Bloque D: CUMPLE CON RESERVAS; escalado a Neo H-D1 (auditoria vs 3a) y H-D2 (server.ts/H-01).
+- 2026-11-27 keymaker: correcciones Bloque D A-E listas en disco; commits bloqueados por .git/index.lock obsoleto (Neo debe retirarlo).
+- 2026-11-27 [morpheus] Logos ON; micro-ciclo Bloque D listo en disco, bloqueado por index.lock; decisiones H-D1/H-D2 a Neo.
+- 2026-11-27 [morpheus] Neo: lock quitado; H-D1 b, H-D2 a; micro-ciclo a commit y oracle final.
+- 2026-11-27 keymaker: Bloque D #32 cerrado en 7 commits locales (1506c8a..0166edd); gates verdes; pendiente purga audit EMERGENCY_* 90 d y tasks.md sin tocar.
+- 2026-11-27 [oracle] Bloque D lote final backend (1506c8a..0166edd): CUMPLE CON RESERVAS; gates rc=0; H-BD-F1 purga audit EMERGENCY_* a 90 d sin implementar; T1674 a/b/c correctas.
+- 2026-11-27 /oracle: H-BD-F1 b2704f3 CUMPLE (F1,F2,F3, T1674 legítimo); tsc 0, oráculos 0 débiles, 88/88 PG real. Acta: .specify/memory/audits/oracle-012-H-BD-F1-b2704f3-2026-11-27.md
+- 2026-11-27 [morpheus] #32 backend lista para firma Neo (b2704f3 oracle CUMPLE).
+- 2026-11-27 [morpheus] Neo firma backend Bloque D (60 [x]); arranca UI T1676 y documentacion de deudas.
+- 2026-11-27 keymaker: T1676 UI QR (23008cc), T1681/T1682/T1685 deudas y release (755f130), firmas (0acba63); gates verdes; T1676/81/82/85 en [ ] hasta /oracle y Neo.
+- 2026-11-27 keymaker: T1676 hueco 1 corregido (backend + guarda UI); ver log-keymaker.
+- 2026-11-27 [oracle] T1676 UI QR + deudas T1681/82/85 (23008cc..755f130): CUMPLE CON RESERVAS; D-1 ARGOS vs t1404, D-2 alergias por rol, D-3 verificador; tsc/oraculos/trazabilidad rc=0, presentation 1027/1027; fallas conocidas ui-invitation-logs y t1404. Acta oracle-012-T1676-755f130-2026-11-27.md
+- 2026-11-27 [morpheus] T1676 Oracle CUMPLE CON RESERVAS; decisiones Neo D-1 y D-2.
+- 2026-11-27 [morpheus] 1e4b02e ui-invitation-logs fix (lista blanca fetch). Pendiente Neo: D-1 y D-2 de T1676.
+- 2026-11-27 [morpheus] CIERRE DE SESIÓN: HEAD 1e4b02e (012, ahead 127, sin push). Bloque D backend y UI commiteado; tasks 60 [x] / 33 [ ]. Pendiente Neo: D-1 (ARGOS/Tipi allergiesEditorHelp), D-2 (roles alergias), firmas T1676/T1681/T1682/T1685, escaneo T1672. Handover: claude/handover-morpheus-2026-11-27-cierre-bloqueD.md.
+- 2026-11-28 [morpheus] Inicio de sesion: HEAD 1e4b02e (012, ahead 127), tasks 60 [x]/34 [ ]. Pendiente Neo: D-1 y D-2 de T1676.
+- 2026-11-28 [morpheus] Logos ON. Directiva Neo: D-1 (b), D-2 (a), D-3; despacho architect -> keymaker -> oracle.
+- 2026-11-28 architect: D-1(b) 'ARGOS'->'Tipi' en allergiesEditorHelp (annex, schema, legal-texts 010); v38 sin deriva; gates rc=0; mirrors src pendientes a keymaker.
+- 2026-11-28 keymaker: 012 D-1 Tipi en allergiesEditorHelp, D-2 aserción CAREGIVER/READER, D-3 alcance withoutAnnexFields; gates rc=0; commit local selectivo.
+- 2026-11-28 oracle: 4937203 (D-1/D-2/D-3) CUMPLE CON RESERVAS; gates rc=0; reservas: T1681/T1685 [x] sin firma Neo en el commit y schema/annex/legal-texts Tipi sin commitear. Acta oracle-012-D1-D2-D3-4937203-2026-11-28.md.
+- 2026-11-28 keymaker: H-2 cerrado, commit local selectivo contratos D-1 Tipi (012); sin push.
+- 2026-11-28 oracle: H-2 CERRADO (6581ea2); gates rc=0; residuo menor «ARGOS no verifica» en spec.md:112 REQ-QR12-002 (para architect).
+- 2026-11-28 [morpheus] H-2 cerrado (6581ea2). Despacho T1678/T1683 preautorizados en paralelo.
+- 2026-11-28 trinity: T1683 CUMPLE CON RESERVAS (R-01 DEUDA-012-TERRAFORM-LOGS-QR condicion de release; 2 BAJA); Semgrep 0; acta trinity-012-T1683-2026-11-28.md
+- 2026-11-28 seraph: T1678 (012 QR emergencia) CUMPLE CON RESERVAS; 293 verdes, oraculos 0 debiles; S-1..S-3 BAJA (cobertura de pruebas). Acta seraph-012-T1678-2026-11-28.md.
+- 2026-11-28 [rama] T1683 privacidad QR (solo lectura, HEAD 6581ea2): CUMPLE CON RESERVAS, 0 ALTA; 2 MEDIA (purga 90 d de PET_CRITICAL_ALLERGIES_UPDATED vs anexo §7; fallecimiento sin OFF en el acto), 1 BAJA (guarda cuenta STALE). Acta audits/rama-012-T1683-2026-11-28.md.
+- 2026-11-28 sati: T1678(sati)/T1683 CUMPLE CON RESERVAS; MEDIA-1 hoja A6 fixed (Letter, se repite por página), 3 BAJA, 3 INFO; acta sati-012-T1678-T1683-2026-11-28.md; tareas sin marcar.
+- 2026-11-28 /sentinels: T1678 fuzzing token QR y /e/ (HEAD 6581ea2): CUMPLE CON RESERVAS; sin fuga de token; H-T1678-01 (BAJO, %2e%2e sale del prefijo y da 404 genérico) y H-T1678-02 (BAJO, sin CSP en 404 de URL mal codificada) para keymaker; acta .specify/memory/audits/sentinels-012-T1678-2026-11-28.md.
+- 2026-11-28 [morpheus] Lote keymaker correcciones T1678/T1683 despachado.
+- 2026-11-28 keymaker: lote correcciones auditoría 012 (MEDIA-1, BAJA-2, H-T1678-01/02, B-01, S-1..3) en commits locales f4f9ed1 775716e 72db292 13a5537 6581ea2 ; gates rc=0.
+- 2026-11-28 oracle: lote T1678/T1683 (13a5537..f4f9ed1) CUMPLE CON RESERVAS; gates rc=0; H-T1678-01 CERRADO CON NOTA (sin decisión de Neo); 2 BAJA 3 INFO; acta audits/oracle-012-lote-T1678-T1683-2026-11-28.md.
+- 2026-11-28 [morpheus] Directiva Neo Logos: cierre lote y arranque Bloque E. Despacho architect.
+- 2026-11-28 architect: 012 Bloque D enmiendas (hook fallecimiento annex §10, Tipi spec:112, INFO-1/STALE) y Bloque E T1690 DRAFT 0.1.0 (share-link-subset-annex, share-links-pets openapi/schema); gates rc=0; sin commit.
+- 2026-11-28 lock: T1691 devil's advocate Bloque E (PETS DRAFT 0.1.0): NO APTO sin enmienda; 1 ALTA (LK-01 re-entrada de mascota desasignada), 4 MEDIA, 4 BAJA, 2 INFO; acta audits/lock-012-T1691-2026-11-28.md; solo lectura, sin [x].
+- 2026-11-28 [mifune] T1691 KISS sobre ENM-005-E (DRAFT 0.1.0, solo lectura): PASS CON CAMBIOS; 5 ops nuevas y enmienda se mantienen; recortes R-01 (sin PET_WITHDRAWN), R-02 (sin position), R-03 (espejo -> SharedSummaryView), R-04/R-05 (duplicados); R-06 opcional a Neo. Acta audits/mifune-012-T1691-2026-11-28.md.
+- 2026-11-28 [merovingian] T1691 (ENM-005-E, solo lectura, HEAD f4f9ed1): PASS CON CAMBIOS; H-1 ALTA (CHECK audit de 005 sin PET_WITHDRAWN, T1692 incompleta) y H-2 ALTA (listHouseholdShareLinks/ShareLinkView sin rama PETS) bloquean la firma; H-3 MEDIA (no aditivo para enums cerrados de la SPA); acta merovingian-012-T1691-2026-11-28.md.
+- 2026-11-28 [rama] T1691 privacidad/retencion anexo PETS (DRAFT 0.1.0, solo lectura, HEAD f4f9ed1): NO CUMPLE (1 ALTA: A->B->A en PETS sin revocacion, decision Neo; 3 MEDIA; 4 BAJA). Acta audits/rama-012-T1691-2026-11-28.md.
+- 2026-11-28 trinity: T1691 revision anexo ENM-005-E DRAFT 0.1.0 CUMPLE CON RESERVAS (1 ALTA fallthrough PETS->HOUSEHOLD en lector vigente, 4 MEDIA); solo lectura; acta audits/trinity-012-T1691-2026-11-28.md.
+- 2026-11-28 keymaker: Bloque D cierre (RAMA-01 purga 90d sin alergias, RAMA-02 hook fallecimiento annex §10, BAJA-1 authz S-1 ficha ON + CAREGIVER 403); commits locales; PG no ejecutado (sin TEST_DATABASE_URL); Bloque E y generated v38 sin commitear.
+- 2026-11-28 oracle: cierre Bloque D 211a5b6..9b642b6 CUMPLE CON RESERVAS (2 BAJA, 3 INFO; gates rc=0; backup sin hook cubierto por CASCADE); acta audits/oracle-012-bloqueD-cierre-211a5b6-9b642b6-2026-11-28.md
+- 2026-11-28 [morpheus] Directiva Neo Logos: Bloque E 0.2.0 en curso; tasks.md 66 [x] a commit.
+- 2026-11-28 keymaker: commit 3dffe50 docs(012) firma Neo T1678/T1683 [x] (66/27), local, sin push.
+- 2026-11-28 [architect] ENM-005-E DRAFT 0.2.0 (E-1..E-5 de Neo; PN-08 PETS, sin PET_WITHDRAWN, dos fases) + menores Bloque D (annex §10.2/§10.7); gates rc=0; NO firmado; DEUDA-012-WITHDRAW-AUDIT abierta; tasks.md pendiente de insumos (annex §10.10).
+- 2026-11-28 [mifune] T1691 ronda 2 KISS ENM-005-E 0.2.0 (solo lectura): PASS CON CAMBIOS; R-01/R-02/R-06 aplicados, R-04 NO aplicado (operationId revokeShareLink duplicado vs 005, ALTA), R-05 parcial, stub TEMPORAL a referencia sin validar; 7 recortes K-01..K-07. Acta audits/mifune-012-T1691-r2-2026-11-28.md.
+- 2026-11-28 [trinity] T1691 r2 ENM-005-E 0.2.0: CUMPLE CON RESERVAS (0 ALTA, 1 MEDIA Uuid minusculas vs normalizacion, 4 BAJA, 4 INFO); PN-08 sin oraculo; acta trinity-012-T1691-r2-2026-11-28.md; solo lectura.
+- 2026-11-28 [merovingian] T1691 r2 (ENM-005-E DRAFT 0.2.0, solo lectura): PASS CON CAMBIOS, 0 ALTA (ALTA-1 y ALTA-2 cerradas); MEDIA-1 sin compuerta SPA en Fase 2, MEDIA-2 §8.3 incompleta (ShareLinks.tsx:329/362/402, share-api.ts:74/101), MEDIA-3 activeCount semantico; acta audits/merovingian-012-T1691-r2-2026-11-28.md.
+- 2026-11-28 lock: T1691 r2 (ENM-005-E DRAFT 0.2.0, solo lectura): NO APTO sin enmienda; LK-01..11 cerrados salvo LK-08 parcial; N-01 ALTA (carrera degradación/LEFT del creador vs creación concurrente, resurrección silenciosa), N-02/N-03 MEDIA (colateral a co-propietarios; resumen sin snapshot y descarga sin tope; decisiones D-1/D-2 a Neo), N-04 BAJA; EDGE-012-075/076 propuestos; acta audits/lock-012-T1691-r2-2026-11-28.md; sin [x], sin commit.
+- 2026-11-28 [rama] T1691 r2 privacidad/retencion ENM-005-E DRAFT 0.2.0 (PETS, solo lectura, HEAD 3dffe50): CUMPLE CON RESERVAS (0 ALTA; 2 MEDIA: petIds en logs de plataforma sin exclusion, deuda WITHDRAW-AUDIT con mitigacion incorrecta para Neo; 4 BAJA, 2 INFO). H-RAMA-01/02/03/04/05 cerrados, H-06 parcial. Acta audits/rama-012-T1691-r2-2026-11-28.md.
+- 2026-11-28 /architect: ENM-005-E DRAFT 0.2.1 (r2 + D-1/D-2) aplicada; compile/oracles/tsc rc=0; traceability falla solo por EDGE-012-070..076 pendientes de citar en tasks.md (/morpheus). Ver log-architect.
+- 2026-11-28 [mifune] T1691 r3 KISS sobre ENM-005-E DRAFT 0.2.1 (solo lectura): PASS CON CAMBIOS, sin ALTA/MEDIA bloqueante. K-01/K-02/K-04/K-06 aplicados; K-03 parcial (description del stub duplica 10.3); K-05/K-07 no aplicados. Complejidad a recortar: §8.5 (numeros de linea) y §8.2.2 (redundancias). Recortes R3-01..R3-06. Acta audits/mifune-012-T1691-r3-2026-11-28.md.
+- 2026-11-28 [trinity] T1691 r3 ENM-005-E DRAFT 0.2.1 (solo lectura): CUMPLE CON RESERVAS (0 CRITICA/ALTA/MEDIA; 4 BAJA, 3 INFO). MEDIA-N1 y BAJA-N2 cerradas; bandera fail-closed y default-deny OK; BAJA: semantica bandera, orden de errores, residuo 'normalizados' §6, inventario §8.5. Acta audits/trinity-012-T1691-r3-2026-11-28.md.
+- 2026-11-28 [merovingian] T1691 r3 (ENM-005-E 0.2.1, solo lectura): PASS CON CAMBIOS, 0 ALTA; MEDIA-1/2/3 cerradas en texto; nuevas MEDIA-4 (inventario §8.5 mal localizado), MEDIA-5 (activeCount en ListShareLinksUseCase:136), MEDIA-6 (MINOR vs SemVer, decisión Neo). Acta audits/merovingian-012-T1691-r3-2026-11-28.md.
+- 2026-11-28 [rama] T1691 r3 privacidad/retencion ENM-005-E DRAFT 0.2.1 (PETS, solo lectura, HEAD 3dffe50): CUMPLE CON RESERVAS (0 ALTA; 1 MEDIA: R2-01 sin mecanismo ni momento correctos y sin tarea ni deuda propia; 4 BAJA). R2-02/R2-05/R2-06 cerrados; R2-04 abierta sin default silencioso pero marcada como vigente. Acta audits/rama-012-T1691-r3-2026-11-28.md.
+- 2026-11-28 lock: T1691 r3 ENM-005-E DRAFT 0.2.1 (solo lectura): CUMPLE CON RESERVAS; 0 ALTA; N-01/N-03/N-04/N-05/N-06 cerrados; 3 MEDIA (M-01 aviso D-1 solo al actor y sin EDGE colateral; M-02a revocacion PETS sin contrato formal; M-02b remanente N-04 en vista previa), 3 BAJA, 1 INFO; acta lock-012-T1691-r3-2026-11-28.md; sin [x], sin commit.
+- 2026-11-28 /architect: ENM-005-E DRAFT 0.2.2 (r3 + decisiones Neo MEDIA-6/R2-04/R2-03/filtro logs); EDGE-012-077 alta en spec.md; gates OK salvo traceability (077 huerfano en tasks.md, a cargo de /morpheus).
+- 2026-11-28 [oracle] ENM-005-E DRAFT 0.2.2 (solo lectura): CUMPLE CON RESERVAS (0 ALTA/MEDIA; 3 BAJA, 4 INFO). 5 decisiones de Neo aplicadas; 4 gates rc=0. Acta audits/oracle-012-ENM-005-E-0.2.2-2026-11-28.md
+- 2026-11-28 architect: ENM-005-E 0.2.2 correcciones de texto BAJA-1/2/3 (annex §10.2, error-catalog, spec REQ-VET12-007, data-model); gates rc=0; sin firmar/commitear.
+
+- 2026-11-28 keymaker: Bloque E post-firma: bump 005 (f762228), T1692 migraciones (d7fd810), T1693 rojas (c5956eb), T1694 rojas (0c01aa0); commits locales, tasks.md 68 [x] intacto; PG real no ejecutado.
+- 2026-11-28 [oracle] Cadena 13bf24f..4857c3a (T1692-T1694, solo lectura): CUMPLE CON RESERVAS (0 ALTA/MEDIA, 3 BAJA, 5 INFO); gates rc=0; PG sin ejecutar (Neo o /link). Acta audits/oracle-012-T1692-T1694-13bf24f-4857c3a-2026-11-28.md
+- 2026-11-28 | architect | ENM-005-E: estado vigente DRAFT 0.2.2 -> APPROVED 0.2.2 (annex §10.2, OpenAPI, schema); sin cambio de forma.
+2026-11-28 | link | PG 17.12 efímero: 38 migraciones OK (0038 incluida), t1692/schema-parity/t795/t798 35/35 OK con TEST_DATABASE_URL en proceso; contenedor borrado; races-012 pendiente de T1695. Sin commit.
+- 2026-11-28 keymaker: FASE VERDE Bloque E (#81) T1695/T1696/T1697/T1701/T1702 + limpieza; 6 commits locales 0d92275 d0d383f 6e899b3 a186d92 94fdf04 9e8a48d; sin push, sin [x]; gates tsc/oracles/traza rc=0; PG omitido; H-01 excluido.
+2026-11-28 | link | PG 17.12 efímero (fase verde 012, HEAD 9e8a48d): 38 migraciones OK (max 0038_share_link_pets); races-012 4/4 PG verdes; 125 tests 124 verdes, 1 rojo t1517 P-3 (aserción posicional at(-12) rota por 0038, no fallo de SQL); endMembership FOR UPDATE sin prueba PG; contenedor y certificado borrados; sin commit.
+- 2026-11-28 | oracle | Fase verde Bloque E 0d92275..9e8a48d: CUMPLE CON RESERVAS (1 ALTA aviso previo, 1 MEDIA selector co-poseídas, 3 BAJA, 6 INFO); gates rc=0; sin tocar código/tareas. Acta oracle-012-faseverde-E-0d92275-9e8a48d-2026-11-28.md
+- 2026-11-28 keymaker: lote correccion oracle 012 (ALTA-1 aviso previo, MEDIA-1 co-poseidas, BAJA-1 precheck membresia, t1517 P-3): commits 25b5e58 6a8c28c 61b029d 223fdcb locales, sin push, sin [x]; gates rc=0.
+- 2026-11-28 oracle: revalidación lote 25b5e58..223fdcb (Bloque E #81) CUMPLE CON RESERVAS (0 ALTA, 1 MEDIA: falta aviso en TRANSFER; gates verdes). Acta oracle-012-faseverde-lote2-*.md
+2026-11-28 | link | PG 17.12 efímero (lote keymaker, HEAD 223fdcb): 38 migraciones OK (max 0038_share_link_pets); 12 suites / 120 tests verdes en PG, incl. t1517 P-3 30/30 (antes rojo at(-12)); races-012 12/12; contenedor y certificado borrados; sin commit.
+- 2026-11-28 10:22 [link] H-01 aislamiento (paso a): respaldo verificado en scratchpad; app.ts separado en 3 hunks H-01 + 2 hunks 012 (reorden chip/care, no H-01). Ejecutando rama infra/h01-cloudflare-origin-verify (sin push, sin apply).
+- 2026-11-28 10:23 [link] H-01 aislado: rama infra/h01-cloudflare-origin-verify commit deb7542 (9 archivos, solo H-01). 012 vuelve a 223fdcb sin H-01; app.ts conserva 2 hunks 012 (reorden chip/care) no commiteados. Sin push, sin apply, logos y tasks.md intactos.
+- 2026-11-28 architect: BAJA-2 (a) nota en annex §4.7, límite vista previa = parámetro de implementación; OpenAPI sin cambio; sin commit
+2026-11-28 | keymaker | MEDIA-1 aviso previo en transferencia de mascota (commit local, sin push, sin [x])
+2026-11-28 | oracle | Revalidación MEDIA-1 2ade05c: CUMPLE (gates verdes); desbloquea firma T1695..T1702 por Neo; sin [x]
+- 2026-11-28 [link] Inicio misión (b)+(c) infra 012 (Bloque D/E): terraform logging/secret/IAM, deploy-argos.yml sin encender ARGOS_SHARE_PETS_CREATE_ENABLED; commits locales por bloque, sin push; ver claude/log-link.md.
+- 2026-11-28 [link] Bloque D 7ca6228 y Bloque E d834c11 en 012 (solo infra y pruebas; sin push; H-01 y app.ts excluidos). Gates: fmt/validate/vitest OK; test:gate en worktree limpio en curso. Neo debe cargar TF_VAR_phone_hmac_key; bandera PETS queda OFF. Bitácora claude/log-link.md.
+- 2026-11-28 [link] Commits 012: 7ca6228 (Bloque D), d834c11 (Bloque E), 8c3d264 (fix de pruebas/guía/.env.example). Gates estáticos OK en worktree limpio; test:gate final en curso. Secreto a cargar: TF_VAR_phone_hmac_key.
+- 2026-11-28 [link] Cierre (b)+(c): 7ca6228 Bloque D, d834c11 Bloque E, 8c3d264 alineación de pruebas. fmt/validate/tsc/oracles/trace 012 OK. test:gate en worktree limpio: solo timeouts de carga (pasan aislados). Pendiente Neo: TF_VAR_phone_hmac_key y encendido de la bandera en paso aparte. Sin push.
+- 2026-11-28 keymaker: 5 commits locales de cierre 012 (firmas T1695-T1702, app.ts, logging regex, deploy PETS=true, gobernanza); test:gate verde 8751 tests.

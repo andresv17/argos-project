@@ -2657,3 +2657,96 @@ Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motiv
 - care-view.ts: DOSE_DISCLAIMER y CARE_NO_REMINDERS_NOTICE usan BRAND_NAME (brand.ts); texto identico al contrato; comentario corregido (solo "Sin notificaciones" es del contrato).
 - tests/integration/api/care-routes-012.api.spec.ts: +2 casos (403 no gasta cupo; 403 precede al 429). Las iteraciones 120/30 ya usaban al titular (superan la potestad).
 - Gates: tsc rc 0; verify-oracles rc 0; verify-traceability --feature 012 --task T1656 rc 0; presentacion 98 archivos/1011 tests verdes.
+
+## 2026-11-27 - Commit selectivo acta Seraph T1619 + tasks.md T1656 firmada (Keymaker)
+- Mision de Morpheus por decision de Neo: commit local con solo `.specify/memory/audits/seraph-012-T1619-2026-11-27.md` y `specs/012-.../tasks.md` (unico cambio: T1656 [x]). Sin H-01, sin 005, sin logs ajenos. Sin push.
+
+## 2026-11-27 - T1658 lote de correcciones kid/seraph/sati/maggie (Keymaker)
+- CarePanel.tsx: Deshacer solo dentro de 10 min para no titulares (canOfferRevert en care-view.ts, reloj browserRenewal), texto 403 de reversión propio, foco al abrir/cerrar formularios, error de acción junto a la tarjeta, errores de campo del servidor con aria-invalid/describedby, «hora de Bogotá» con mayúscula.
+- Tests: tests/security/exploits/care-012.security.spec.ts (nuevo, 13), +1 caso 403 de titular en care-routes-012.api.spec.ts, +3 en t1656, comentario m-01. m-03 NO aplicada (decisión clínica).
+
+## 2026-11-27 — Commit selectivo T1658 (012)
+- Commit local de 7 archivos del lote T1658 (CarePanel, care-view, Field, 3 specs, care-012.security.spec).
+- Excluidos: H-01, specs/005, tasks.md, logs/bus. Sin push, sin [x].
+
+## 2026-11-27 T1672/T1673/T1674 (Bloque D, #32)
+- cc5edcc pruebas rojas T1674 (246 rojas); 147c52d codificador QR 6-M (72 verdes; fixtures qrcodegen+python-qrcode, OpenCV decodifica 48/48; segno descartado por relleno no ISO); migraciones 0041 SQLite / 0037 PG + contadores actualizados. tsc/oracles/trace 0.
+
+## 2026-11-27 T1680 (Bloque D, #32) — redactSecrets por forma
+- `cloud-logging.ts`: patrón `EMERGENCY_PATH_PATTERN` sin anclar (prefijo `/e/` y `/api/emergency/`, mayúsculas y `%2f`; segmento hasta `/ ? # espacio comilla`, cualquier longitud). Prueba `tests/unit/emergency-012/log-redaction-012.spec.ts` (13 verdes: 43/42/44/200, sufijo, barra final, `Route … not found`, logger real).
+- Orden de commits: T1680 primero porque T1675 declara `Dep: T1674, T1680`. tsc 0, oracles 0, trazabilidad T1675 CUMPLE. Fallo previo AJENO: `t1517 … es la migración 0030, la última de SQLite` (ve 0031; no lo toco).
+
+## 2026-11-27 T1675 (Bloque D, #32) — dominio, casos de uso, repositorios y rutas
+- Verde: 173 rojas iniciales -> 0. Dominio `src/domain/emergency/{token,phone,phone-hmac,text-policy,emergency-card-rules,emergency-url}.ts`; casos de uso `emergency-use-cases.ts` + `emergency-support.ts` (reconcileCard único); repos memoria/SQLite/PG; rutas `emergency.routes.ts`; limitador `emergency-scan-limiter.ts`.
+- Decisiones: constantes en `src/domain/platform/feature-012-limits.ts` (donde las importan las pruebas, no en emergency/); STALE (HMAC distinto) cuenta para la guarda pero no se publica (prueba de rotación); EMERGENCY_CARD_REGENERATED confirmado. Pruebas rojas corregidas (typo `Nĩa`->`Nin̈a`, falta `unshare` en erase). app.ts: parche -U0 solo de mis 3 líneas.
+
+## 2026-11-27 T1684 (Bloque D, #32) — URL base, límite de escaneo, topes
+- `emergency-config.ts` (loadEmergencyServices: PHONE_HMAC_KEY + AppConfig.publicBaseUrl, ASCII, 106 bytes), adaptador CSPRNG, pruebas del limitador (LRU, /64, fail-open), URL y 422 en 3 motores. Limitador y topes 20/60 ya estaban en T1675 porque sus pruebas rojas los exigían.
+
+## 2026-11-27 T1662 (Bloque D, #32)
+- Auditoría PET_CRITICAL_ALLERGIES_UPDATED ya en UpdateCriticalAllergiesUseCase (T1675): actorRole en newStateHash=stateHash({actorRole}), sin contenido. T1662 añade EMERGENCY_TEXTS (m-6) y prueba API con ADMIN/READER.
+
+## 2026-11-27 · Micro-ciclo correcciones Bloque D (A-E) — BLOQUEADO en commits por .git/index.lock obsoleto (20:17, sin proceso git)
+Hechos en disco sin commitear: t1517 -12/-12 (A), prueba 61.ª QR_PRIVATE_WRITE + HEAD/OPTIONS 429 Retry-After (B,E) en emergency-routes-012.api.spec.ts, touchLastScanned fuera de la transacción + regresión PG en emergency-card-parity-012.spec.ts (C), timeout 30s en emergency-migration-012.spec.ts (D). Gates: tsc 0, oracles 0, traceability 0, 344 pruebas dirigidas verdes con PG.
+
+## 2026-11-27 — Cierre Bloque D backend (#32): 7 commits locales
+- 1506c8a, cba507c, 58071ca, 1e25a7a (micro-ciclo A-D); 0bdc12f H-D1(b) auditoría sin newStateHash/actorRole/origin; b5816b5 H-D2 server.ts (solo mi hunk, vía `loadEmergencyServicesFromProcess` en config por INV-ARCH-006) + enganche runMaintenance; 0166edd textos de /architect.
+- Gates: tsc 0, verify-oracles 0, verify-traceability --feature 012 0; 375 pruebas dirigidas verdes. Sin push, sin [x]. Pendiente: purga de audit EMERGENCY_* a 90 días (requiere puerto nuevo en 3 motores).
+
+## 2026-11-27 — T1676 UI del QR, T1681/T1682/T1685 (Bloque D, #32)
+- Commits: 0acba63 (firmas Neo), 23008cc (T1676 UI), 755f130 (deudas y criterio de release). Gates: tsc 0, verify-oracles 0 (0 débiles), verify-traceability --feature 012 0; tests/unit/presentation 97 archivos / 1022 pruebas verdes.
+- Huecos de backend vistos por la UI: la vista de la cuenta no devuelve `phone` ni la de la mascota `criticalAllergies` (annex §1 los declara aditivos); la UI los toma si llegan y, si no, parte vacía. Pendiente para Morpheus/Architect.
+- T1676, T1681, T1682, T1685 siguen [ ] (firma de Neo tras /oracle).
+
+## 2026-11-27 — T1676 hueco 1 (eee8155 backend, UI en commit siguiente)
+- phone (E.164|null) en toSessionView (solo titular); criticalAllergies en dashboard de mascota (quien ya la lee). Verificador OpenAPI de pruebas tolera ambos como aditivos del anexo §1 (contratos 002/004 cerrados, sin editar).
+- UI: editor de alergias y campo de teléfono deshabilitados si el dato falta; funciones puras updateAllergiesIfLoaded/updatePhoneIfLoaded fijadas en tests/unit/presentation/t1676-guarda-datos-ausentes-012.spec.ts.
+
+## 2026-11-28 — 012 D-1/D-2/D-3 (misión Morpheus)
+- D-1: «ARGOS no verifica» -> «Tipi no verifica» en allergiesEditorHelp (src/domain/emergency/emergency-texts.ts y src/presentation/web/emergency-texts.ts); coincide con el schema; ningún test lo fijaba literal.
+- D-2: it.each CAREGIVER/READER en account-pet-additive-fields-012.api.spec.ts (criticalAllergies sí, phone no). D-3: withoutAnnexFields documenta alcance heurístico (no se acota por operationId).
+- Gates: tsc, verify-oracles, verify-traceability --feature 012 rc=0; 6 archivos vitest, 56 tests verdes. Commit local selectivo (sin H-01).
+
+## 2026-11-28 — H-2 oracle: commit selectivo contratos D-1 Tipi (012)
+- Commit local selectivo de schema emergency-card, annex §2 y legal-texts 010 (3 archivos). Sin push, sin tareas marcadas.
+- Verificado: `grep -c "ARGOS no verifica"` = 0 en los 3 archivos; nada más stageado.
+
+## 2026-11-28 — Lote correcciones auditoría 012 (MEDIA-1, BAJA-2, H-T1678-01/02, B-01, S-1/2/3)
+- Commits locales: f4f9ed1 775716e 72db292 13a5537 6581ea2  (sin push). Hoja A6: display:none al resto + @page sin nombre en mm inyectado (la palabra clave A6 no existe en Chromium: salía Letter); prueba page.pdf = 1 página 105x148 mm.
+- H-T1678-01: no reproducible en servidor real (%2e%2e llega al router y da el 404 público); light-my-request normaliza los puntos antes del router. Prueba por socket real. H-T1678-02: CSP añadida al 404 de frameworkErrors.
+- Pruebas nuevas: emergency-private-authz-012.api.spec.ts (S-1 ADMIN/CAREGIVER/READER, S-2 401/403 x7 rutas, S-3 token viejo 404, B-01 Host forjado). RAMA-01/02, BAJA-3, H-01 no tocados.
+
+## 2026-11-28 — Bloque D de cierre (RAMA-01, RAMA-02, BAJA-1)
+- RAMA-01 (opcion a): emergency-use-cases.ts purga 90 d solo EMERGENCY_*; PET_CRITICAL_ALLERGIES_UPDATED se conserva (730 d, annex §7). Prueba emergency-audit-purge-012 ajustada (olds sin alergias; sembrada una alergia de 100 d que sobrevive).
+- RAMA-02 (opcion A, annex §10): puerto EmergencyCardLifecycle (use-case-support.ts) + EmergencyCardLifecycleHook (emergency-support.ts: switchOffIfOn AUTO_PET_DECEASED, un evento solo si afecto fila, actor = quien marco, deleteByPet siempre). UpdatePetUseCase lo invoca en la misma transaccion solo en transicion a DECEASED. Cableado en server.ts (solo esa linea; H-01 intacto, commit selectivo). 3 pruebas de paridad (memoria+SQLite; PG omitido: sin TEST_DATABASE_URL).
+- BAJA-1: emergency-private-authz-012.api.spec.ts siembra ficha ON antes del bucle S-1 y asevera que sigue ON; CAREGIVER 403 ERR-ACC-FORBIDDEN en PUT critical-allergies.
+- Contratos Bloque D (annex, openapi emergency, spec.md, data-model, tasks.md) a commit; Bloque E (share-link, README, error-catalog, src/generated/v38) EXCLUIDO.
+
+## 2026-11-28 — Keymaker: commit local firma Neo T1678/T1683 [x] en 012/tasks.md (3dffe50); 66 [x] / 27 [ ]; solo tasks.md, sin push. Despacho de Morpheus.
+
+## 2026-11-28 — Keymaker: Bloque E (#81) post-firma ENM-005-E 0.2.2: bump 005, T1692, T1693 rojas, T1694 rojas (commits locales, sin push)
+- Commit 13bf24f (docs 012: firma ENM-005-E, tasks 68 [x] / 25 [ ]); f762228 (bump MINOR de 005: share-link 1.3.0, clinical-summary 1.2.0, openapi 3.6.0 + src/generated/v33 recompilado, change_note con el cambio de semantica de activeCount); 1c31b22 (SPA: ShareScopeName admite PETS, tsc verde).
+- d7fd810 T1692: migraciones SQLite 0042 (reconstruccion de share_links con CHECK PETS + share_link_pets sin position) y PostgreSQL 0038 (DO que localiza el CHECK combinado por definicion, scope_check y scope_shape_check NOT VALID + VALIDATE). Paridad y listas de migraciones actualizadas. PG real NO ejecutado (sin TEST_DATABASE_URL).
+- c5956eb T1693 (rojas, 4 specs + fixture + knob petsCreateEnabled en el arnes) y 0c01aa0 T1694 (rojas UI). Contratos supuestos documentados en las cabeceras de tests/fixtures/share-pets-012.ts y t1694-*.spec.ts.
+- Excluido a proposito: emergency-additive-annex.md (Bloque D, no listado), H-01, logos.*, specs/005/tasks.md, claude/* ajenos.
+
+## 2026-11-28 — Keymaker: FASE VERDE Bloque E (#81), T1695/T1696/T1697/T1701/T1702 + limpieza (commits locales, sin push, sin [x] en tasks.md)
+- Commits: 0d92275 T1695 (dominio, puertos, 3 motores, casos de uso, hooks PetsLinkRevocation, rutas, bandera AppConfig.sharePetsCreateEnabled); d0d383f T1696 (PetSubsetSelector + ShareLinks + tolerancia scope); 6e899b3 T1697; a186d92 T1701; 94fdf04 T1702; 9e8a48d limpieza (t1429/t1613/t1517, BAJA-2, BAJA-3).
+- Staging selectivo (H-01 excluido): app-config.ts (3 lineas mias via git apply --cached), server.ts (1 hunk), app.ts NO tocado; origin-verify.ts y origin-verify-guard.spec.ts sin stagear.
+- Defectos de las pruebas rojas corregidos (documentar a /oracle): perfil resumen (`profile.name`), auditTypes sin ACCESS_*, mayusculas con id sin letras, sesiones tras salto de reloj de makeCoOwners, TRANSFER_PRINCIPAL->CHANGE_PRINCIPAL, household.id, filtrado del roll-over de membresias compartidas por referencia (clone en harness), calls<=1 sin uow.write, igualdad de secuencia solo hasta la resolucion, deteccion de checkboxes solo dentro del selector.
+- Gates: tsc rc=0, verify-oracles rc=0, verify-traceability --feature 012 rc=0. PG real no ejecutado (sin TEST_DATABASE_URL).
+
+## 2026-11-28 — Keymaker: lote de corrección tras /oracle (ALTA-1, MEDIA-1, BAJA-1, t1517 P-3), commits locales sin push, sin [x]
+- Commits: 25b5e58 (ALTA-1 aviso previo con confirmación, annex §5.1/§9(q)); 6a8c28c (MEDIA-1 selector con co-poseídas); 61b029d (BAJA-1 precheck de membresía antes de bloquear); 223fdcb (t1517 P-3 por nombre).
+- ALTA-1: pets-link-notice.ts (guardPetsRevocation; sin enlaces ACTIVE no avisa; si la consulta falla no bloquea), PetsRevocationConfirm, ShareApi.listPetPets, cableado en PetAssignments (desasignar), HouseholdsPage (salir/expulsar y degradar rol, solo si el nuevo rol != ADMIN) y CoOwners (pasar el principal y salir de la co-propiedad).
+- MEDIA-1: share-eligible-pets.ts (getOwnership por mascota no propia; ACTIVE = elegible); PetsPage y HouseholdsPage.
+- BAJA-1: listMembershipsOfUsers antes de findOwnershipForUpdate/lockScope; 404 igual. t1517: find por nombre en PG y SQLite (PG real no corrido).
+- Gates: tsc, verify-oracles, verify-traceability --feature 012 rc=0. Un oráculo débil propio (toBeTruthy) detectado y retirado antes del commit.
+
+## 2026-11-28 MEDIA-1 oracle (T1696 transferencia)
+- Rojo->verde: t1696-aviso-transferencia-012.spec.ts (3). PetTransferPanel usa guardPetsRevocation+listPetPets+PetsRevocationConfirm antes del POST ownership-transfer; fail-open.
+- Gates tsc/verify-oracles/traceability 012 rc=0; tests/unit/presentation 1072 verdes. app.ts (T1636 reorden imports/registerCareRoutes) no tocado.
+
+## 2026-11-28 — Directiva Neo (Morpheus): 5 commits de cierre 012
+- Commits locales: tasks.md firmas [x] (76/17), app.ts registerCareRoutes antes de estáticos, logging.tf regex anclada /e/ y /api/emergency/, deploy ARGOS_SHARE_PETS_CREATE_ENABLED=true (cutover único), gobernanza 012.
+- Gates rc=0: tsc, verify-oracles, verify-traceability 012, terraform fmt/validate, vitest terraform-logging y deploy-workflow. test:gate: 609 archivos OK, 8751 tests OK, 0 fallos. Sin push ni apply.

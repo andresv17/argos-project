@@ -14,3 +14,8 @@
   40 mutaciones fast-check seed 280), fila JSON corrupta, página SQLite corrupta, cabecera destruida, SIGKILL en
   escritura 1/mitad/última (ANTERIOR) y tras COMMIT (NUEVO), integrity_check ok.
 - Compuertas: tsc 0; verify-oracles CUMPLE (0 débiles); traza T280 CUMPLE 2/2; src/generated sin cambios.
+
+## 2026-11-18 — Asedio cadena de intentos 006 (T1, claim, T2, arrendamiento, cancelación, purga)
+- 2026-11-18 | Prueba nueva tests/chaos/smith-006-cadena-intentos.spec.ts (fuera de vite include, no entra en test:gate): 12 casos, 9 verdes y 3 rojos; tsc 0 y verify-oracles CUMPLE.
+- 2026-11-18 | CUBIERTO: proveedor lento que ignora la señal, arrendamiento vencido durante el put, SIGKILL dentro de T2, tres entregas concurrentes, entrega tardía tras tomar B la escena, revocación durante el put, encolado ambiguo y frontera mensual (EDGE-ESC6-031): sin doble cobro ni sobrescritura.
+- 2026-11-18 | BRECHAS: ALTA SMITH-01 arrastre de cuota no aplicado sin escena de propietario (scene-lifecycle-hooks.ts:120-124, scene-use-cases.ts:206-212); MEDIA SMITH-02 purgeObjects borra la fila de cola antes del put (media-use-cases.ts:67); BAJA SMITH-03 gRPC numéricos en classifyEnqueueError (scene-use-cases.ts:293-300). Informe: .specify/memory/audits/smith-006-cadena-intentos.md.

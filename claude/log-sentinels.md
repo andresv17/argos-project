@@ -29,3 +29,22 @@
 - 2026-11-25 T1418 endurecimiento de oráculos (/sentinels, haiku): tests/security/sentinels-010-T1418-ip.security.spec.ts líneas 102, 181 y 188. Negativos de RegistrationRateLimiter ahora usan toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED') y el negativo de /64 distinto usa toBeUndefined(). Semántica de vectores sin cambios.
 - 2026-11-25 T1418 rc reales: vitest sentinels-010-T1418 rc 0 (18 pass, 1 skip EDGE-010-008 esperado); verify-oracles.sh rc 0 (547 archivos, 0 débiles, CUMPLE); tsc --noEmit rc 0.
 - 2026-11-25 T1418 H-SEN-T1418-02: no hay hallazgos nuevos. Sin cambios en src/, specs ni contratos. Sin [x], sin COMPLETED, sin push.
+- 2026-11-25 T1526 (/sentinels, Bloque D #63, parte): batería de 9 vectores sobre /api/admin/me y /api/admin/administrators* (contrato 1.8.0) en memoria y SQLite. Archivo de pruebas: tests/security/sentinels-011-T1526-admin.security.spec.ts (nuevo, sin commit).
+- Resultado: 2/2 corridas PASS (memoria y SQLite), 0 fallos de contrato. Hallazgo BAJO: 2 MiB en rutas admin responde 422 ERR-SCHEMA-VALIDATION-FAILED y no 413 (contrato silencioso; sin fila creada). Cobertura parcial: sin sesión de hogar MEMBER/CAREGIVER/READER ni PostgreSQL real.
+- Falso positivo corregido en la propia prueba: el correo en éxitos a SUPER_ADMIN es legítimo (AdminDelegateView); la fuga se mide solo en respuestas 4xx/5xx.
+- Sin cambios en src/, specs ni contratos. Sin [x], sin commit, sin push. Acta .specify/memory/audits/sentinels-011-T1526-admin-2026-11-25.md.
+- 2026-11-27 T1638 (/sentinels, Bloque B #23): batería de 9 vectores sobre multipart, chip y /admin de disputas. Prueba nueva: tests/integration/api/sentinels-012-bloqueB-T1638.api.spec.ts (sin commit).
+- Resultado: 8 PASS y 1 FAIL. FAIL V6 (H-T1638-01, MEDIO): repetir disputa sobre chip ocupado da 409 ERR-CHP12-DISPUTE-LIMIT (chip-dispute-use-cases.ts:101) y sobre chip libre 202 (:90); oráculo contra INV-CHP12-003.
+- rc reales: vitest sentinels-T1638 rc 1 (19 pass, 1 fail); vitest chip-routes-012 rc 0 (11/11). Sin cambios en src/, specs ni contratos. Sin [x], sin commit, sin push. Acta .specify/memory/audits/sentinels-012-bloqueB-T1638-2026-11-27.md.
+
+## 2026-11-27 — Re-ejecucion T1638 (Bloque B) sobre c8abd7a
+- rc=0, 25/25 pass en tests/integration/api/sentinels-012-bloqueB-T1638.api.spec.ts.
+- V1..V9 sin FAIL. S-02 PASS. T-02 PARCIAL: fallo de claim con disputa ajena quema el grant del dueño (store:41, sonda C3); concurrencia correcta por sonda, sin prueba en suite.
+- Hallazgos: H-T1638-02 (BAJO), 03 (BAJO), 04 cobertura concurrencia, 05 cooldown a confirmar. R-V6: aserción <=2 debe ser 1.
+- Acta: .specify/memory/audits/sentinels-012-bloqueB-T1638-rerun-c8abd7a-2026-11-27.md. Sin commit, sin [x].
+
+## 2026-11-28 — T1678 fuzzing token QR y /e/ (HEAD 6581ea2)
+- Spec de fuzzing fuera del repo (scratchpad t1678/fuzz-t1678.spec.ts) sobre el arnés api-harness; 8 vectores, ~60 variantes. Sin cambios en src/, tests/, specs ni contratos.
+- Token malformado, de otra mascota, regenerado/desactivado, Host forjado, cabeceras anómalas, cuerpo hasta 2 MB y 429: 404/200/429 idénticos a la referencia. Sin fuga de token ni de datos.
+- H-T1678-01 (BAJO): /api/emergency/%2e%2e responde el 404 genérico de Fastify (sin no-store ni X-Robots-Tag; sale del prefijo). H-T1678-02 (BAJO): sin CSP en 404 de URL mal codificada (%, %zz).
+- Veredicto CUMPLE CON RESERVAS. Acta .specify/memory/audits/sentinels-012-T1678-2026-11-28.md. Sin commit, sin [x], sin push.

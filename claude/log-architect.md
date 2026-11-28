@@ -744,3 +744,287 @@ Sin commit; pendiente re-firma /merovingian.
 - OBS-1: columna «Bloquea» de spec corregida (D11-01 T1524..T1531; D11-03/04 T1524,T1527; D11-06 T1507,T1508; D11-09 T1534,T1535). OBS-2: marcados «condicionado a D11-xx» STATE-ADM11-001, REQ-HOG11-001/004, US1, REQ-ALB11-001/002, SC-011-045, REQ-IA11-002, EDGE-011-008 (spec, plan, tasks, contracts/README).
 - OBS-3: «Vertex AI» -> proveedor `vertex` o `gemini-api` (D9-30). OBS-4: nota en spec: SC individuales explícitos antes de T1511; trazabilidad 1:1 depende de error-catalog 011 y soporte del script (Nivel 2, Neo).
 - Sin cambio de decisiones ni IDs, sin [x], sin src/tests, sin push.
+
+## 2026-11-25 — Feature 011: acta T1501 y enmienda por directiva de Neo
+- Creada `claude/decisiones-neo-011-2026-11-25.md` (D11-01..D11-13; D11-02 abierta hasta T1532).
+- Enmendados `specs/011-pulido-portal-hogares-admin/{spec,plan,tasks}.md` (REQ condicionados reescritos, ADR sin condicional salvo 2FA, T1507 sin cambio, NFR-011-003/004 anclados en T1501/T1504). Sin commit, sin `[x]`.
+- Compuertas: `verify-traceability.sh --feature 011` rc 0 (109/109); `verify-oracles.sh` rc 0. Pendiente auditoría de `/oracle`.
+- 2026-11-25 /architect: ajustes documentales 011 por acta oracle D11 (ORA-1,2,3,5 aplicados; ORA-4 intacto para Neo): spec.md L4/L19-26/L102, plan.md L3/L13, tasks.md T1507 sin [N2]. Gates rc=0/0. Sin commit.
+- 2026-11-25 /architect T1505 (D11-02 abierta): investigación 2FA en OIDC Google. Código no lee amr/acr/hd (solo auth_time); Google documenta amr condicional, no acr; opciones A/B/C/D presentadas; no verificado empíricamente. audits/architect-011-T1505-2fa-2026-11-25.md. Sin commit ni [x].
+- 2026-11-25 /architect: hallazgos Fase 0 incorporados a 011 (spec/plan/tasks/contracts README). Lock EDGE-011-009,010,012,013,015..019; trinity H-2,3,4,5,7,8,9 (EDGE-011-003/004 corregidos); mifune MIF-011-01,02,05..09; merovingian MER-11-02..05. PENDIENTE DE NEO sin aplicar: F-03, F-05, F-11, H-1, H-6, MIF-03/04/10, MER-11-01, paginación D11-11, 2FA D11-02 (EDGE-011-011 y -014 reservados). Gates rc=0/0. Sin [x], sin commit.
+- 2026-11-25 /architect: aplicó ORA-1..5 del acta oracle-011-fase0 como texto en spec/tasks/contracts README 011 (sin decidir Pendientes, sin [x], sin commit).
+- 2026-11-25 /architect: enmienda documental 011 por directiva de Neo (Logos): F-03/EDGE-011-011, F-05/EDGE-011-014, F-11, H-1 (INVITED 72h), H-6, MIF-011-03/04 SÍ y 10 NO, MER-11-01, paginación 24 por mascota, D11-02=D (T1532 cerrada). Pendientes de Neo retirada de spec.md. Archivos: spec/plan/tasks/contracts README + acta. Gates rc=0/0. Sin [x], sin commit.
+- 2026-11-25 architect: aplicadas ORA-1/2/3 (rótulo DERIVADA en spec REQ-ADM11-001/nota T1524, tasks T1524, acta; INVITED→DISABLED declarado). Sin commit/[x].
+- 2026-11-25 /architect: K-1 (011 Bloque A) resuelto por diseño en presentación: quitar el conteo del visor en ShareLinks.tsx:93 (rótulo «Hogar compartido»); sin cambio de contrato 005; opción (b) servedPetCount diferida a Neo. Acta architect-011-K1-conteo-enlace-2026-11-25.md. Sin commit/[x].
+- 2026-11-25 architect: enmienda documental 011 H-RAMA-03 en 008/spec.md REQ-UX8-003 (etiqueta IA junto a «Mi hogar»); sin commit/[x]; docblock HomeSceneImage.tsx intacto (código, /keymaker).
+- 2026-11-25 architect: T1520 acta de superficies del prompt (14 superficies; única viva = tEXt del eco S1; D-1 pendiente sobre inputs_snapshot) en .specify/memory/audits/architect-011-prompt-superficies.md; sin commit/[x].
+- 2026-11-25 architect: enmienda ORA-1/2/3 Bloque C: REQ-IA11-004 (D-1/Q1/Q3, v2), ORA-2 pendiente de ratificación de Neo, DEUDA-011-RETENCION-CONSOLA en EDGE-011-018, acta Neo y tasks.md; sin commit/[x].
+- 2026-11-25 architect: T1524 contratos de roles 011 (admin.openapi 1.8.0, admin-delegate.schema, STATE-ADM11-001, catálogo 1.1.0 +10 ERR-ADM11-*, anexo matriz+DDL; migraciones 0031/0027 solo diseño) + fix ERR_ID_011 en verify-traceability; trazabilidad 011 rc=0, oráculos rc=0, compile-contracts 011 no aplica (rc=2); acta architect-011-T1524-roles-contratos-2026-11-25.md; listo para REVIEW, sin commit/[x].
+- 2026-11-25 architect: ORA-2 aplicada (T1524): letras unicas (a)-(h) de derivadas en acta, openapi, schema, anexo, maquina; schema (g)->(b); (g) y (h) rotuladas DERIVADA. Solo etiquetas. gates rc=0/0. Sin commit/[x].
+- 2026-11-25 /architect: spec 011 define SC-011-022,023,026..034 (derivados de H-1..H-9, F-03, EDGE-009..011, STATE-ADM11-001); T1525 declara ERR-ADM11-LAST-SUPER-ADMIN estática+carreras (DERIVADA, Neo). Sin commit.
+- 2026-11-25 [architect] ORA-1/ORA-2 T1526-T1527: DERIVADA (i) rotulada en spec.md (REQ-ADM11-006, EDGE-011-019) y anexo; anexo sincronizado con DDL 0031/0027 (UNIQUE parciales). DDL intacto. Sin commit.
+- 2026-11-25 architect: directiva Neo (Logos iter 228): (i) ratificada; D-1..D-4, DEUDA-011-PURGA-DELEGADOS y DEUDA-011-PRIVACIDAD-DELEGADOS escritas en spec.md (REQ-ADM11-003, NFR-011-002), anexo y acta decisiones-neo-011. Solo texto. Sin commit/[x].
+- 2026-11-25 [architect] ORA-1 aplicada (solo texto): decisiones-neo-011 sección «Derivadas ratificadas por Neo (Logos iter 226)» con (a)-(h); retirada etiqueta DERIVADA en spec.md (86, 96), annex (13, 39, 43, 71) y tasks.md T1524. Quedan sin tocar: JSON/YAML de contratos (regenerarían src/generated, drift) y la DERIVADA H-6 de T1525 (no lettered, no ratificada). verify-traceability rc=0, verify-oracles rc=0.
+- 2026-11-25 [architect] T1534: enmienda MINOR 3.5.0 (getSharedPetAvatar) en OpenAPI/spec(ENM-005-3.5.0)/README de 005 y T1534 marcada ratificada en tasks 011; solo texto, clinical-summary/t750/t770/t778 intactos; traza 005/011 y oracles rc=0; acta .specify/memory/audits/architect-011-T1534-avatar-005-2026-11-25.md. Pendiente dictamen /rama+/trinity. Sin commit.
+- 2026-11-25 [architect] T1534 Logos iter 232: opcion A (REQ-VET-006, INV-005-002 enmendados), opcion C (SharedSummaryView.petIds opcional, share-link 1.2.0), condicion TR-1 (strip en cada lectura, 404 fail-closed) en spec 005, OpenAPI 3.5.0, schema, README. Solo texto; src/generated, t750/t770/t778 intactos. traza 005/011 y oracles rc=0, drift 13/13. Acta architect-011-T1534-avatar-A-C-2026-11-25.md. Sin commit/[x].
+- 2026-11-25 [architect] ORA-1 (media) corregida: T1534 en tasks 011 cita ENM-005-3.5.0 + REQ-VET-006/INV-005-002 de 005 en vez de REQ-VET-014 inexistente; solo esa referencia, T1534 sigue sin [x]. verify-traceability --feature 011 rc=0. Sin commit.
+- 2026-11-25 [architect] T1534 aclaraciones /trinity R-1 (TR-4 petId alcance/NIL, storage.get condicionado), R-2 (ignora Cookie/Authorization, sin Set-Cookie), R-3 (404 si falta objeto o saneado falla; 500 solo MediaStorageUnavailableError) en spec 005 ENM-005-3.5.0 y OpenAPI getSharedPetAvatar; traza 005 rc=0, oracles rc=0; acta actualizada; sin generated/tests/estados/[x]
+
+## 2026-11-25 architect T1534 correccion RES-1/RES-3 (ENM-005-3.5.0)
+- 500 por almacenamiento caido retirado: todo fallo de lectura/saneado = 404 uniforme (TR-1, Neo iter 232); 500 solo para auditoria fail-closed con nosniff+CSP; RES-3 frase anadida; RES-2 pendiente de Neo con texto propuesto en acta. Gates trace005/oracles rc 0.
+
+## 2026-11-25 — T1534 corrección RES-1 verificada en disco
+- Aplicado en share-links.openapi.yaml: 500 de getSharedPetAvatar sin MediaStorageUnavailableError (solo errores no relacionados con avatar, p. ej. auditoría fail-closed); añadidas cabeceras NoSniff y ApiCsp al 500.
+- Acta architect-011-T1534-avatar-A-C corregida: verificación tras re-auditoría de /rama.
+- YAML válido (ruby+node), verify-traceability --feature 005 rc 0, verify-oracles rc 0. Sin tocar 004, src/generated, t750/t770/t778, estados ni [x].
+
+## 2026-11-25 — T1534 RES-2 aprobada por Neo (Logos iter 234)
+- Incorporada excepción acotada a REQ-AVA-002 (004 intacta) en spec.md ENM-005-3.5.0 regla 4 y en descripción OpenAPI getSharedPetAvatar, texto exacto de Neo.
+- Acta architect-011-T1534-avatar-A-C: sección «RES-2 aprobada (Neo, Logos iter 234)».
+- YAML ok, traceability 005 rc 0, oracles rc 0. Sin estados ni [x].
+
+## 2026-11-25 — R-1 Trinity T1535 (ENM-005-3.5.0 regla 2)
+- Corregido solo texto en spec.md y OpenAPI getSharedPetAvatar: <img src> mismo origen, no-referrer, sin srcset; servidor ignora Cookie/Authorization, sin Set-Cookie; credentials:'omit' solo en cliente fetch.
+- Compuertas: traceability 005 rc 0, oracles rc 0. Acta architect-011-T1534 actualizada.
+
+## 2026-11-25 — Decisiones Neo iter 240 (Bloque G, Feature 011)
+- spec.md: SC-011-046..052 desglosados como IDs explícitos (permisos/miembro activo, asignación vigente y salida, mascota en dos hogares, solo PHOTO, 24 por mascota, orden estable, sin contrato nuevo y Cache-Control private); mismo alcance de T1543.
+- tasks.md: sección «Deuda formal» con TECHDEBT-011-ALB-O1, -O2, -OBS4, -TAB320 (OPEN, sin [x]); ninguna marca [x] tocada (T1545 sigue [ ]).
+- Compuertas: traceability --feature 011 rc 0 y --task T1543 rc 0. Pendiente: otros rangos (ver registro).
+
+## 2026-11-25 — T1548 tope de hogares (Bloque H, #74)
+- Catálogo 011 → 1.2.0: +ERR-HOG11-HOUSEHOLD-LIMIT-REACHED (409, convención de límites/estado). spec.md +INV-HOG11-001; tasks.md Dep de T1548/T1549 mapean INV/ERR (sin [x]).
+- MAX_HOUSEHOLDS_PER_USER = 5 NO escrita en app-config.ts (H-01 sin commit): especificada en acta para keymaker.
+- compile 011 OK (src/generated/v37 actualizado); traceability --feature 011 CUMPLE; --task T1549 PENDING esperado. Acta architect-011-T1548-tope-hogares-2026-11-25.md.
+- 2026-11-25 [architect] spec 011: desglosados SC-011-054..056 como bullets tras SC-011-053 (tope crear/aceptar; conserva y libera; carreras). traceability --feature 011 rc 0; --task T1549 solo PENDING @implements src/ (T1550). Acta §6. Sin [x].
+
+## 2026-11-25 — D11-13 = C (Bloque I #78, Neo Logos iter 244)
+- Solo texto: acta de decisiones (enmienda), spec.md (REQ-PRF11-001/002, INV-PRF11-001, D11-13, SC-011-057..062 en bullets; EDGE-011-012/013 y MER-11-04/05 N/A con nota), tasks.md (Bloque I, T1553..T1557 sin picture/SSRF). Sin [x].
+- Acta architect-011-D11-13-C-bloqueI-2026-11-25.md. traceability --feature 011 rc 0; oracles rc 0.
+
+## 2026-11-25 — T1553 avatar de usuario (Bloque I, #78; D11-13 = C)
+- Decision: columnas `avatar_version`/`avatar_object_id` en `users` (migraciones 0032 SQLite y 0028 Postgres, diseñadas en el anexo, sin escribir; separadas de #63). Clave `users/<uuid>/avatar/<uuid>` como excepcion de INV-ARC-003.
+- Archivos: contracts/openapi/user-avatar.openapi.yaml, schemas/user-avatar.schema.json, errors/error-catalog.json 1.3.0, user-avatar-annex.md, tasks.md (nota T1553/T1554), src/generated/v37 recompilado.
+- Hallazgo: codegen toma un solo openapi (admin.openapi.yaml); user-avatar.openapi.yaml sin tipos de rutas generados.
+- Compuertas: traceability feature 011 rc0; oracles rc0; task T1553 rc0 (evidencia PENDING hasta T1554/T1556). Acta .specify/memory/audits/architect-011-T1553-avatar-contrato-2026-11-25.md
+
+## 2026-11-25 — T1555 consolidación de dictámenes (Bloque I, #78)
+- Decision: Trinity H-1/H-2/H-3/H-5/H-6/H-7/H-8/H-9 y Rama H-04/H-02(prueba) incorporados como precisiones de texto (sin cambio de versión; DRAFT). H-02 caducidad, H-4, H-05 y H-03 quedan pendientes de Neo.
+- Archivos: contracts/openapi/user-avatar.openapi.yaml, contracts/user-avatar-annex.md (§4.1/§4.2), tasks.md (notas T1554/T1556), acta architect-011-T1555-consolidacion-2026-11-25.md.
+- Compuertas: traceability --feature 011 rc0; verify-oracles rc1 por 2 oráculos débiles en tests/integration/media/t1554-avatar-usuario-motores-011.spec.ts (líneas 155 y 182), ajeno a este cambio (no editado).
+
+## 2026-11-25 — Decisiones de Neo iter 248 aplicadas (Bloque I, #78)
+- Decision: 1A caché `private, max-age=300`+`Vary: Cookie`; 2A saneado por lista blanca; 3A `ENM-004-MINOR` en spec 004; H-03 `DEUDA-011-LEGAL-AVATAR-PERFIL` OPEN.
+- Archivos: contratos/anexo/openapi avatar 011, tasks.md 011, specs/004/spec.md; actas `architect-011-decisiones-neo-iter248-2026-11-25.md` y `architect-004-ENM-004-MINOR-2026-11-25.md`.
+- Compuertas: traceability 004 rc0, 011 rc0; oracles rc1 (2 débiles t1554, /keymaker).
+
+## 2026-11-25 — Correcciones de texto R-1/R-3 de /trinity sobre T1556 (Bloque I, #78)
+- R-1: anexo user-avatar §2 y ENM-004-MINOR de 004 alineados a 15 min (antes 24 h en el anexo); nota de que la fila INTENT protege la subida en vuelo.
+- R-3: anexo §1 anota que PG 0028 usa ADD CONSTRAINT NOT VALID + VALIDATE (convención 0016/0024). Solo texto; sin src/, estados ni [x].
+
+## 2026-11-25 — Diagnóstico feedback Neo 011: foto en informe y pestaña «Compartir» en ficha
+- Foto #31: cadena (BD, petIds, URL, SharedSummary) correcta; causa = driver de medios `memory` en dev (`.env` sin ARGOS_MEDIA_DRIVER) + reinicios de `tsx watch` borran los bytes aunque `avatar_version` siga en BD (Mara v17). No es defecto de implementación; es datos/entorno.
+- Compartir: hoy en `mediaSlot` de PetsPage (pestaña «Historial / Archivos», PetDashboard.tsx). Sin requisito previo en 011/005; propuesta REQ-PET11-001 aditiva, solo UI, sin contratos.
+- Entregable: .specify/memory/audits/architect-011-feedback-neo-compartir-foto-2026-11-25.md. Sin cambios en src/specs/datos.
+- 2026-11-25 [architect] REQ-PET11-001 + SC-011-063 en spec 011; T1562..T1565 en tasks (sin [x]); acta de Neo actualizada (T-NEW-B pendiente). verify-traceability --feature 011 rc 0; verify-oracles rc 0. Solo documentación.
+- 2026-11-25 [architect] REQ-PET11-002 + SC-011-064 en spec 011 (pestaña Álbum propia en ficha, feedback Neo); T1566..T1569 en tasks (sin [x]); decisiones-neo actualizado. Solo documentación.
+
+## 2026-11-25 — Diagnóstico feedback Neo 011: pestañas «Mascotas» y «Resumen» del Hogar
+- Causa: `PetRow` en HouseholdsPage.tsx (l.249) recorta a id/name/ownerUserId; el endpoint ya entrega `PetCardView` completo (especie, raza, sexo, edad, peso, alertas, dueño, avatarVersion). Todo llega sin cambio de contrato ni petición extra (imagen de avatar = proxy existente).
+- Sin fuente hoy: última actividad y próximos registros con fecha (excluidos). Privacidad: Lector ya ve estos datos en «Mis mascotas»; sin exposición nueva; invitaciones pendientes solo llegan a propietario/gestor.
+- Entregable: .specify/memory/audits/architect-011-feedback-neo-datos-hogar-2026-11-25.md (A recomendada, B sin avatar, C con navegación). Sin cambios en src/specs/contratos.
+
+## 2026-11-25 — Opción B datos extra de Hogar (REQ-HOG11-008)
+- Decisión de Neo (terminal): opción B. Añadidos REQ-HOG11-008 y SC-011-065 en spec.md, T1570..T1573 en tasks.md (sin [x]) y nota en decisiones-neo-011.
+- Solo documentación; sin src/, contratos, H-01 ni 005. verify-traceability --feature 011 rc 0; verify-oracles rc 0.
+
+## 2026-11-26 — Feature 012 (Multidueño, Microchip y Cuidador): paquete SDD inicial en DRAFT
+- Entrada: `claude/inbox-feature-012.md` ([GH:#22], [GH:#23], [GH:#26], [GH:#32], [GH:#81]); la directiva citaba inbox-011, se usó el de la 012.
+- Creado `specs/012-multiduenio-microchip-cuidador/{spec,plan,data-model,research,quickstart,tasks}.md` y `contracts/README.md` (contratos sin redactar a propósito: dependen de decisiones abiertas). 5 historias, 5 bloques, 66 tareas T1601..T1714 sin `[x]`, cada una con `[GH:#N]` y campo `Linked PR: _pendiente_`; prueba local `[LOCAL]` antes de las compuertas en cada bloque.
+- Hallazgos de premisas: microchip es único solo por propietario (002 excluyó unicidad global); no existen rutinas/medicinas/paseos ni teléfono ni alergias estructuradas ni generación de QR; `verify-traceability.sh` no reconoce `--feature 012` (T1609).
+- Decisiones pendientes de Neo: D12-ORDEN y D12-01..D12-21 como preguntas numeradas en spec.md. Sin tocar src/, contratos LOCKED/APPROVED, H-01, ni scripts. Sin commit ni push. Dry-run de gh-project-sync lee 5 issues (#22 24, #23 23, #26 23, #32 24, #81 22 tareas).
+
+## 2026-11-26 — Feature 012: resoluciones Nivel 2 de Neo aplicadas (D12-ORDEN y D12-01..21 cerradas)
+- Aplicadas en specs/012 (spec, plan, tasks, data-model, quickstart, research, contracts/README); la sección de decisiones abiertas de spec.md se reemplazó por la tabla de resoluciones. D12-17 = B: codificador QR propio sin dependencias; corregido rango de versiones QR a 1-6 (106 bytes) porque 4-M (62 B) no cabe con token de 43 caracteres.
+- Acta: claude/decisiones-neo-012-2026-11-26.md (enmiendas pendientes ENM-002-MINOR-012, ENM-002-MINOR-012-CHIP, ENM-005-MINOR-012 + anexo de disputas /admin; 7 puntos de detalle para auditorías). Nuevo error ERR-QR12-ACTIVATION-REQUIREMENTS.
+- Sin [x], sin APPROVED/LOCKED, sin tocar src/, contratos aprobados, H-01 ni specs/005/tasks.md; sin commit ni push. Siguiente: auditorías previas /trinity, /rama, /maggie, /lock, /merovingian, /mifune.
+
+## 2026-11-26 — Feature 012: pase único de resoluciones de Fase 0 (Neo-A..Neo-Q) aplicado en DRAFT
+- Aplicadas las resoluciones A-Q de Neo y las 6 actas de Fase 0 (maggie, rama, lock, merovingian, mifune, trinity) en specs/012: spec, plan, data-model, tasks, research, quickstart y contracts/README. Tabla única `owner_requests` con versión por mascota; sucesión del principal; chip sin migración (split de error); QR 6-M, auto-OFF, token una sola vez; INV-OWN12/CHP12/QR12/VET12, EDGE-012-023..050, SC-012-071..090.
+- Enmiendas redactadas como pendientes (no escritas aún como anexos): ENM-002-MINOR-012, ENM-002-MINOR-012-CHIP (split de error), ENM-005-A (Bloque A), ENM-005-E (Bloque E). `D12-08`/`CHIP_CONFLICT` retiradas; `CHIP_TIMING_TOLERANCE_MS` retirada.
+- Acta de Neo ampliada con adenda A-Q, decisiones de Nivel 1 y puntos sin resolver. Sin [x], APPROVED/LOCKED, H-01, terraform, package.json ni specs/005/tasks.md; sin commit ni push.
+
+## 2026-11-26 — Feature 012: pase correctivo N2-R1..N2-R5 y residuales de re-auditorías (DRAFT)
+- Aplicadas N2-R1..R5 de Neo y los residuales de /lock (R-01..R-15), /trinity (R-01..R-09) y /rama (R-01..R-10) en specs/012: spec (REQ-OWN12-006/009/011, REQ-CHP12-003/004/005/008/009, INV-OWN12-006/007, INV-CHP12-009, EDGE-012-051..065, SC-012-091..110, NFR-012-010), data-model (anclas, reserva derivada, moot_reason, prórroga única, rejected_by/approver_set seudonimizados), plan (ADR-012-12/13, riesgos 12-14), tasks (T1626, T1627, T1646, T1647, T1685), quickstart, research y contracts/README.
+- Acta de Neo ampliada con adenda N2-R (registro R-01..R-15 y mapeo trinity/rama). Divergencia registrada: trinity propuso 5 por usuario, Neo fija 10. Decisiones Nivel 1 a confirmar: variante PRINCIPAL_ABSENT, revalidación por sujeto/solicitante/disparador, reserva del chip derivada (sin tabla), preferencia del reclamante tras liberar la reserva sin decidir.
+- Sin [x], APPROVED/LOCKED, commit ni push; sin tocar src/, contratos aprobados, H-01 ni specs/005/tasks.md. Siguiente: /trinity y /rama (revisión dirigida R-02, R-03, R-09) y luego /mouse una sola vez.
+
+## 2026-11-26 — Feature 012: pase de texto trinity C-1..C-5 y rama R-A2/R-A4/R-A5 (DRAFT)
+- Aplicado en specs/012 (spec, data-model, tasks): C-1 bloqueo ampliado, reevaluación única y lock_timeout (REQ-OWN12-011, NFR-012-008, SC-012-095); C-2 comprobador único de reserva y precondiciones de apertura (REQ-CHP12-004, INV-CHP12-009, T1646, SC-012-111..113); C-3 orden usuario→IP→global, atomicidad e importación (REQ-CHP12-005, SC-012-100/117, T1640); C-4 disparador sellado, expediente, 404 uniforme, target_response (REQ-OWN12-009, T1627, SC-012-114/115); C-5 designación inválida (REQ-OWN12-006, SC-012-094).
+- rama: R-A2 (evidencia dato personal), R-A4 (HMAC no es anonimización), R-A5 (frase de alergias en REQ-QR12-006 + SC-012-116). Nuevos EDGE-012-066..069 y SC-012-111..117.
+- 7 pendientes de decisión N2 (P-1..P-7) con marcador visible en spec y data-model y sección nueva en la adenda claude/decisiones-neo-012-2026-11-26.md. Sin [x], APPROVED/LOCKED, contratos, commit ni push.
+
+## 2026-11-26 — 012 pase final P-1..P-7 y contratos del Bloque A (DRAFT)
+- Aplicadas las resoluciones de Neo P-1..P-7 en spec.md, data-model.md y tasks.md; eliminados todos los marcadores [PENDIENTE DE DECISIÓN N2 — P-n]; adenda claude/decisiones-neo-012-2026-11-26.md con P-1..P-7 resueltos. Constantes nuevas: DISPUTE_MAX_OPEN_DAYS=60, DISPUTE_ABSENCE_RETENTION_DAYS=90; disputa vencida = EXPIRED sin cooldown.
+- Redactados en specs/012-.../contracts (DRAFT, nada APPROVED): errors/error-catalog.json 0.1.0 (22 códigos ERR-OWN12/CHP12/CAR12/QR12/VET12), schemas pet-co-owner y owner-request, state-machines co-owner (STATE-COOWN12-001) y owner-request (STATE-OWNREQ12-001), openapi/co-ownership.openapi.yaml, co-ownership-rbac-annex.md (ENM-002-MINOR-012, T1611) y enm-005-a-annex.md (T1624). Derivados para Neo: ERR-OWN12-APPROVAL-PENDING/LAST-OWNER/RETRYABLE y ERR-QR12-CONSENT-REQUIRED.
+- Hallazgo para /mouse: el texto literal de INV-HOUSE-004 (001) es visibilidad por membresía; la regla «dueño miembro ACTIVE del hogar» citada en T245/T247 de 002 no figura con ese ID (anexo §5). verify-traceability --feature 012: rc=0 (295/295) tras mapear trazas en tasks.md. Sin [x], sin commit, H-01 y 005 intactos.
+
+## 2026-11-26 — 012 cierre D-1..D-3 de /mouse T1608 (DRAFT)
+- D-1/D-2: spec.md (líneas 15 y 199) y tasks.md T1611 ya no usan INV-HOUSE-004 para la regla de hogar ni dicen «pendiente de /mouse»; ahora citan REQ-OWN12-007 y co-ownership-rbac-annex.md §5.
+- D-3: anexo §5 cita REQ-OWN-001 y REQ-HOUSE2-003 de la 002 por su texto real; la poda en expulsión/abandono se marca como lectura de T245/T247. INV-HOUSE-004 solo aparece para decir que no se usa; ID propio de 012 pendiente de decisión de Neo. verify-traceability --feature 012 rc=0.
+
+## 2026-11-26 — 012 T1612: cierre de hallazgos de /trinity (DRAFT)
+- Aplicados H-01,H-03..H-08,H-10..H-15 en owner-request/pet-co-owner schema, OpenAPI (CsrfForbidden, 409 STALE, 429/503, orden autorización→bloqueo), error-catalog, spec, data-model, tasks T1623/T1625 y enm-005-a §2.2; sin [x], APPROVED ni LOCKED; sin git add/commit.
+- Pendientes N2 visibles (no aplicados): H-02 y H-09; H-16 anotado en claude/decisiones-neo-012-2026-11-26.md con reconciliación propuesta para Neo.
+- Nota: 001 fija username maxLength 30 y los esquemas 012 dicen 32 (señalado en pet-co-owner.schema.json para T1613).
+
+## 2026-11-26 — 012 T1612: resoluciones de Neo H-02, H-09, H-16 (DRAFT)
+- H-02 (a): todo intento cuenta en CO_OWNER_INVITES_PER_USER_PER_DAY antes de resolver el username, sin filas ficticias, residual aceptado como REQ-HOUSE2-001; actualizados REQ-OWN12-002, INV-OWN12-004, SC-012-075. H-09: ABSENCE_MIN_INACTIVE_DAYS=14 y solicitudes secuenciales (DELETE_PET no cuenta) en REQ-OWN12-009, SC-012-091..093, EDGE-012-056/057, data-model, T1627.
+- H-16: ENM-002-MINOR-012 y ENM-005-A APPROVED (Neo 2026-11-26) alineados en cabeceras de anexos, contracts/README y tabla §1; contratos maquina siguen DRAFT. Marcadores PENDIENTE eliminados de spec, data-model y adenda.
+- verify-traceability --feature 012 rc=0 (CUMPLE). Sin [x], sin firmas, sin git. Pendiente: /trinity re-verifica H-01..H-08; schemas/error-catalog aun no incorporan ABSENCE_MIN_INACTIVE_DAYS.
+- 2026-11-26 architect: alineacion H-09/H-02 tras re-verif T1612: ABSENCE_MIN_INACTIVE_DAYS=14, secuencialidad y exclusion DELETE_PET en schema, error-catalog, machine, openapi, spec REQ-OWN12-009 (+residual vacaciones, precedencia), REQ-OWN12-002 y tasks T1625/T1627.
+- DRAFT, sin [x], sin APPROVED/LOCKED, sin git. Cambios 1-7 de /trinity aplicados.
+- Pendiente: /trinity cierra reservas H-02/H-07/H-09; T1627 fija sesion activa.
+
+## 2026-11-26 — T1613 desviaciones de keymaker (errata data-model 012)
+- Decisiones: tabla canonica pet_assignments; marcas de tiempo TEXT ISO UTC (excepcion documentada, contadores siguen INTEGER); CHECK de vida de message/target_username_sealed/target_response se mantienen. Reunidas en specs/012-multiduenio-microchip-cuidador/data-model-errata-T1613.md (DRAFT, MINOR) porque data-model.md y el anexo RBAC estan APPROVED y no se editan.
+- compile-contracts.sh no admite --feature 012: la recete exacta (caso 012, CONTRACT_FILES, bloque de ensayo 004..012 hacia v38, v38 en listas foraneas) se entrega a keymaker para T1616; pruebas rojas T1614/T1615 pueden seguir, firmas se fijan en T1616.
+- Sin git, sin [x], sin tocar src/ ni tests/, H-01 ni specs/005.
+
+## 2026-11-26 — Fusion de la errata T1613 (E-1..E-3) en data-model.md (aprobada por Neo, Nivel 2)
+- E-1: pet_household_assignments -> pet_assignments en data-model.md, plan.md, spec.md (REQ-OWN12-007) y co-ownership-rbac-annex.md (tasks.md T1613 ya lo traia); E-2: 14 columnas de instante pasan a TEXT ISO UTC, regla transversal nueva, tope de 60 dias de frozen_until pasa a regla de dominio.
+- E-3: CHECK de vida en owner_requests: target_username_sealed solo PENDING, message PENDING/UNDER_REVIEW, target_response UNDER_REVIEW; terminal anula las tres en el mismo UPDATE. data-model.md sigue APPROVED; errata marcada FUNDIDA (conservada, linea de target_username_sealed corregida).
+- verify-traceability.sh --feature 012 rc=0 (CUMPLE). Sin git, sin [x], sin tocar src/, tests/, H-01 ni specs/005.
+
+## 2026-11-26 — B-3 de /keymaker (T1616): errata DRAFT del codigo de validacion 012
+- Verificado: catalogo 012 hereda ERR-VALIDATION (inexistente en 001..011) y openapi 012 promete 400 en 5 operaciones; real = ERR-SCHEMA-VALIDATION-FAILED 422 (004). strictRequired relajado por 2 ramas de CreateOwnerRequest.
+- Escrito contracts/errata-T1616-B3.md (DRAFT, sustituciones S1..S8, clasificacion errata y no MINOR, impacto T1617). Contratos APPROVED sin editar.
+- Pendiente de Neo: firmar S1..S7, elegir eliminar (S8) o documentar la relajacion Ajv, y confirmar 422 para el caso de unico propietario. Sin git, sin [x], sin tocar src/tests/H-01/005.
+
+## 2026-11-27 — Errata T1616-B3 aplicada en disco (S1..S8, aprobada por Neo)
+- S1/S2: error-catalog.json 012 sin ERR-VALIDATION (inherited y change_note usan ERR-SCHEMA-VALIDATION-FAILED). S3: README de contratos. S7: spec.md (REQ-CHP12-002, EDGE-012-010).
+- S4/S5: co-ownership.openapi.yaml prosa 400->422 ERR-SCHEMA-VALIDATION-FAILED y 5 respuestas '400'->'422' (Problem).
+- S6/S8: owner-request.schema.json descripciones 422; ramas allOf de CreateOwnerRequest con properties.targetUserId:true (compila con strictRequired activo, sin cambio semantico).
+- Errata sigue APPROVED. Trazabilidad 012 rc=0. Pendiente keymaker: retirar waiver en compile-contracts.sh y SDD_AJV_STRICT_REQUIRED=false en codegen.mjs.
+
+## 2026-11-27 — errata RES1 (OWNER_REQUEST por usuario)
+- Neo aprobó N2 la opción (a): tope 10/día por usuario, no por mascota (rate_limit_events sin pet_id).
+- Renombrada la constante a OWNER_REQUESTS_PER_USER_PER_DAY en spec.md:419 y co-ownership.openapi.yaml:16.
+- Creada contracts/errata-RES1-owner-request-por-usuario.md (APPROVED). verify-traceability --feature 012 rc registrado.
+- Pendiente keymaker: renombrar en feature-012-limits.ts y sliding-window-rate-limiter.adapter.ts.
+
+- 2026-11-27 [architect] H-K1 (T1619): redactada contracts/propuesta-UI-H-K1.md (DRAFT), opciones A ocultar / B Pedir; recomiendo A (REQ-OWN12-004, INV-OWN12-004).
+- spec.md no contiene regla de permisos de UI; solo referenciada, sin cambios. tasks.md, src/ y H-01 intactos.
+- Pendiente: decision de Neo (Nivel 2); tras APPROVED numerar tarea nueva y enmienda si aplica. Sin commit.
+
+## 2026-11-27 — Errata APPROVAL-PENDING + H-K1 quickstart + S-4/S-07/S-08 (mision morpheus, Nivel 2 Neo)
+- error-catalog.json: detailTemplate de ERR-OWN12-APPROVAL-PENDING veraz en solicitud en curso y rechazo directo; errata-APPROVAL-PENDING-detail.md APPROVED.
+- quickstart.md Bloque #22 paso 8: regla H-K1 (ocultar Eliminar/Transferir con >1 ACTIVE, enlace «Ir a Propietarios», 409 en servidor).
+- Verificacion: S-4/S-07/S-08 ausentes o parciales; voto duplicado 200 ya en OpenAPI. Creada errata-NEO-2026-11-27-S4-S07-S08.md APPROVED (sin tocar REQ ni 200).
+- verify-traceability --feature 012 rc=0; compile-contracts sin dry-run, no ejecutado (keymaker regenera src/generated).
+- 2026-11-27 [architect] dictamen lock mascota PG emitido; sin cambios de src.
+- 2026-11-27 [architect] Errata MINOR REQ-OWN12-011/NFR-012-008 (candado global vs por mascota, residual 503) aplicada en spec.md + contracts/errata-MINOR-REQ-OWN12-011-candado.md APPROVED (Neo N2). Diff previo de spec.md = 1 hunk RES1, conservado; 0 revertidos. Trazabilidad 012 rc=0. Acta: .specify/memory/audits/architect-012-errata-MINOR-y-spec-limpieza-2026-11-27.md. Sin commit.
+- 2026-11-27 [architect] Bloque B contratos DRAFT (T1630/T1631/T1632), autorizado por Neo via /morpheus. Creados: contracts/openapi/chip-claim.openapi.yaml (createChipClaim, openChipDispute multipart, listMyChipRequests; 202 uniforme sin claimId/disputeId), contracts/schemas/chip-claim.schema.json, microchip-error-split-annex.md (ENM-002-MINOR-012-CHIP + errata de orden 001 SOLO PROPUESTA), admin-disputes-annex.md.
+- error-catalog.json 0.2.0 (MINOR de texto, 7 ERR-CHP12-* refinados, sin codigos nuevos). Sin tocar src/tests/scripts/tasks.md/001/004/005; sin commits; sin [x].
+- Validacion: JSON y YAML parsean; verify-traceability --feature 012 rc=0 (compile-contracts NO ejecutado). Decisiones a Neo: DRAFT->APPROVED de los 3 anexos/contratos, errata 001, openapi admin-disputes (tarea ARCH nueva), INVITED=otra cuenta.
+- 2026-11-27 [architect] Iteracion DRAFT 0.3 del Bloque B (T1630..T1632) aplicando trinity (H-A1, H-A3, H-A4, M-1, M-2, M-4) y rama (F-01, F-02, F-04, F-06, F-07, F-10..F-13). Editados: chip-claim.openapi.yaml, chip-claim.schema.json, error-catalog.json (status vuelto a DRAFT, 0.1.0 intacto), microchip-error-split-annex.md, admin-disputes-annex.md, data-model.md, spec.md:92 (solo alcance), nueva errata-MINOR-bloqueB-v03.md.
+- PENDIENTE NEO (no decidido): H-A2, F-03, F-05, F-08, F-09, errata 001; propuesta T1648 (OpenAPI /admin/disputes) sin anadir a tasks.md. Acta: .specify/memory/audits/architect-012-bloqueB-v03-2026-11-27.md.
+- Validacion: JSON y YAML parsean; verify-traceability --feature 012 rc=0; sin commits, sin [x], sin APPROVED, compile-contracts no ejecutado.
+- 2026-11-27 [architect] Iteracion DRAFT 0.4 Bloque B: rama N-01..N-06 y trinity N-2, B-N1..B-N5 aplicados (data-model, spec ancla closed_at, T1641 solo frase de retencion, OpenAPI area de espera antes de candados, 411, catalogo limpio). SC-012-118 queda en data-model (en spec rompia verify-traceability).
+- PENDIENTE NEO: H-A2, N-1 (tiempo 202), criterio contador bloqueado (alineado al codigo), T1648 propuesta (dep. dura de T1636, no anadida a tasks.md), visto bueno nota ERR-OWN12-RETRYABLE. Acta: .specify/memory/audits/architect-012-bloqueB-v04-2026-11-27.md.
+- Validacion: JSON/YAML parsean; verify-traceability --feature 012 rc=0; sin commits, sin [x], sin APPROVED, compile-contracts no ejecutado.
+
+- 2026-11-27 [architect] Iteracion DRAFT 0.5 del Bloque B (T1630..T1632), solo texto: rama N-07 (reserva hasta RESOLVED o EXPIRED en spec SC-012-096, EDGE-012-053/054 y T1646) y N-09 (encabezado data-model); oracle 1 (nota del raiz del catalogo), 3 (openapi y schema a 0.2.0 DRAFT), 4 (errata renombrada a errata-MINOR-bloqueB-v04.md); trinity B-N8..B-N12 (confirmar sin copiar bytes, 413/411 no cuentan, TTL del area de espera null PENDIENTE T1646, reintentos 503 consumen intentos, 411 con problema generico).
+- Gates: verify-traceability --feature 012 rc=0, verify-oracles rc=0, JSON/YAML validos. Sin commits ni [x] ni APPROVED. Acta: .specify/memory/audits/architect-012-bloqueB-v05-2026-11-27.md. PENDIENTE NEO sin cambio (H-A2, N-1, contador, T1648, RETRYABLE, antimalware, N-08, F-03/05/08/09, BACKUP_MAX_RETENTION_DAYS, errata 001, E-B1/B3/B4).
+
+- 2026-11-27 [architect] Iteración DRAFT 0.6 del Bloque B por decisiones de Neo (Nivel 2): E-B1/E-B3/E-B4 aplicadas a spec.md, errata 001 ratificada (la 001 intacta), constantes 1095/30/24, F-08/F-09/F-03, antimalware bloqueante, H-A2/N-1 residual N2-R4, contador bloqueado confirmado.
+- SC-012-118/119 numeradas en spec.md y mapeadas a T1641; chip-claim.schema.json change_type MINOR 0.2.0; errata MINOR v04 firmada (APPROVED, Neo 2026-11-27).
+- T1648 añadida a tasks.md (T1636 y T1639 dependen) con admin-disputes.openapi.yaml y admin-disputes.schema.json en DRAFT 0.1.0 (propuestas de step-up a confirmar por Neo). Sin commits, sin [x], sin APPROVED de contratos.
+- Gates: verify-traceability --feature 012 rc=0, verify-oracles rc=0, JSON/YAML válidos. Acta: .specify/memory/audits/architect-012-bloqueB-v06-2026-11-27.md.
+- 2026-11-27 [architect] v0.7 texto sobre rama v0.6: N-B, N-F (SC-012-120 propuesta, T1641), N-G, N-H, N-I aplicados; N-A/C/D/E marcados PENDIENTE NEO. JSON/YAML ok, traceability 012 rc=0. Sin commits. Acta: audits/architect-012-bloqueB-v07-2026-11-27.md.
+- 2026-11-27 [architect] v0.8 Bloque B (T1630..T1632, T1648) por decisiones de Neo (Nivel 2): N-A person_id opaco con falla cerrada, N-C aviso RESOLVED_APPROVED/RESOLVED_REJECTED/EXPIRED, N-D actors solo alias y rol, N-E ancla closed_at y purga del motivo.
+- SC-012-120 confirmada y mapeada a T1641; ADMIN_STEPUP_WINDOW_MINUTES = 5 y DECISION_REASON_MAX_CHARS = 500 fijadas; step-up ausente = 403 generico sin codigo nuevo; DISPUTE_EVIDENCE_MAX_PIXELS = 16000000; ClamAV tras MalwareScannerPort.
+- Sin commits, sin [x], sin APPROVED; no se tocaron src/, tests/, scripts/. Gates: JSON/YAML validos, verify-traceability --feature 012 rc=0, verify-oracles rc=0. Acta: .specify/memory/audits/architect-012-bloqueB-v08-2026-11-27.md.
+- 2026-11-27 [architect] v0.9 Bloque B (T1630..T1632, T1648) por acta rama v0.8 (NUEVO-1..8): tabla fisica admin_identities.person_id y FK declaradas en data-model.md (migracion en T1648; T1633 depende de T1648); ChipRequestView.outcome/resolvedAt cablea DisputeResolutionNotice; AdminActorView separada de AdminActorIdentity (solo SUPER_ADMIN, actorIdentities).
+- Topes multipart reasignados: cuerpo/411/413 a T1641, contador a T1640 (mencion minima anadida en ambas tareas); filas de retencion person_id/admin_identities/*_person_id; data-model DRAFT 0.9 y second_approved_at; texto neutro de ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT; annex §2/§3 alineado (getAdminDispute solo administradores no parte).
+- PENDIENTE NEO: accion de la FK *_admin_id (RESTRICT o SET NULL) y regla de baja del operador; aviso de resolucion a propietarios actuales. Sin commits, sin [x], sin APPROVED; no se tocaron src/, tests/, scripts/. JSON/YAML ok, traceability 012 rc=0, oracles rc=0. Acta: .specify/memory/audits/architect-012-bloqueB-v09-2026-11-27.md.
+- 2026-11-27 [architect] data-model.md:85 ip_rate_events: tope CHIP_MULTIPART_MAX_PER_USER_PER_DAY T1646 -> T1640 (contador) y T1641 (cuerpo 411/413); reserva menor de oracle cerrada; sin [x], sin APPROVED, sin commit.
+
+## 2026-11-27 — Errata MINOR ChipClaimMicrochipId (Neo Nivel 2, opción 1A)
+- Renombrada $defs.MicrochipId→ChipClaimMicrochipId en chip-claim.schema.json (3 puntos: def + 2 $ref); change_note ampliado; status APPROVED/MINOR intactos.
+- Sin refs en openapi ni admin-disputes. Errata creada: contracts/errata-MINOR-ChipClaimMicrochipId.md (APPROVED).
+- Gates: JSON parsea, verify-traceability --feature 012 rc=0, verify-oracles rc=0. compile-contracts pendiente de keymaker.
+
+## 2026-11-27 — Bloque C DRAFT (T1650) + H-02/H-03/H-04 (decisiones de Neo, Nivel 2)
+- H-04: chip-claim.schema.json 0.2.0→0.2.1, CHIP_DISPUTE_BODY_MAX_BYTES=15728640, APPROVED conservado; errata-MINOR-CHIP-DISPUTE-BODY-MAX-BYTES.md.
+- H-02(b): quickstart.md §Operación inicial de /admin (SQL manual de person_id). H-03(b): claude/deuda-012-admin-stepup-prod.md.
+- T1650 DRAFT 0.1.0: care.openapi.yaml, care-routine/care-log-entry/caregiver-access.schema.json; catálogo ERR-CAR12 (3 códigos) intacto. Puntos abiertos H-C1..H-C6 en .specify/memory/audits/architect-012-bloqueC-draft-2026-11-27.md.
+- Gates: compile --feature 012 rc=0, trace --feature 012 rc=0, oracles rc=1 (2 débiles ajenos en h01-admin-audit-metadata-012.spec.ts, keymaker). Sin commit, sin [x], sin APPROVED.
+- 2026-11-27 Bloque C 0.1.2 DRAFT aplicado (resoluciones de Neo); catalogo 0.3.0 con ERR-CAR12-ROUTINE-STALE DRAFT; deuda T1660 creada; trace/oracles rc=0.
+- 2026-11-27 acta D1-D9 (texto spec/anexo/data-model), gates rc=0
+
+### 2026-11-27 — /architect (mision Morpheus: D-A/D-B/Reserva1, feature 012)
+- Aplicadas decisiones de Neo: D-A orden 403->404->422->409 en crear/editar rutinas (care.openapi.yaml, care-routine.schema.json); D-B mapeo CANINE/FELINE->CANINE_FELINE, resto/desconocidas->OTHER_SPECIES; Reserva 1 de T1661 rutinas inactivas 365 d desde desactivacion (schema, spec REQ-CAR12-007, data-model).
+- Estado APPROVED y version 0.1.2 intactos (aclaracion sin cambio de forma). compile-contracts.sh exit 0. Sin tocar src/, H-01 ni 005.
+
+### 2026-11-27 — /architect (mision Morpheus: invariante R-1, feature 012)
+- Decision Neo R-1=(b): toda desactivacion de rutina (incluido hook de fallecimiento 007) fija effective_to y updated_at = now. Documentado en data-model.md (3 puntos), spec.md REQ-CAR12-007 y care-routine.schema.json (regla de retencion).
+- APPROVED y 0.1.2 intactos (aclaracion). compile-contracts.sh rc=0. Sin tocar src/, H-01, 005, tasks.md ni feature.json.
+
+### 2026-11-27 — /architect (mision Morpheus: T1670 [GH:#32], Bloque D, feature 012)
+- Creados en DRAFT 0.1.0: contracts/openapi/emergency.openapi.yaml (8 operaciones; unica ruta publica GET /api/emergency/{token}), contracts/schemas/emergency-card.schema.json, contracts/emergency-additive-annex.md (phone/criticalAllergies opcionales + T1662: auditoria PET_CRITICAL_ALLERGIES_UPDATED y texto m-6).
+- error-catalog.json 0.4.0: +ERR-QR12-ALREADY-ACTIVE (409, DRAFT pendiente de Neo; patron ROUTINE-STALE); las 4 ERR-QR12-* previas intactas. README de contratos actualizado. care.* y 005 intactos; sin tasks.md/src/tests.
+- compile-contracts.sh --feature 012 rc=0 (regenera src/generated/v38). Huecos para T1671 en el informe a Morpheus.
+
+### 2026-11-27 — /architect (mision Morpheus: Bloque D DRAFT 0.1.0 -> 0.2.0, T1670 iteracion tras T1671, feature 012)
+- Decisiones de Neo (a) ADMIN de hogar edita alergias (SUPER_ADMIN/OPERATOR excluidos), (b) aviso MINOR/MAJOR deja telefono en espera (AUTO_NOTICE_CHANGED si la ficha queda sin minimos), (c) 90 dias de historial y consentimientos borrados en todo OFF, (d) topes 20 y 60 por usuario/hora, incorporadas.
+- Cerrados T-01..T-07, P-01..P-06, P-09, P-11..P-14, hueco 5 y hueco 8 en emergency.openapi.yaml, emergency-card.schema.json, emergency-additive-annex.md (0.2.0), error-catalog 0.4.1, data-model.md y spec.md (REQ-QR12-002/005/006/007/008/009/010 + constantes). T-02 queda como criterio bloqueante de T1685 (annex s.6).
+- compile-contracts.sh --feature 012 rc=0; verify-traceability --feature 012 CUMPLE. Sin APPROVED/LOCKED, sin [x], sin commit; src/, tests/, tasks.md, feature.json, H-01 y 005 intactos.
+
+### 2026-11-27 — /architect (mision Morpheus: Bloque D DRAFT 0.2.0 -> 0.3.0, T1670 iteracion r2 tras T1671 r2, feature 012)
+- Decisiones de Neo (1) espera 90 dias de consentimientos en espera (EMERGENCY_NOTICE_WAIT_DAYS + EMERGENCY_NOTICE_EFFECTIVE_AT), (2) rotacion PHONE_HMAC_KEY por recalculo o borrado con actor de sistema, (3) auditoria EMERGENCY_* 90 dias incorporadas; propuestas tecnicas (redaccion por forma, LAZY_RECONCILIATION, criticalAllergiesChange, lista blanca lastChange, TEXT_POLICY, QR_SCAN /64, PUBLIC_ROUTE_HARDENING, higiene) cerradas en openapi/schema/annex 0.3.0, data-model y spec (SC-012-121..129).
+- compile-contracts --feature 012 rc=0; verify-traceability rc=1 SOLO por 9 SC nuevos sin mapear en tasks.md (a cargo de /morpheus). Sin APPROVED/LOCKED, sin [x], sin commit; src/ (salvo generated), tests, tasks.md, H-01 y 005 intactos.
+
+## 2026-11-28 — D-1 (b) marca Tipi en allergiesEditorHelp (feature 012)
+- Directiva Neo D-1=(b): «ARGOS no verifica…» -> «Tipi no verifica…» (REQ-TIP10-001, H-T1656-2). Enmienda de marca, estado APPROVED intacto.
+- Editados: contracts/emergency-additive-annex.md §2, contracts/schemas/emergency-card.schema.json (x-sdd-constants.TEXTS), specs/010/legal-texts.md Q3. emergency.openapi.yaml solo referencia el valor del schema (sin literal): sin cambio.
+- compile-contracts.sh OK; src/generated/v38 sin deriva (diff vacio; TEXTS no se compila). Gates: traceability 012 rc=0, oracles rc=0, tsc rc=0.
+- Pendiente /keymaker: mirrors src/domain/emergency/emergency-texts.ts y src/presentation/web/emergency-texts.ts aun dicen ARGOS.
+
+## 2026-11-28 — /architect (mision Morpheus: Bloque D enmiendas A1..A4 + Bloque E T1690 DRAFT 0.1.0, feature 012)
+- A1 RAMA-T1683-02 opcion A (Neo): nuevo annex §10 y data-model.md: hook EmergencyCardLifecycle.onPetDeceased dentro de la transaccion que marca DECEASED (OFF/AUTO_PET_DECEASED, token_hash NULL, 1 evento, borrado de todos los consentimientos; fallo del hook revierte el fallecimiento). Sin cambio de forma publica; annex §7 y REQ-QR12-010 apuntan a §10.
+- A2 spec.md:112 «ARGOS no verifica» -> «Tipi no verifica». A3 INFO-1/RAMA-T1683-03: annex §4 y emergency.openapi.yaml (PUT critical-allergies 403 ERR-ACC-FORBIDDEN a CAREGIVER/READER; el 403 solo CSRF no aplica a esa ruta) + annex §9 comportamiento STALE en la guarda. APPROVED y versiones intactos.
+- B T1690: creados en DRAFT 0.1.0 share-link-subset-annex.md, openapi/share-links-pets.openapi.yaml (5 ops nuevas + AMEND revokeShareLink), schemas/share-link-pets.schema.json; nota de ERR-VET12-PETS-EMPTY y contracts/README. Sin codigos de error nuevos; PET_WITHDRAWN evento nuevo DRAFT.
+- compile --feature 012 rc=0 (drift src/generated solo aditivo por el esquema nuevo); traceability 012, oracles, tsc rc=0. Sin src/ manual, H-01, 005, tasks.md, commit ni push.
+- NOTA: en la parte A inicial se compilo sin --feature (no compilaba 012); recompilado con --feature 012.
+
+## 2026-11-28 — ENM-005-E DRAFT 0.2.0 (Bloque E #81) + menores Bloque D (CC-ARCH-ENM005E-020)
+- Decisiones de Neo E-1..E-5 aplicadas: PN-08 para PETS (revocacion automatica del enlace entero, hook en la misma tx; disparadores: mascota sale del hogar/se suprime, creador pierde principal/co-propiedad, creador pierde rol de hogar); repetidos = 422 ERR-VET12-PETS-EMPTY (sin uniqueItems, minusculas, repetidos antes de elegibilidad); PET_WITHDRAWN QUITADO (CHECK de 005 intacto; claude/deuda-012-withdraw-audit.md); codigos sin cambio, detailTemplate neutro; despliegue en dos fases con default-deny. NO firmado.
+- Hallazgos cerrados: trinity ALTA-1/MEDIA-1..4/BAJA-1..4, lock LK-01..11, rama H-01..08, merovingian ALTA-2 + SPA, mifune R-01..R-05. activeCount = scope IN (HOUSEHOLD,PETS) de todos los creadores, PETS fuera de items de 005; householdId quitado de PetsShareLinkView; retirada ya ausente = 404; orden de bloqueo mascota->hogar->fila de enlace.
+- R-03: allOf con SharedSummaryView de 005 NO compila (Ajv: can't resolve reference); stub TEMPORAL documentado. EDGE-012-070..074 NO dados de alta en spec.md (verify-traceability los exige en tasks.md, vetado); reservados en annex §10.9.
+- Bloque D: emergency-additive-annex §10.2 firma onPetDeceased(petId, tx, actorUserId) y nota de importacion de respaldo en §10.7.
+- Gates rc=0: compile 012, traceability 012, oracles, tsc. Sin src/ ni tests ni tasks.md; sin commit.
+
+## 2026-11-28 — ENM-005-E DRAFT 0.2.1 (ronda r2 de T1691 + D-1/D-2 de Neo) (CC-ARCH-ENM005E-021)
+- Aplicado: N-01 (candado del hogar, sin bloqueos de mascota en disparadores de hogar), N-03 (snapshot unica; EDGE-012-076 con TTL <= 300 s, D-2=a), N-04, N-05 (EDGE-012-070..076 en spec.md), N-06, MEDIA-N1 (UUID solo minusculas, sin normalizacion), BAJA-N2..N5, INFO-N1/R2-05, merovingian MEDIA-1..3 y BAJA-1..3, R2-02/03/06, K-01..K-07. D-1=a (revocacion entera + aviso UI), R2-01 (release §8.6), R2-07.
+- R2-04 queda abierta para Neo (opcion A vigente). activeCount con semantica cambiada declarada.
+- Gates: compile 012 rc=0; oracles rc=0; tsc rc=0; traceability 012 FALLA SOLO por EDGE-012-070..076 sin citar en tasks.md (vetado; lo cita /morpheus en T1693/T1695). Sin src/ manual, tests, tasks.md, H-01, 005, commit ni push.
+
+## 2026-11-28 — ENM-005-E DRAFT 0.2.2 (ronda r3 de T1691 + decisiones de Neo) (CC-ARCH-ENM005E-022)
+- Decisiones de Neo aplicadas: MEDIA-6=(a) MINOR mantenido; R2-04=(B) la desasignacion borra la fila de la mascota que sale (annex §2/§5.1/§10.2, data-model); R2-03=(a) BAJA documentada; filtro de Cloud Logging bloqueante de la Fase 1 (annex §8.6, quickstart, deuda TERRAFORM-LOGS-QR; sin tocar terraform/); canal de aviso: EDGE-012-077 solo documentado.
+- r3: bandera (parseo exacto, lectura al arrancar, posicion 404 tras sesion/CSRF y antes de Idempotency-Key, tambien preview), tabla de autoridad de revocacion PETS, inventario §8.5 por funcion, cota de URL firmada impuesta por dominio, activeCount en ListShareLinksUseCase, END_CO_OWNERSHIP, ?petIds= vacio explicito en OpenAPI, 403 CSRF en withdraw, preview abierto documentado, codigos de revision fuera de OpenAPI/schema, historial solo en annex.
+- Gates: compile 012 rc=0; oracles rc=0; tsc rc=0; traceability 012 FALLA SOLO por EDGE-012-077 huerfano en tasks.md (vetado; lo cita /morpheus en T1696). Sin src/ manual, tests, tasks.md, H-01, 005, commit.
+
+## 2026-11-28 — ENM-005-E 0.2.2: correcciones menores post-oracle (BAJA-1/2/3)
+- BAJA-1: annex §10.2 (línea 218) `DRAFT` 0.2.1 → 0.2.2; nota de ERR-VET12-PETS-EMPTY en error-catalog.json «openapi 0.2.1» → 0.2.2. Historiales de change_note intactos.
+- BAJA-2: spec.md REQ-VET12-007 añade regla de annex §5.2 (creador siempre revoca; owner/ADMIN no titular y no creador → 404 ERR-SHARE-NOT-FOUND). tasks.md sin tocar.
+- BAJA-3: data-model.md fila de retención de share_link_pets refleja R2-04 (B).
+- Gates rc=0: compile-contracts 012, verify-traceability 012, verify-oracles, tsc.
+
+## 2026-11-28 — Corrección de estado vigente ENM-005-E (texto menor)
+- annex §10.2 punto 2: «firma pendiente (DRAFT 0.2.2)» -> APPROVED 0.2.2 firmado por Neo. OpenAPI share-links-pets (descripción) y schema share-link-pets (description): DRAFT 0.2.2 -> APPROVED 0.2.2. spec.md sin menciones vigentes; historial intacto. Sin cambio de forma de contrato.
+- Gates: compile-contracts 012, verify-traceability 012, verify-oracles (ver registro).
+
+## 2026-11-28 architect: BAJA-2 opción (a) (Neo)
+- Annex share-link-subset-annex.md §4.7: nota "parámetro de implementación" para el límite de la vista previa (30/usuario/10 min, en memoria por instancia). 429 en OpenAPI intacto (share-links-pets.openapi.yaml no cita cifra).
+- Sin commit, sin firma, sin src/tasks/spec.
