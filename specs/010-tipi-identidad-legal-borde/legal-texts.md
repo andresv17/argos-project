@@ -280,7 +280,7 @@ Reglas de redacción (`INV-CHP12-007`): ningún aviso incluye cuenta, hogar, nom
 
 ### Q3. Ayuda del editor de alergias críticas (`REQ-QR12-002`, `maggie m-6`)
 
-> Anota solo alergias confirmadas o con riesgo. ARGOS no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.
+> Anota solo alergias confirmadas o con riesgo. Tipi no verifica esta información con un veterinario. No escribas nombres ni datos de otras personas.
 
 ### Q4. Encabezado de la ficha pública (`REQ-QR12-004`, `maggie A-1`)
 
