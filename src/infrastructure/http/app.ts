@@ -28,9 +28,9 @@ import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
 import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
 import { registerCoOwnershipRoutes } from './routes/co-ownership.routes.ts';
 import { emergencyFrameworkErrors, registerEmergencyRoutes } from './routes/emergency.routes.ts';
-import { registerChipRoutes } from './routes/chip.routes.ts';
 import { registerCareRoutes } from './routes/care.routes.ts';
 import { CareRateLimiter } from './care-rate-limit.ts';
+import { registerChipRoutes } from './routes/chip.routes.ts';
 import { registerAdminDisputeRoutes } from './routes/admin-disputes.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerOpsRoutes } from './routes/ops-routes.ts';
@@ -133,12 +133,12 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
   registerCoOwnershipRoutes(app, context);
   // Ficha QR de emergencia (feature 012, Bloque D, T1675): solo con `deps.emergency`; `/api/emergency/*` y `/e/*` van antes de los estáticos y comparten un 404 uniforme.
   await registerEmergencyRoutes(app, context, deps, staticRoot === undefined ? {} : { staticRoot });
+  registerCareRoutes(app, context, new CareRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   // Reclamación y disputa de microchip (feature 012, T1636): la IP efectiva de los contadores sale de los saltos de proxy de confianza.
   registerChipRoutes(app, context, { trustProxyHops: typeof trustProxy === 'number' ? trustProxy : 0 });
   registerBackupRoutes(app, context);
   if (devMedia !== undefined) registerDevMediaRoutes(app, context, devMedia);
   if (checkReady !== undefined) registerOpsRoutes(app, { checkReady });
   if (staticRoot !== undefined) await registerStaticAssets(app, { root: staticRoot });
-  registerCareRoutes(app, context, new CareRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   return app;
 }
